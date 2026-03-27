@@ -290,11 +290,34 @@ async function fbLoad() {
       // Restore keys: _ back to / where needed (DD1_03 → DD1/03)
       payments = {};
       Object.entries(d.payments).forEach(([k,v]) => {
-        // key format: CUSTID_YYYY-MM — custId may have had / replaced with _
-        // Restore: DD1_03_2026-03 → DD1/03_2026-03
         const restored = k.replace(/^(DD\d)_(\d+)_/, '$1/$2_');
         payments[restored] = v;
       });
+    }
+    // ถ้า payHistory ว่าง ให้สร้างจาก payments ที่โหลดมา
+    if (payHistory.length === 0 && Object.keys(payments).length > 0) {
+      const thaiM = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+      Object.entries(payments).forEach(([k, v]) => {
+        // key = DD1/03_2026-03
+        const parts = k.split('_');
+        const ym = parts[parts.length - 1]; // 2026-03
+        const custId = k.replace('_' + ym, '');
+        const cust = customers.find(x => x.id === custId);
+        const [yr, mo] = ym.split('-').map(Number);
+        const monthLabel = `${thaiM[mo]} ${yr + 543}`;
+        payHistory.push({
+          date: v.date || ym + '-01',
+          id: custId,
+          name: cust?.name || custId,
+          month: monthLabel,
+          amount: v.amount || 0,
+          channel: v.channel || '',
+          note: v.note || ''
+        });
+      });
+      payHistory.sort((a, b) => b.date.localeCompare(a.date));
+      // Save rebuilt payHistory to Firebase
+      if (window._fbSave) window._fbSave('payHistory', payHistory);
     }
     if (d.requisitions) { requisitions = d.requisitions; }
     if (d.discharged)   { discharged   = d.discharged;   }
