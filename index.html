@@ -291,6 +291,10 @@ async function fbLoad() {
       catalog = Object.values(d.catalog);
       catalog.sort((a,b) => a.name.localeCompare(b.name,'th'));
     }
+    if (d.cat_meta) {
+      // Merge Firebase cat_meta with defaults (keep defaults as fallback)
+      Object.assign(CAT_META, d.cat_meta);
+    }
     if (d.customers_extra) {
       // Merge extra customer data (edits) back
       Object.entries(d.customers_extra).forEach(([id, extra]) => {
@@ -734,6 +738,17 @@ if (sessionStorage.getItem("dd_admin") === "1") {
 
       <!-- TAB: จัดการรายการ (catalog) -->
       <div id="req-tab-catalog" style="display:none">
+
+        <!-- หมวดหมู่ -->
+        <div class="table-wrap" style="margin-bottom:12px">
+          <div class="table-header">
+            <h3>หมวดหมู่ (<span id="cat-type-count">0</span> หมวด)</h3>
+            <button class="btn btn-sm btn-primary" onclick="openAddCatType()">+ เพิ่มหมวด</button>
+          </div>
+          <div id="cat-type-list" style="display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px"></div>
+        </div>
+
+        <!-- รายการของ -->
         <div class="table-wrap">
           <div class="table-header">
             <h3>รายการของที่เบิกได้ (<span id="cat-total">0</span> รายการ)</h3>
@@ -742,19 +757,14 @@ if (sessionStorage.getItem("dd_admin") === "1") {
           <div class="filter-row">
             <select id="cat-f-type" onchange="renderCatalog()" style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text);outline:none">
               <option value="">ทุกหมวด</option>
-              <option value="med">ยา/อุปกรณ์การแพทย์</option>
-              <option value="cloth">ผ้าอ้อม/เสื้อผ้า</option>
-              <option value="food">อาหารเสริม/นม</option>
-              <option value="pers">ของใช้ส่วนตัว</option>
             </select>
-            <!-- item name search -->
             <div style="position:relative;flex:1;max-width:260px">
               <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:12px;pointer-events:none">🔍</span>
               <input type="text" id="cat-f-search" placeholder="ค้นหาชื่อรายการ..." oninput="renderCatalog()"
                 style="width:100%;padding:5px 10px 5px 28px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text);outline:none">
             </div>
           </div>
-        <div style="overflow-x:auto">
+          <div style="overflow-x:auto">
             <table>
               <thead><tr><th>รายการ</th><th>หมวด</th><th>หน่วย</th><th style="text-align:right">ราคา/หน่วย</th><th>หมายเหตุ</th><th></th></tr></thead>
               <tbody id="catalog-tbody"></tbody>
@@ -1233,6 +1243,46 @@ if (sessionStorage.getItem("dd_admin") === "1") {
     <div class="modal-foot">
       <button class="btn btn-primary" onclick="doPrintRefund()">🖨 พิมพ์ / PDF</button>
       <button class="btn" onclick="closeModal('refund-receipt-modal')">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Catalog Type Modal -->
+<div class="modal-overlay" id="cat-type-modal">
+  <div class="modal" style="width:400px">
+    <div class="modal-head">
+      <h2 id="cat-type-modal-title">เพิ่มหมวดหมู่</h2>
+      <span class="modal-close" onclick="closeModal('cat-type-modal')">×</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>ชื่อหมวด</label>
+        <input type="text" id="ct-label" placeholder="เช่น อุปกรณ์ช่วยเหลือ" oninput="updateCatTypePreview()">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>ไอคอน (Emoji)</label>
+          <input type="text" id="ct-icon" placeholder="🏥" maxlength="2" style="font-size:20px;text-align:center" oninput="updateCatTypePreview()">
+        </div>
+        <div class="form-group">
+          <label>สีตัวอักษร</label>
+          <input type="color" id="ct-color" value="#1a6b4a" oninput="updateCatTypePreview()" style="height:38px;padding:2px 4px;border:1px solid var(--border);border-radius:var(--radius)">
+        </div>
+        <div class="form-group">
+          <label>สีพื้นหลัง</label>
+          <input type="color" id="ct-bg" value="#e8f5ee" oninput="updateCatTypePreview()" style="height:38px;padding:2px 4px;border:1px solid var(--border);border-radius:var(--radius)">
+        </div>
+      </div>
+      <!-- Preview -->
+      <div style="margin-top:8px">
+        <label>ตัวอย่าง</label>
+        <div id="ct-preview" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:500;margin-top:4px">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="saveCatType()">💾 บันทึก</button>
+      <button class="btn" onclick="closeModal('cat-type-modal')">ยกเลิก</button>
     </div>
   </div>
 </div>
@@ -2325,7 +2375,7 @@ let catalogEditId = null;
 // requisitions: { "custId_YYYY-MM": [ { itemId, qty, savedAt } ] }
 let requisitions = {};
 
-const CAT_META = {
+let CAT_META = {
   med:   { label:'ยา/อุปกรณ์การแพทย์', icon:'💊', color:'#b82c1f', bg:'#fde8e6', cls:'req-tag-med'   },
   cloth: { label:'ผ้าอ้อม/เสื้อผ้า',   icon:'👕', color:'#2856b8', bg:'#e8f0fe', cls:'req-tag-cloth' },
   food:  { label:'อาหารเสริม/นม',      icon:'🥛', color:'#2a7a1a', bg:'#e8f5e0', cls:'req-tag-food'  },
@@ -2447,7 +2497,7 @@ function switchReqTab(tab) {
     document.getElementById('req-tab-'+t).style.display = t===tab ? 'block' : 'none';
   });
   if (tab==='summary') renderReqSummary();
-  if (tab==='catalog') renderCatalog();
+  if (tab==='catalog') { renderCatalog(); renderCatTypeList(); }
 }
 
 function loadReqForm() {
@@ -3869,6 +3919,122 @@ function goPage(id) {
   if(id==='history')      renderHistory();
   if(id==='issues')       renderIssues();
   if(id==='dashboard')    updateDashboard();
+}
+
+// ========== CATEGORY (CAT_META) MANAGEMENT ==========
+const ICON_OPTIONS = ['💊','👕','🥛','🧴','🏥','🛏️','🧹','🧺','💉','🩺','🩹','🧸','🍼','🥗','🧃','🫧','🪥','🧼','🪒','📦','🎁','⚕️'];
+
+function renderCatTypeList() {
+  const el = document.getElementById('cat-type-list');
+  const countEl = document.getElementById('cat-type-count');
+  const types = Object.entries(CAT_META);
+  if (countEl) countEl.textContent = types.length;
+
+  if (!el) return;
+  el.innerHTML = types.map(([key, meta]) => `
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;font-size:13px;font-weight:500;background:${meta.bg};color:${meta.color};border:1px solid ${meta.color}30">
+      <span>${meta.icon}</span>
+      <span>${meta.label}</span>
+      <button onclick="editCatType('${key}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:${meta.color};padding:0 2px" title="แก้ไข">✏️</button>
+      ${!['med','cloth','food','pers'].includes(key) ? `<button onclick="deleteCatType('${key}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--danger);padding:0 2px" title="ลบ">×</button>` : ''}
+    </div>`).join('');
+
+  // Update filter dropdown
+  const sel = document.getElementById('cat-f-type');
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">ทุกหมวด</option>` +
+      types.map(([k,m]) => `<option value="${k}" ${k===cur?'selected':''}>${m.icon} ${m.label}</option>`).join('');
+  }
+  // Update catalog modal type select
+  updateCatTypeSelect();
+}
+
+function updateCatTypeSelect() {
+  const sel = document.getElementById('cat-type');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = Object.entries(CAT_META).map(([k,m]) =>
+    `<option value="${k}" ${k===cur?'selected':''}>${m.icon} ${m.label}</option>`
+  ).join('');
+}
+
+let _catTypeEditKey = null;
+
+function openAddCatType() {
+  _catTypeEditKey = null;
+  document.getElementById('cat-type-modal-title').textContent = 'เพิ่มหมวดหมู่';
+  document.getElementById('ct-label').value = '';
+  document.getElementById('ct-icon').value  = '📦';
+  document.getElementById('ct-color').value = '#1a6b4a';
+  document.getElementById('ct-bg').value    = '#e8f5ee';
+  updateCatTypePreview();
+  document.getElementById('cat-type-modal').classList.add('open');
+}
+
+function editCatType(key) {
+  _catTypeEditKey = key;
+  const m = CAT_META[key];
+  document.getElementById('cat-type-modal-title').textContent = 'แก้ไขหมวดหมู่';
+  document.getElementById('ct-label').value = m.label;
+  document.getElementById('ct-icon').value  = m.icon;
+  document.getElementById('ct-color').value = m.color;
+  document.getElementById('ct-bg').value    = m.bg;
+  updateCatTypePreview();
+  document.getElementById('cat-type-modal').classList.add('open');
+}
+
+function updateCatTypePreview() {
+  const label = document.getElementById('ct-label')?.value || 'ชื่อหมวด';
+  const icon  = document.getElementById('ct-icon')?.value  || '📦';
+  const color = document.getElementById('ct-color')?.value || '#1a6b4a';
+  const bg    = document.getElementById('ct-bg')?.value    || '#e8f5ee';
+  const prev  = document.getElementById('ct-preview');
+  if (prev) {
+    prev.style.background = bg;
+    prev.style.color      = color;
+    prev.style.border     = `1px solid ${color}40`;
+    prev.textContent      = `${icon} ${label}`;
+  }
+}
+
+function saveCatType() {
+  const label = document.getElementById('ct-label').value.trim();
+  const icon  = document.getElementById('ct-icon').value.trim()  || '📦';
+  const color = document.getElementById('ct-color').value;
+  const bg    = document.getElementById('ct-bg').value;
+  if (!label) { alert('กรุณากรอกชื่อหมวด'); return; }
+
+  let key = _catTypeEditKey;
+  if (!key) {
+    // Generate key from label
+    key = 'cat_' + Date.now();
+  }
+  CAT_META[key] = { label, icon, color, bg, cls: 'req-tag-' + key };
+
+  closeModal('cat-type-modal');
+  renderCatTypeList();
+  renderReqCatTabs();
+  renderCatalog();
+  // Sync to Firebase
+  if (window._fbSave) {
+    window._fbSave('cat_meta', CAT_META);
+  }
+  showReqToast('✓ บันทึกหมวดหมู่เรียบร้อย');
+}
+
+function deleteCatType(key) {
+  const itemsInCat = catalog.filter(c => c.type === key);
+  if (itemsInCat.length > 0) {
+    alert(`ไม่สามารถลบได้ — มีรายการในหมวดนี้ ${itemsInCat.length} รายการ\nกรุณาย้ายหรือลบรายการก่อน`);
+    return;
+  }
+  if (!confirm(`ต้องการลบหมวด "${CAT_META[key]?.label}" ไหม?`)) return;
+  delete CAT_META[key];
+  renderCatTypeList();
+  renderReqCatTabs();
+  renderCatalog();
+  if (window._fbSave) window._fbSave('cat_meta', CAT_META);
 }
 
 // ========== BANK ACCOUNTS ==========
