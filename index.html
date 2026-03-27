@@ -828,7 +828,7 @@ if (sessionStorage.getItem("dd_admin") === "1") {
           <table>
             <thead><tr>
               <th>วันที่</th><th>รหัส</th><th>ชื่อลูกค้า</th><th>เดือน</th>
-              <th style="text-align:right">จำนวน</th><th>ช่องทาง</th><th>หมายเหตุ</th>
+              <th style="text-align:right">จำนวน</th><th>ช่องทาง</th><th>หมายเหตุ</th><th></th>
             </tr></thead>
             <tbody id="hist-tbody"></tbody>
           </table>
@@ -1234,6 +1234,55 @@ if (sessionStorage.getItem("dd_admin") === "1") {
     <div class="modal-foot">
       <button class="btn btn-primary" onclick="doPrintRefund()">🖨 พิมพ์ / PDF</button>
       <button class="btn" onclick="closeModal('refund-receipt-modal')">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit History Modal -->
+<div class="modal-overlay" id="edit-history-modal">
+  <div class="modal" style="width:460px">
+    <div class="modal-head">
+      <h2>✏️ แก้ไขประวัติการชำระ</h2>
+      <span class="modal-close" onclick="closeModal('edit-history-modal')">×</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>ลูกค้า</label>
+        <select id="eh-cust-id" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text)"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>เดือน</label>
+          <select id="eh-month" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text)"></select>
+        </div>
+        <div class="form-group">
+          <label>วันที่ชำระ</label>
+          <input type="date" id="eh-date">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>จำนวนเงิน (฿)</label>
+          <input type="number" id="eh-amount" min="0">
+        </div>
+        <div class="form-group">
+          <label>ช่องทาง</label>
+          <select id="eh-channel" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text)">
+            <option value="โอนเงิน">โอนเงิน</option>
+            <option value="เงินสด">เงินสด</option>
+            <option value="เช็ค">เช็ค</option>
+            <option value="อื่นๆ">อื่นๆ</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>หมายเหตุ</label>
+        <input type="text" id="eh-note" placeholder="หมายเหตุเพิ่มเติม">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="saveEditHistory()">💾 บันทึก</button>
+      <button class="btn" onclick="closeModal('edit-history-modal')">ยกเลิก</button>
     </div>
   </div>
 </div>
@@ -2275,7 +2324,7 @@ function renderHistory(){
   const empty = document.getElementById('hist-empty');
   if(payHistory.length===0){ tbody.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
-  tbody.innerHTML = payHistory.slice(0,100).map(p=>`
+  tbody.innerHTML = payHistory.slice(0,100).map((p,i)=>`
     <tr>
       <td style="font-size:12px">${p.date}</td>
       <td class="td-id">${p.id}</td>
@@ -2284,8 +2333,112 @@ function renderHistory(){
       <td class="td-fee" style="color:var(--accent)">฿${fmt(p.amount)}</td>
       <td style="font-size:12px">${p.channel}</td>
       <td style="font-size:12px;color:var(--text3)">${p.note||'—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="openEditHistory(${i})" title="แก้ไข">✏️</button>
+        <button class="btn btn-sm" onclick="deleteHistory(${i})" style="color:var(--danger);margin-left:4px" title="ลบ">🗑</button>
+      </td>
     </tr>
   `).join('');
+}
+
+let _editHistIdx = -1;
+
+function openEditHistory(idx) {
+  const p = payHistory[idx];
+  if (!p) return;
+  _editHistIdx = idx;
+  // Populate modal
+  document.getElementById('eh-date').value    = p.date    || '';
+  document.getElementById('eh-amount').value  = p.amount  || '';
+  document.getElementById('eh-channel').value = p.channel || '';
+  document.getElementById('eh-note').value    = p.note    || '';
+  // Customer selector
+  const sel = document.getElementById('eh-cust-id');
+  sel.innerHTML = customers.map(c =>
+    `<option value="${c.id}" ${c.id===p.id?'selected':''}>${c.id} — ${c.name}</option>`
+  ).join('');
+  // Month selector
+  const msel = document.getElementById('eh-month');
+  const months = ['2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  const thaiM = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  // find matching ym from payHistory
+  const curYm = Object.keys(payments).find(k => {
+    const parts = k.split('_'); const ym = parts[parts.length-1];
+    return k.replace('_'+ym,'') === p.id && thaiMonth(ym) === p.month;
+  });
+  msel.innerHTML = months.map(m => {
+    const [y,mo] = m.split('-');
+    const label = `${thaiM[+mo]} ${+y+543}`;
+    return `<option value="${m}" ${label===p.month?'selected':''}>${label}</option>`;
+  }).join('');
+  document.getElementById('edit-history-modal').classList.add('open');
+}
+
+function saveEditHistory() {
+  if (_editHistIdx < 0) return;
+  const oldP   = payHistory[_editHistIdx];
+  const newId  = document.getElementById('eh-cust-id').value;
+  const newYm  = document.getElementById('eh-month').value;
+  const amount = parseFloat(document.getElementById('eh-amount').value) || 0;
+  const channel= document.getElementById('eh-channel').value;
+  const date   = document.getElementById('eh-date').value;
+  const note   = document.getElementById('eh-note').value;
+  const thaiM  = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const [yr,mo] = newYm.split('-').map(Number);
+  const monthLabel = `${thaiM[mo]} ${yr+543}`;
+  const newCust = customers.find(x=>x.id===newId);
+
+  // Remove old payment key if customer or month changed
+  const oldYm = Object.keys(payments).find(k => {
+    const parts = k.split('_'); const ym = parts[parts.length-1];
+    return k.replace('_'+ym,'') === oldP.id && thaiMonth(ym) === oldP.month;
+  });
+  if (oldYm && (oldP.id !== newId || oldP.month !== monthLabel)) {
+    delete payments[oldYm];
+  }
+
+  // Set new payment
+  payments[payKey(newId, newYm)] = {amount, channel, date, note};
+
+  // Update payHistory entry
+  payHistory[_editHistIdx] = {
+    date, id: newId, name: newCust?.name || newId,
+    month: monthLabel, amount, channel, note
+  };
+
+  closeModal('edit-history-modal');
+  renderHistory();
+  renderBilling();
+  updateDashboard();
+
+  // Save to Firebase
+  const safePayments = {};
+  Object.entries(payments).forEach(([k,v]) => { safePayments[k.replace(/\//g,'_')] = v; });
+  if (window._fbSave) {
+    window._fbSave('payments', safePayments);
+    window._fbSave('payHistory', payHistory);
+  }
+}
+
+function deleteHistory(idx) {
+  if (!confirm('ต้องการลบประวัติการชำระนี้?')) return;
+  const p = payHistory[idx];
+  // Remove from payments too
+  const ym = Object.keys(payments).find(k => {
+    const parts = k.split('_'); const yvl = parts[parts.length-1];
+    return k.replace('_'+yvl,'') === p.id && thaiMonth(yvl) === p.month;
+  });
+  if (ym) delete payments[ym];
+  payHistory.splice(idx, 1);
+  renderHistory();
+  renderBilling();
+  updateDashboard();
+  const safePayments = {};
+  Object.entries(payments).forEach(([k,v]) => { safePayments[k.replace(/\//g,'_')] = v; });
+  if (window._fbSave) {
+    window._fbSave('payments', safePayments);
+    window._fbSave('payHistory', payHistory);
+  }
 }
 
 // ISSUES
