@@ -283,6 +283,9 @@ async function fbLoad() {
     const snap = await get(ref(db, "/"));
     if (!snap.exists()) return;
     const d = snap.val();
+    if (d.payHistory && Array.isArray(d.payHistory)) {
+      payHistory = d.payHistory;
+    }
     if (d.payments) {
       // Restore keys: _ back to / where needed (DD1_03 → DD1/03)
       payments = {};
@@ -314,6 +317,8 @@ async function fbLoad() {
     // Render after load
     updateDashboard();
     renderTable();
+    if (typeof renderPayHistory === 'function') renderPayHistory();
+    if (typeof renderRefundList === 'function') renderRefundList();
     console.log("✓ Firebase data loaded");
   } catch(e) { console.warn("fbLoad error:", e); }
 }
@@ -2140,12 +2145,15 @@ function saveEditCustomer() {
   c.account_name= document.getElementById('edit-accname').value.trim();
   c.due_date    = document.getElementById('edit-due').value.trim();
   closeModal('edit-modal');
-  // refresh all views
   renderTable();
   renderBilling();
   updateDashboard();
-  // re-open detail with updated data
   openDetail(id);
+  if (window._fbSave) {
+    const safeId = id.replace(/\//g,'_');
+    const cust = customers.find(x=>x.id===id);
+    if (cust) window._fbSave('customers_extra/' + safeId, cust);
+  }
 }
 
 // PAY MODAL
@@ -2192,6 +2200,7 @@ function savePay(){
         safePayments[k.replace(/\//g,'_')] = v;
       });
       window._fbSave('payments', safePayments);
+      window._fbSave('payHistory', payHistory);
     } else if (retry > 0) {
       setTimeout(() => doSave(retry - 1), 300);
     }
@@ -2230,6 +2239,11 @@ function saveCustomer(){
   renderTable();
   updateDashboard();
   document.querySelectorAll('#add-modal input,#add-modal textarea').forEach(el=>el.value='');
+  if (window._fbSave) {
+    const obj = {};
+    customers.forEach(x => { obj[x.id.replace(/\//g,'_')] = x; });
+    window._fbSave('customers', obj);
+  }
 }
 
 // HISTORY
@@ -2616,6 +2630,10 @@ function addReqEntry(itemId) {
   requisitions[k].push({ itemId, qty: 1, savedAt: todayISO });
   renderReqItems();
   renderSavedReq();
+  if (window._fbSave) {
+    const al = requisitions[k];
+    window._fbSave('requisitions/' + k, al.length > 0 ? al : null);
+  }
 }
 
 function updateReqEntry(itemId, entryIdx, field, value) {
@@ -2627,6 +2645,10 @@ function updateReqEntry(itemId, entryIdx, field, value) {
   if (realIdx < 0) return;
   list[realIdx][field] = field === 'qty' ? Math.max(1, parseInt(value)||1) : value;
   renderSavedReq();
+  if (window._fbSave) {
+    const ul = requisitions[k];
+    window._fbSave('requisitions/' + k, ul && ul.length > 0 ? ul : null);
+  }
 }
 
 function adjReqEntry(itemId, entryIdx, delta) {
@@ -2650,6 +2672,7 @@ function removeReqEntry(itemId, entryIdx) {
   if (realIdx >= 0) list.splice(realIdx, 1);
   renderReqItems();
   renderSavedReq();
+  if (window._fbSave) window._fbSave('requisitions/' + k, list.length > 0 ? list : null);
 }
 
 function adjQty(itemId, delta) {
@@ -2671,9 +2694,13 @@ function clearReqForm() {
 }
 
 function saveReq() {
-  // saveReq is now a no-op — changes are live via addReqEntry/updateReqEntry/removeReqEntry
   renderSavedReq();
   showReqToast('✓ บันทึกการเบิกสำเร็จ');
+  if (window._fbSave) {
+    const sk = reqKey(reqCustId, reqMonth);
+    const sl = requisitions[sk];
+    window._fbSave('requisitions/' + sk, sl && sl.length > 0 ? sl : null);
+  }
 }
 
 function showReqToast(msg) {
@@ -2739,9 +2766,11 @@ function renderSavedReq() {
 
 function clearSavedReq() {
   if (!confirm('ต้องการลบรายการเบิกทั้งหมดของเดือนนี้?')) return;
-  delete requisitions[reqKey(reqCustId, reqMonth)];
+  const ck = reqKey(reqCustId, reqMonth);
+  delete requisitions[ck];
   renderSavedReq();
   renderReqItems();
+  if (window._fbSave) window._fbSave('requisitions/' + ck, null);
 }
 
 // ---- SUMMARY ----
@@ -2890,6 +2919,10 @@ function rdmRemove(realIdx) {
   if (!requisitions[k]) return;
   requisitions[k].splice(realIdx, 1);
   renderReqDetailModal();
+  if (window._fbSave) {
+    const rl = requisitions[k];
+    window._fbSave('requisitions/' + k, rl && rl.length > 0 ? rl : null);
+  }
 }
 
 function rdmAddRow() {
@@ -2905,6 +2938,10 @@ function rdmConfirmAdd() {
   if (!requisitions[k]) requisitions[k] = [];
   requisitions[k].push({ itemId, qty, savedAt: date });
   renderReqDetailModal();
+  if (window._fbSave) {
+    const rl = requisitions[k];
+    window._fbSave('requisitions/' + k, rl.length > 0 ? rl : null);
+  }
 }
 
 async function saveReqEdit() {
@@ -3770,6 +3807,8 @@ function deleteRefund(id) {
   if (!confirm('ต้องการลบรายการคืนเงินนี้?')) return;
   refunds = refunds.filter(r => r.id !== id);
   renderRefundList();
+  if (window._fbSave) window._fbSave('refunds', refunds);
+  else setTimeout(() => window._fbSave?.('refunds', refunds), 1000);
 }
 
 function exportRefundCSV() {
