@@ -1839,7 +1839,8 @@ function getPayStatus(id, month) {
   if(!payments[k]) return 'unpaid';
   const c = customers.find(x=>x.id===id);
   if(!c) return 'unpaid';
-  if(payments[k].amount >= c.fee) return 'paid';
+  const total = calcTotalBill(id, month);
+  if(payments[k].amount >= total) return 'paid';
   if(payments[k].amount > 0) return 'partial';
   return 'unpaid';
 }
