@@ -380,14 +380,6 @@ async function fbLoad() {
       });
     }
     // Render after load
-    updateDashboard();
-    renderTable();
-    if (typeof renderPayHistory === 'function') renderPayHistory();
-    if (typeof renderRefundList === 'function') renderRefundList();
-    // Re-init month ranges after loading SYSTEM_YEARS
-    renderMonthTabs?.();
-    renderDashYearTabs?.();
-    renderDashMonthButtons?.();
     console.log("✓ Firebase data loaded");
   } catch(e) { console.warn("fbLoad error:", e); }
 }
@@ -410,17 +402,8 @@ function listenRequisitions() {
 window._fbSave = fbSave;
 
 // Load data then listen
-fbLoad().then(() => {
-  listenRequisitions();
-  DASH_MONTHS = getAllSystemMonths();
-  dashMonth = currentMonth || DASH_MONTHS[0] || '2026-03';
-  renderDashYearTabs();
-  renderDashMonthButtons();
-  renderTable();
-  renderBilling();
-  renderMonthTabs();
-  updateDashboard();
-});
+window._fbLoad = fbLoad;
+window._listenRequisitions = listenRequisitions;
 </script>
 
 <style id="login-style">
@@ -4601,6 +4584,21 @@ function onAccSelChange(prefix) {
 
 // ========== INIT ==========
 updateDashboard();
+
+// Start app after all scripts loaded
+if (window._fbLoad) {
+  window._fbLoad().then(() => {
+    window._listenRequisitions();
+    DASH_MONTHS = getAllSystemMonths();
+    dashMonth = currentMonth || DASH_MONTHS[0] || '2026-03';
+    renderDashYearTabs();
+    renderDashMonthButtons();
+    renderMonthTabs();
+    renderTable();
+    renderBilling();
+    updateDashboard();
+  });
+}
 </script>
 </body>
 </html>
