@@ -1600,29 +1600,23 @@ function setReminderBranch(branch) {
 }
 
 function getBillRun(dueDay) {
-  // Returns which bill run date (10, 20, 30) covers this due day
+  // รอบ 10: due 11-20 ของเดือนเดียวกัน
   if (dueDay >= 11 && dueDay <= 20) return 10;
+  // รอบ 20: due 21-29 ของเดือนเดียวกัน
   if (dueDay >= 21 && dueDay <= 29) return 20;
-  return 30; // 1–10 and 30–31
-}
-
-function getReminderStatus(billRunDay, todayDay) {
-  // Returns 'today' | 'soon' (within 3 days before) | null
-  const diff = billRunDay - todayDay;
-  if (diff === 0) return 'today';
-  if (diff > 0 && diff <= 3) return 'soon';
-  // Handle end-of-month: if billRun=10 and today is 7,8,9
-  return null;
+  // รอบ 30: due 30-31 ของเดือนก่อน และ 1-10 ของเดือนเดียวกัน
+  return 30;
 }
 
 function buildBillingReminders() {
-  const today      = now.getDate();
-  const todayMonth = now.getMonth(); // 0-based
-  const todayYear  = now.getFullYear();
-  const thaiMonthNames = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const today  = now.getDate();
+  const thaiM  = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 
-  // แสดงเฉพาะเดือน เม.ย. 2569 เป็นต้นไป
-  const START_YM = '2026-04';
+  const [curYear, curMo] = currentMonth.split('-').map(Number);
+  const curYearThai = curYear + 543;
+  const isCurrentRealMonth = (curYear === now.getFullYear() && curMo === now.getMonth() + 1);
+
+  const START_YM = '2026-03';
   if (currentMonth < START_YM) {
     const el = document.getElementById('billing-reminders');
     if (el) el.innerHTML = `<div style="padding:12px 0;color:var(--text3);font-size:13px">ระบบแจ้งเตือนบิลเริ่มตั้งแต่ เม.ย. 2569 เป็นต้นไปค่ะ</div>`;
@@ -1631,25 +1625,67 @@ function buildBillingReminders() {
     return;
   }
 
-  // Get active customers not yet paid this month, filtered by branch
-  const unpaidActive = customers.filter(c =>
-    !isInactive(c.id) &&
-    getPayStatus(c.id, currentMonth) !== 'paid' &&
-    (!_reminderBranch || c.branch === _reminderBranch)
+  // คำนวณเดือนก่อนหน้า (สำหรับรอบ 30 ที่ due 30-31)
+  const prevDate = new Date(curYear, curMo - 2, 1);
+  const prevMo   = prevDate.getMonth() + 1; // 1-based
+
+  // กรองลูกค้า active + ยังไม่จ่าย + branch filter
+  const activeAll = customers.filter(c =>
+    !isInactive(c.id) && (!_reminderBranch || c.branch === _reminderBranch)
   );
 
-  // Group by bill run
-  const groups = { 10: [], 20: [], 30: [] };
-  unpaidActive.forEach(c => {
+  /*
+    Logic รอบบิล (currentMonth = เดือนที่เลือก เช่น เม.ย.):
+    รอบ 10 เม.ย. → due 11-20 เม.ย.   → ดู payment เดือน เม.ย.
+    รอบ 20 เม.ย. → due 21-29 เม.ย.   → ดู payment เดือน เม.ย.
+    รอบ 30 เม.ย. → due 30-31 เม.ย. + due 1-10 พ.ค. → ดู payment เดือน เม.ย. (30-31) และ พ.ค. (1-10)
+
+    รอบ 30 ของเดือน curMo จะต้องรวม:
+    - due 30-31 ของ curMo   → ชำระรอบ curMo
+    - due 1-10 ของ curMo+1  → ชำระรอบ curMo+1 (เดือนถัดไป)
+  */
+
+  // เดือนถัดไป
+  const nextDate  = new Date(curYear, curMo, 1);
+  const nextYear  = nextDate.getFullYear();
+  const nextMo    = nextDate.getMonth() + 1;
+  const nextYM    = `${nextYear}-${String(nextMo).padStart(2,'0')}`;
+
+  const groups = {
+    10: [], // due 11-20 ของ curMo ยังไม่จ่ายเดือน curMo
+    20: [], // due 21-29 ของ curMo ยังไม่จ่ายเดือน curMo
+    30: [], // due 30-31 ของ curMo ยังไม่จ่ายเดือน curMo
+             // + due 1-10 ของ nextMo ยังไม่จ่ายเดือน nextMo
+  };
+
+  activeAll.forEach(c => {
     const dueDay = parseDueDay(c.due_date);
-    const run    = getBillRun(dueDay);
-    groups[run].push({ ...c, dueDay });
+    // รอบ 10: due 11-20 เดือนนี้
+    if (dueDay >= 11 && dueDay <= 20) {
+      if (getPayStatus(c.id, currentMonth) !== 'paid')
+        groups[10].push({ ...c, dueDay, billMonth: currentMonth });
+    }
+    // รอบ 20: due 21-29 เดือนนี้
+    else if (dueDay >= 21 && dueDay <= 29) {
+      if (getPayStatus(c.id, currentMonth) !== 'paid')
+        groups[20].push({ ...c, dueDay, billMonth: currentMonth });
+    }
+    // รอบ 30 ส่วน due 30-31: เดือนนี้
+    else if (dueDay >= 30) {
+      if (getPayStatus(c.id, currentMonth) !== 'paid')
+        groups[30].push({ ...c, dueDay, billMonth: currentMonth });
+    }
+    // รอบ 30 ส่วน due 1-10: เดือนถัดไป
+    else if (dueDay >= 1 && dueDay <= 10) {
+      if (getPayStatus(c.id, nextYM) !== 'paid')
+        groups[30].push({ ...c, dueDay, billMonth: nextYM });
+    }
   });
 
-  // Determine status — ไม่แสดง overdue (เริ่มใหม่ตั้งแต่ เม.ย.)
   function getRunStatus(runDay) {
+    if (!isCurrentRealMonth) return 'upcoming';
     const diff = runDay - today;
-    if (diff < 0) return 'upcoming'; // ไม่ถือว่า overdue เดือนแรก
+    if (diff < 0) return 'upcoming';
     if (diff === 0) return 'today';
     if (diff <= 3) return 'soon';
     return 'upcoming';
@@ -1661,9 +1697,8 @@ function buildBillingReminders() {
     customers: groups[runDay]
   })).filter(r => r.customers.length > 0);
 
-  // Update sidebar badge — count today + overdue + soon
   const urgentCount = allRuns
-    .filter(r => ['today','overdue','soon'].includes(r.status))
+    .filter(r => ['today','soon'].includes(r.status))
     .reduce((s,r) => s + r.customers.length, 0);
   const badge = document.getElementById('reminder-badge');
   if (badge) {
@@ -1674,26 +1709,34 @@ function buildBillingReminders() {
   const el = document.getElementById('billing-reminders');
   if (!el || allRuns.length === 0) { if(el) el.innerHTML=''; return; }
 
+  // Label บอก due range ของแต่ละรอบ
+  function getDueRangeLabel(runDay) {
+    if (runDay === 10) return `(due ${thaiM[curMo]} 11-20)`;
+    if (runDay === 20) return `(due ${thaiM[curMo]} 21-29)`;
+    if (runDay === 30) return `(due ${thaiM[curMo]} 30-31 และ ${thaiM[nextMo]} 1-10)`;
+    return '';
+  }
+
   const statusConfig = {
-    today:    { dot:'reminder-dot-today', badge:'reminder-today', icon:'🔴', label: runDay => `วันนี้ต้องออกบิล (${runDay} ${thaiMonthNames[todayMonth+1]} ${todayYear+543})` },
-    soon:     { dot:'reminder-dot-soon',  badge:'reminder-soon',  icon:'🟡', label: runDay => `อีก ${runDay-today} วัน — ออกบิลวันที่ ${runDay} ${thaiMonthNames[todayMonth+1]} ${todayYear+543}` },
-    upcoming: { dot:'reminder-dot-soon',  badge:'',               icon:'📋', label: runDay => `รอบวันที่ ${runDay} ${thaiMonthNames[todayMonth+1]} ${todayYear+543} (อีก ${runDay-today} วัน)` },
+    today:    { dot:'reminder-dot-today', badge:'reminder-today', icon:'🔴',
+                label: runDay => `วันนี้ต้องออกบิล ${runDay} ${thaiM[curMo]} ${curYearThai} ${getDueRangeLabel(runDay)}` },
+    soon:     { dot:'reminder-dot-soon',  badge:'reminder-soon',  icon:'🟡',
+                label: runDay => `อีก ${runDay-today} วัน — ออกบิลวันที่ ${runDay} ${thaiM[curMo]} ${curYearThai} ${getDueRangeLabel(runDay)}` },
+    upcoming: { dot:'reminder-dot-soon',  badge:'',               icon:'📋',
+                label: runDay => `รอบวันที่ ${runDay} ${thaiM[curMo]} ${curYearThai} ${getDueRangeLabel(runDay)}` },
   };
 
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <h3 style="font-size:14px;font-weight:600">🔔 แจ้งเตือนรอบออกบิล</h3>
-      <span style="font-size:12px;color:var(--text3)">เดือน ${thaiMonthNames[todayMonth+1]} ${todayYear+543} · วันนี้วันที่ ${today}</span>
+      <span style="font-size:12px;color:var(--text3)">เดือน ${thaiM[curMo]} ${curYearThai}${isCurrentRealMonth ? ' · วันนี้วันที่ ' + today : ''}</span>
     </div>
     ${allRuns.map(r => {
       const cfg = statusConfig[r.status];
       const badgeHtml = cfg.badge
         ? `<span class="reminder-badge ${cfg.badge}">${r.customers.length} ราย</span>`
         : `<span style="font-size:11px;color:var(--text3)">${r.customers.length} ราย</span>`;
-
-      // Sort by dueDay
       const sorted = [...r.customers].sort((a,b) => a.dueDay - b.dueDay);
-
       return `<div class="reminder-card">
         <div class="reminder-card-head">
           <span style="font-size:15px">${cfg.icon}</span>
@@ -1707,7 +1750,7 @@ function buildBillingReminders() {
             <span style="font-size:11px;color:var(--text3);margin-right:4px">${c.id}</span>
             ${branchTag(c.branch)}
             <span class="reminder-due">due: ${c.dueDay}</span>
-            ${getPayStatus(c.id,currentMonth) === 'partial'
+            ${getPayStatus(c.id, c.billMonth) === 'partial'
               ? '<span class="status-badge status-partial" style="font-size:10px">บางส่วน</span>'
               : '<span class="status-badge status-unpaid" style="font-size:10px">ยังไม่ชำระ</span>'}
             <button class="btn btn-sm btn-primary"
@@ -1750,8 +1793,8 @@ const now = new Date();
 // Default to current month, but clamp to Apr-Dec 2026 range
 {
   const cm = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const validMonths = ['2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
-  currentMonth = validMonths.includes(cm) ? cm : '2026-04';
+  const validMonths = ['2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  currentMonth = validMonths.includes(cm) ? cm : '2026-03';
 }
 
 function fmt(n) { return n.toLocaleString('th-TH'); }
@@ -1897,7 +1940,7 @@ function renderTable() {
 function renderMonthTabs() {
   // Fixed range: Apr–Dec 2026 (เม.ย.–ธ.ค. 2569)
   const months = [];
-  for (let mo = 4; mo <= 12; mo++) {
+  for (let mo = 3; mo <= 12; mo++) {
     months.push(`2026-${String(mo).padStart(2,'0')}`);
   }
   document.getElementById('month-tabs').innerHTML = months.map(m=>`
@@ -2394,7 +2437,7 @@ function initReqSelects() {
 
   // Fixed range: เม.ย.–ธ.ค. 2569
   const months = [];
-  for (let mo = 4; mo <= 12; mo++) {
+  for (let mo = 3; mo <= 12; mo++) {
     months.push(`2026-${String(mo).padStart(2,'0')}`);
   }
   const mSel = document.getElementById('req-month-sel');
@@ -3054,7 +3097,7 @@ function printReceipt(custId, month) {
   // Init month select (current ± 3 months)
   const mSel = document.getElementById('rcpt-override-month');
   const months = [];
-  for (let mo = 4; mo <= 12; mo++) {
+  for (let mo = 3; mo <= 12; mo++) {
     months.push(`2026-${String(mo).padStart(2,'0')}`);
   }
   mSel.innerHTML = months.map(m =>
