@@ -413,8 +413,13 @@ window._fbSave = fbSave;
 fbLoad().then(() => {
   listenRequisitions();
   DASH_MONTHS = getAllSystemMonths();
+  dashMonth = currentMonth || DASH_MONTHS[0] || '2026-03';
   renderDashYearTabs();
   renderDashMonthButtons();
+  renderTable();
+  renderBilling();
+  renderMonthTabs();
+  updateDashboard();
 });
 </script>
 
