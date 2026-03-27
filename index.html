@@ -1965,24 +1965,7 @@ function statusBadge(s) {
 }
 
 // Pages
-function goPage(id) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  event.currentTarget && event.currentTarget.classList && event.currentTarget.classList.add('active');
-  // find nav item
-  document.querySelectorAll('.nav-item').forEach(n => {
-    if(n.getAttribute('onclick') && n.getAttribute('onclick').includes(id)) n.classList.add('active');
-  });
-  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล'};
-  document.getElementById('page-title').textContent = titles[id]||'';
-  if(id==='customers') renderTable();
-  if(id==='discharged') renderDischarged();
-  if(id==='billing') { renderMonthTabs(); renderBilling(); }
-  if(id==='history') renderHistory();
-  if(id==='issues') renderIssues();
-  if(id==='dashboard') updateDashboard();
-}
+function _goPageLegacy(id) { goPage(id); }
 
 // SEARCH
 function handleSearch(q) {
@@ -4403,7 +4386,6 @@ window.onload = function() { setTimeout(function() { window.print(); }, 600); };
 
 // ========== UPDATE goPage ==========
 // (override to include requisition)
-const _origGoPage = goPage;
 function goPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
