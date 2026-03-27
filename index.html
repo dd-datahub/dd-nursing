@@ -753,6 +753,7 @@ if (sessionStorage.getItem("dd_admin") === "1") {
           <div class="table-header">
             <h3>รายการของที่เบิกได้ (<span id="cat-total">0</span> รายการ)</h3>
             <button class="btn btn-primary btn-sm" onclick="openAddCatalog()">+ เพิ่มรายการ</button>
+            <button class="btn btn-sm" onclick="resetCatalogFromCSV()" style="color:var(--text2)" title="รีเซ็ตรายการจากไฟล์ CSV เดิม">↺ นำเข้าจาก CSV</button>
           </div>
           <div class="filter-row">
             <select id="cat-f-type" onchange="renderCatalog()" style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text);outline:none">
@@ -2345,31 +2346,7 @@ function exportCSV(){
 // ========== REQUISITION SYSTEM ==========
 
 // Default catalog
-let catalog = [
-  {id:'c01', name:'ผ้าอ้อมผู้ใหญ่ Size M',        type:'cloth', unit:'แผ่น',  price:25,   note:''},
-  {id:'c02', name:'ผ้าอ้อมผู้ใหญ่ Size L',        type:'cloth', unit:'แผ่น',  price:27,   note:''},
-  {id:'c03', name:'ผ้าอ้อมผู้ใหญ่ Size XL',       type:'cloth', unit:'แผ่น',  price:29,   note:''},
-  {id:'c04', name:'กางเกงอ้อมผู้ใหญ่ M',          type:'cloth', unit:'ชิ้น',  price:35,   note:''},
-  {id:'c05', name:'กางเกงอ้อมผู้ใหญ่ L',          type:'cloth', unit:'ชิ้น',  price:37,   note:''},
-  {id:'c06', name:'เสื้อผู้ป่วย (เปิดหน้า)',       type:'cloth', unit:'ตัว',   price:150,  note:''},
-  {id:'c07', name:'ผ้าขนหนู',                      type:'cloth', unit:'ผืน',   price:80,   note:''},
-  {id:'m01', name:'ยาพาราเซตามอล 500 mg',          type:'med',   unit:'เม็ด',  price:2,    note:''},
-  {id:'m02', name:'ยาลดกรด',                       type:'med',   unit:'เม็ด',  price:3,    note:''},
-  {id:'m03', name:'ยาแก้ปวด',                      type:'med',   unit:'เม็ด',  price:3,    note:''},
-  {id:'m04', name:'ครีมทาผิว (ป้องกันแผลกดทับ)',   type:'med',   unit:'หลอด',  price:120,  note:''},
-  {id:'m05', name:'ผ้าก๊อซ / ผ้าพันแผล',           type:'med',   unit:'ม้วน',  price:25,   note:''},
-  {id:'m06', name:'แอลกอฮอล์ 70%',                 type:'med',   unit:'ขวด',   price:45,   note:''},
-  {id:'m07', name:'สายสวนปัสสาวะ',                 type:'med',   unit:'ชิ้น',  price:80,   note:''},
-  {id:'f01', name:'นมผงผู้สูงอายุ',                type:'food',  unit:'กล่อง', price:350,  note:''},
-  {id:'f02', name:'อาหารเสริม (Ensure)',            type:'food',  unit:'กล่อง', price:280,  note:''},
-  {id:'f03', name:'วิตามิน C',                      type:'food',  unit:'เม็ด',  price:3,    note:''},
-  {id:'f04', name:'วิตามินรวม',                     type:'food',  unit:'เม็ด',  price:4,    note:''},
-  {id:'p01', name:'แปรงสีฟัน',                      type:'pers',  unit:'ด้าม',  price:35,   note:''},
-  {id:'p02', name:'ยาสีฟัน',                        type:'pers',  unit:'หลอด',  price:55,   note:''},
-  {id:'p03', name:'สบู่',                            type:'pers',  unit:'ก้อน',  price:30,   note:''},
-  {id:'p04', name:'แชมพู',                           type:'pers',  unit:'ขวด',   price:90,   note:''},
-  {id:'p05', name:'โลชั่นทาตัว',                    type:'pers',  unit:'ขวด',   price:120,  note:''},
-];
+let catalog = [{"id": "pi01", "name": "ผ้าอ้อมผู้ใหญ่ L", "type": "cloth", "unit": "ชิ้น", "price": 450.0, "note": ""}, {"id": "pi02", "name": "ผ้าอ้อมผู้ใหญ่ M", "type": "cloth", "unit": "ชิ้น", "price": 450.0, "note": ""}, {"id": "pi03", "name": "ผ้าอ้อมผู้ใหญ่แบบกางเกง", "type": "cloth", "unit": "ชิ้น", "price": 500.0, "note": ""}, {"id": "pi04", "name": "แผ่นรองซับ", "type": "cloth", "unit": "ชิ้น", "price": 130.0, "note": ""}, {"id": "pi05", "name": "แผ่นเสริม", "type": "cloth", "unit": "ชิ้น", "price": 320.0, "note": ""}, {"id": "pi06", "name": "กระดาษเปียก", "type": "cloth", "unit": "ชิ้น", "price": 80.0, "note": ""}, {"id": "pi07", "name": "ถุงมือ", "type": "pers", "unit": "ชิ้น", "price": 200.0, "note": ""}, {"id": "pi08", "name": "ครีมอาบน้ำ", "type": "pers", "unit": "ชิ้น", "price": 150.0, "note": ""}, {"id": "pi09", "name": "โลชั่น", "type": "pers", "unit": "ชิ้น", "price": 150.0, "note": ""}, {"id": "pi10", "name": "แป้งทา", "type": "pers", "unit": "ชิ้น", "price": 60.0, "note": ""}, {"id": "pi11", "name": "ยาสีฟัน", "type": "pers", "unit": "ชิ้น", "price": 50.0, "note": ""}, {"id": "pi12", "name": "ที่โกนหนวด", "type": "pers", "unit": "ชิ้น", "price": 10.0, "note": ""}, {"id": "pi13", "name": "นมEnrich care", "type": "pers", "unit": "ชิ้น", "price": 800.0, "note": ""}, {"id": "pi14", "name": "ครีมอาบน้ำ PharmaPure", "type": "pers", "unit": "ชิ้น", "price": 250.0, "note": ""}, {"id": "pi15", "name": "แชมพูไนโซรัล", "type": "pers", "unit": "ชิ้น", "price": 410.0, "note": ""}, {"id": "pi16", "name": "น้ำยาทำความสะอาดจุดซ่อนเร้น", "type": "pers", "unit": "ชิ้น", "price": 120.0, "note": ""}, {"id": "pi17", "name": "แปรงสีฟันและยาสีฟัน", "type": "pers", "unit": "ชิ้น", "price": 100.0, "note": ""}, {"id": "pi18", "name": "นมD-Care", "type": "pers", "unit": "ชิ้น", "price": 900.0, "note": ""}, {"id": "ms01", "name": "ชุดใส่สายสวนปัสสาวะ", "type": "med", "unit": "ชิ้น", "price": 300.0, "note": ""}, {"id": "ms02", "name": "น้ำเกลือ", "type": "med", "unit": "ชิ้น", "price": 100.0, "note": ""}, {"id": "ms03", "name": "สายยางให้อาหารแบบซิลิโคน", "type": "med", "unit": "ชิ้น", "price": 490.0, "note": ""}, {"id": "ms04", "name": "หน้ากากออกซิเจนแบบมีถุง", "type": "med", "unit": "ชิ้น", "price": 120.0, "note": ""}, {"id": "ms05", "name": "สายออกซิเจน", "type": "med", "unit": "ชิ้น", "price": 120.0, "note": ""}, {"id": "ms06", "name": "ไซริ้งพลาสติกป้อนอาหาร", "type": "med", "unit": "ชิ้น", "price": 40.0, "note": ""}, {"id": "ms07", "name": "ชุด IV", "type": "med", "unit": "ชิ้น", "price": 100.0, "note": ""}, {"id": "ms08", "name": "ยาพ่นBF", "type": "med", "unit": "ชิ้น", "price": 50.0, "note": ""}, {"id": "ms09", "name": "เจลหล่อลื่นแบบซอง", "type": "med", "unit": "ชิ้น", "price": 10.0, "note": ""}, {"id": "ms10", "name": "ออกซิเจนรายเดือน", "type": "med", "unit": "ชิ้น", "price": 3000.0, "note": ""}, {"id": "ms11", "name": "ครีมทาแก้คันDC", "type": "med", "unit": "ชิ้น", "price": 150.0, "note": ""}, {"id": "ms12", "name": "ถุงปัสสาวะ", "type": "med", "unit": "ชิ้น", "price": 50.0, "note": ""}, {"id": "ms13", "name": "ถุงยางอนามัย", "type": "med", "unit": "ชิ้น", "price": 5.0, "note": ""}, {"id": "ms14", "name": "ไมโครปอร์", "type": "med", "unit": "ชิ้น", "price": 70.0, "note": ""}, {"id": "ms15", "name": "ชุดฟีดอาหาร", "type": "med", "unit": "ชิ้น", "price": 100.0, "note": ""}, {"id": "ms16", "name": "ครีมทาแก้คันNH", "type": "med", "unit": "ชิ้น", "price": 80.0, "note": ""}, {"id": "ms17", "name": "แผ่นตรวจน้ำตาล", "type": "med", "unit": "ชิ้น", "price": 600.0, "note": ""}, {"id": "ms18", "name": "เข็มเจาะน้ำตาล", "type": "med", "unit": "ชิ้น", "price": 300.0, "note": ""}, {"id": "ms19", "name": "ชุดเจาะน้ำตาลปลายนิ้ว", "type": "med", "unit": "ชิ้น", "price": 900.0, "note": ""}, {"id": "ms20", "name": "ยาละลายเสมหะ", "type": "med", "unit": "ชิ้น", "price": 200.0, "note": ""}, {"id": "ms21", "name": "ยาฆ่าเชื้อF", "type": "med", "unit": "ชิ้น", "price": 250.0, "note": ""}, {"id": "ms22", "name": "ยาพ่นIF", "type": "med", "unit": "ชิ้น", "price": 40.0, "note": ""}, {"id": "ms23", "name": "สายดูดเสมหะ", "type": "med", "unit": "ชิ้น", "price": 10.0, "note": ""}, {"id": "ms24", "name": "ยาเพิ่มเติม", "type": "med", "unit": "ชิ้น", "price": 0, "note": ""}, {"id": "ms25", "name": "ค่าแลป", "type": "med", "unit": "ชิ้น", "price": 0, "note": ""}, {"id": "ms26", "name": "ไม้พันสำลี", "type": "med", "unit": "ชิ้น", "price": 10.0, "note": ""}, {"id": "ms27", "name": "เบตาดีนเล็ก", "type": "med", "unit": "ชิ้น", "price": 100.0, "note": ""}, {"id": "ms28", "name": "แป้งไมโครเดิร์มซี", "type": "med", "unit": "ชิ้น", "price": 200.0, "note": ""}, {"id": "ms29", "name": "ครีมทาแก้คันTC", "type": "med", "unit": "ชิ้น", "price": 80.0, "note": ""}, {"id": "ms30", "name": "สายยางให้อาหารแบบธรรมดา", "type": "med", "unit": "ชิ้น", "price": 50.0, "note": ""}, {"id": "ms31", "name": "สําลีสเตอร์ไรด์", "type": "med", "unit": "ชิ้น", "price": 10.0, "note": ""}, {"id": "ms32", "name": "ผ้าก๊อซ", "type": "med", "unit": "ชิ้น", "price": 0, "note": ""}, {"id": "ms33", "name": "ไฮโดรเจน", "type": "med", "unit": "ชิ้น", "price": 50.0, "note": ""}, {"id": "ms34", "name": "ชุดพ่นยา", "type": "med", "unit": "ชิ้น", "price": 120.0, "note": ""}, {"id": "ms35", "name": "อินทราไซท์ เจล", "type": "med", "unit": "ชิ้น", "price": 300.0, "note": ""}, {"id": "ms36", "name": "ชุดทำความสะอาด", "type": "med", "unit": "ชิ้น", "price": 100.0, "note": ""}, {"id": "ms37", "name": "ออกซิเจนรายวัน", "type": "med", "unit": "ชิ้น", "price": 200.0, "note": ""}, {"id": "ms38", "name": "น้ำกลั่น", "type": "med", "unit": "ชิ้น", "price": 100.0, "note": ""}, {"id": "ms39", "name": "ถุงฟีดอาหาร", "type": "med", "unit": "ชิ้น", "price": 50.0, "note": ""}, {"id": "ms40", "name": "สำลีแอลกอฮอล์", "type": "med", "unit": "ชิ้น", "price": 20.0, "note": ""}, {"id": "ms41", "name": "อุปกรณ์ทำแผล", "type": "med", "unit": "ชิ้น", "price": 0, "note": ""}, {"id": "ms42", "name": "ชุดสวนล้างปัสสาวะ", "type": "med", "unit": "ชิ้น", "price": 200.0, "note": ""}];
 let catalogEditId = null;
 
 // requisitions: { "custId_YYYY-MM": [ { itemId, qty, savedAt } ] }
@@ -2942,9 +2919,18 @@ function renderCatalog() {
   document.getElementById('catalog-tbody').innerHTML = items.map(item => {
     const meta = CAT_META[item.type];
     const nameHl = catSrch ? highlight(item.name, catSrch) : item.name;
+    // Build category options for dropdown
+    const catOptions = Object.entries(CAT_META).map(([k,m]) =>
+      `<option value="${k}" ${k===item.type?'selected':''}>${m.icon} ${m.label}</option>`
+    ).join('');
     return `<tr>
       <td style="font-weight:500">${nameHl}</td>
-      <td><span class="req-tag ${meta.cls}">${meta.icon} ${meta.label}</span></td>
+      <td>
+        <select onchange="moveCatalogType('${item.id}',this.value)"
+          style="padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:${meta.bg};color:${meta.color};font-weight:500;cursor:pointer;outline:none">
+          ${catOptions}
+        </select>
+      </td>
       <td style="font-size:12px">${item.unit}</td>
       <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">${item.price != null ? '฿'+fmt(item.price) : '—'}</td>
       <td style="font-size:12px;color:var(--text3)">${item.note||'—'}</td>
@@ -2954,6 +2940,20 @@ function renderCatalog() {
       </td>
     </tr>`;
   }).join('');
+}
+
+function moveCatalogType(id, newType) {
+  const item = catalog.find(c => c.id === id);
+  if (!item || !CAT_META[newType]) return;
+  item.type = newType;
+  renderCatalog();
+  // Sync to Firebase
+  if (window._fbSave) {
+    const catObj = {};
+    catalog.forEach(c => { catObj[c.id] = c; });
+    window._fbSave('catalog', catObj);
+  }
+  showReqToast(`✓ ย้าย "${item.name}" ไป ${CAT_META[newType].label}`);
 }
 
 function openAddCatalog() {
@@ -4035,6 +4035,22 @@ function deleteCatType(key) {
   renderReqCatTabs();
   renderCatalog();
   if (window._fbSave) window._fbSave('cat_meta', CAT_META);
+}
+
+
+function resetCatalogFromCSV() {
+  if (!confirm('นำเข้าข้อมูลสินค้าจากไฟล์ CSV ทั้งหมด 60 รายการ?\nรายการปัจจุบันจะถูกแทนที่')) return;
+  const CSV_CATALOG = [{"id": "pi01", "name": "ผ้าอ้อมผู้ใหญ่ L", "type": "cloth", "unit": "ชิ้น", "price": 450.0, "note": ""}, {"id": "pi02", "name": "ผ้าอ้อมผู้ใหญ่ M", "type": "cloth", "unit": "ชิ้น", "price": 450.0, "note": ""}, {"id": "pi03", "name": "ผ้าอ้อมผู้ใหญ่แบบกางเกง", "type": "cloth", "unit": "ชิ้น", "price": 500.0, "note": ""}, {"id": "pi04", "name": "แผ่นรองซับ", "type": "cloth", "unit": "ชิ้น", "price": 130.0, "note": ""}, {"id": "pi05", "name": "แผ่นเสริม", "type": "cloth", "unit": "ชิ้น", "price": 320.0, "note": ""}, {"id": "pi06", "name": "กระดาษเปียก", "type": "cloth", "unit": "ชิ้น", "price": 80.0, "note": ""}, {"id": "pi07", "name": "ถุงมือ", "type": "pers", "unit": "ชิ้น", "price": 200.0, "note": ""}, {"id": "pi08", "name": "ครีมอาบน้ำ", "type": "pers", "unit": "ชิ้น", "price": 150.0, "note": ""}, {"id": "pi09", "name": "โลชั่น", "type": "pers", "unit": "ชิ้น", "price": 150.0, "note": ""}, {"id": "pi10", "name": "แป้งทา", "type": "pers", "unit": "ชิ้น", "price": 60.0, "note": ""}, {"id": "pi11", "name": "ยาสีฟัน", "type": "pers", "unit": "ชิ้น", "price": 50.0, "note": ""}, {"id": "pi12", "name": "ที่โกนหนวด", "type": "pers", "unit": "ชิ้น", "price": 10.0, "note": ""}, {"id": "pi13", "name": "นมEnrich care", "type": "pers", "unit": "ชิ้น", "price": 800.0, "note": ""}, {"id": "pi14", "name": "ครีมอาบน้ำ PharmaPure", "type": "pers", "unit": "ชิ้น", "price": 250.0, "note": ""}, {"id": "pi15", "name": "แชมพูไนโซรัล", "type": "pers", "unit": "ชิ้น", "price": 410.0, "note": ""}, {"id": "pi16", "name": "น้ำยาทำความสะอาดจุดซ่อนเร้น", "type": "pers", "unit": "ชิ้น", "price": 120.0, "note": ""}, {"id": "pi17", "name": "แปรงสีฟันและยาสีฟัน", "type": "pers", "unit": "ชิ้น", "price": 100.0, "note": ""}, {"id": "pi18", "name": "นมD-Care", "type": "pers", "unit": "ชิ้น", "price": 900.0, "note": ""}, {"id": "ms01", "name": "ชุดใส่สายสวนปัสสาวะ", "type": "med", "unit": "ชิ้น", "price": 300.0, "note": ""}, {"id": "ms02", "name": "น้ำเกลือ", "type": "med", "unit": "ชิ้น", "price": 100.0, "note": ""}, {"id": "ms03", "name": "สายยางให้อาหารแบบซิลิโคน", "type": "med", "unit": "ชิ้น", "price": 490.0, "note": ""}, {"id": "ms04", "name": "หน้ากากออกซิเจนแบบมีถุง", "type": "med", "unit": "ชิ้น", "price": 120.0, "note": ""}, {"id": "ms05", "name": "สายออกซิเจน", "type": "med", "unit": "ชิ้น", "price": 120.0, "note": ""}, {"id": "ms06", "name": "ไซริ้งพลาสติกป้อนอาหาร", "type": "med", "unit": "ชิ้น", "price": 40.0, "note": ""}, {"id": "ms07", "name": "ชุด IV", "type": "med", "unit": "ชิ้น", "price": 100.0, "note": ""}, {"id": "ms08", "name": "ยาพ่นBF", "type": "med", "unit": "ชิ้น", "price": 50.0, "note": ""}, {"id": "ms09", "name": "เจลหล่อลื่นแบบซอง", "type": "med", "unit": "ชิ้น", "price": 10.0, "note": ""}, {"id": "ms10", "name": "ออกซิเจนรายเดือน", "type": "med", "unit": "ชิ้น", "price": 3000.0, "note": ""}, {"id": "ms11", "name": "ครีมทาแก้คันDC", "type": "med", "unit": "ชิ้น", "price": 150.0, "note": ""}, {"id": "ms12", "name": "ถุงปัสสาวะ", "type": "med", "unit": "ชิ้น", "price": 50.0, "note": ""}, {"id": "ms13", "name": "ถุงยางอนามัย", "type": "med", "unit": "ชิ้น", "price": 5.0, "note": ""}, {"id": "ms14", "name": "ไมโครปอร์", "type": "med", "unit": "ชิ้น", "price": 70.0, "note": ""}, {"id": "ms15", "name": "ชุดฟีดอาหาร", "type": "med", "unit": "ชิ้น", "price": 100.0, "note": ""}, {"id": "ms16", "name": "ครีมทาแก้คันNH", "type": "med", "unit": "ชิ้น", "price": 80.0, "note": ""}, {"id": "ms17", "name": "แผ่นตรวจน้ำตาล", "type": "med", "unit": "ชิ้น", "price": 600.0, "note": ""}, {"id": "ms18", "name": "เข็มเจาะน้ำตาล", "type": "med", "unit": "ชิ้น", "price": 300.0, "note": ""}, {"id": "ms19", "name": "ชุดเจาะน้ำตาลปลายนิ้ว", "type": "med", "unit": "ชิ้น", "price": 900.0, "note": ""}, {"id": "ms20", "name": "ยาละลายเสมหะ", "type": "med", "unit": "ชิ้น", "price": 200.0, "note": ""}, {"id": "ms21", "name": "ยาฆ่าเชื้อF", "type": "med", "unit": "ชิ้น", "price": 250.0, "note": ""}, {"id": "ms22", "name": "ยาพ่นIF", "type": "med", "unit": "ชิ้น", "price": 40.0, "note": ""}, {"id": "ms23", "name": "สายดูดเสมหะ", "type": "med", "unit": "ชิ้น", "price": 10.0, "note": ""}, {"id": "ms24", "name": "ยาเพิ่มเติม", "type": "med", "unit": "ชิ้น", "price": 0, "note": ""}, {"id": "ms25", "name": "ค่าแลป", "type": "med", "unit": "ชิ้น", "price": 0, "note": ""}, {"id": "ms26", "name": "ไม้พันสำลี", "type": "med", "unit": "ชิ้น", "price": 10.0, "note": ""}, {"id": "ms27", "name": "เบตาดีนเล็ก", "type": "med", "unit": "ชิ้น", "price": 100.0, "note": ""}, {"id": "ms28", "name": "แป้งไมโครเดิร์มซี", "type": "med", "unit": "ชิ้น", "price": 200.0, "note": ""}, {"id": "ms29", "name": "ครีมทาแก้คันTC", "type": "med", "unit": "ชิ้น", "price": 80.0, "note": ""}, {"id": "ms30", "name": "สายยางให้อาหารแบบธรรมดา", "type": "med", "unit": "ชิ้น", "price": 50.0, "note": ""}, {"id": "ms31", "name": "สําลีสเตอร์ไรด์", "type": "med", "unit": "ชิ้น", "price": 10.0, "note": ""}, {"id": "ms32", "name": "ผ้าก๊อซ", "type": "med", "unit": "ชิ้น", "price": 0, "note": ""}, {"id": "ms33", "name": "ไฮโดรเจน", "type": "med", "unit": "ชิ้น", "price": 50.0, "note": ""}, {"id": "ms34", "name": "ชุดพ่นยา", "type": "med", "unit": "ชิ้น", "price": 120.0, "note": ""}, {"id": "ms35", "name": "อินทราไซท์ เจล", "type": "med", "unit": "ชิ้น", "price": 300.0, "note": ""}, {"id": "ms36", "name": "ชุดทำความสะอาด", "type": "med", "unit": "ชิ้น", "price": 100.0, "note": ""}, {"id": "ms37", "name": "ออกซิเจนรายวัน", "type": "med", "unit": "ชิ้น", "price": 200.0, "note": ""}, {"id": "ms38", "name": "น้ำกลั่น", "type": "med", "unit": "ชิ้น", "price": 100.0, "note": ""}, {"id": "ms39", "name": "ถุงฟีดอาหาร", "type": "med", "unit": "ชิ้น", "price": 50.0, "note": ""}, {"id": "ms40", "name": "สำลีแอลกอฮอล์", "type": "med", "unit": "ชิ้น", "price": 20.0, "note": ""}, {"id": "ms41", "name": "อุปกรณ์ทำแผล", "type": "med", "unit": "ชิ้น", "price": 0, "note": ""}, {"id": "ms42", "name": "ชุดสวนล้างปัสสาวะ", "type": "med", "unit": "ชิ้น", "price": 200.0, "note": ""}];
+  catalog = CSV_CATALOG;
+  renderCatalog();
+  renderCatTypeList();
+  // Sync to Firebase
+  if (window._fbSave) {
+    const catObj = {};
+    catalog.forEach(c => { catObj[c.id] = c; });
+    window._fbSave('catalog', catObj);
+  }
+  showReqToast('✓ นำเข้าสินค้า ' + catalog.length + ' รายการสำเร็จ');
 }
 
 // ========== BANK ACCOUNTS ==========
