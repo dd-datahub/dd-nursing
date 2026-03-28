@@ -282,7 +282,7 @@ function renderItems() {
         <button onclick="removeEntry('${item.id}',${ei})" style="width:24px;height:24px;border:1px solid #f5b8b0;border-radius:5px;cursor:pointer;font-size:13px;color:#c0392b;background:#fdf0ee">×</button>
       </div>`).join("");
 
-    return `<div style="padding:8px 4px;border-bottom:1px solid #f0ede8;${hasEntries?"background:#f0fbf5;border-radius:8px;padding:8px;margin:2px 0":""}">
+    return `<div id="srow_${item.id}" style="padding:8px 4px;border-bottom:1px solid #f0ede8;${hasEntries?"background:#f0fbf5;border-radius:8px;padding:8px;margin:2px 0":""}">
       <div style="display:flex;align-items:center;gap:8px">
         ${itemSearch ? `<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:${m.bg};color:${m.color};font-weight:500">${m.icon}</span>` : ""}
         <span style="flex:1;font-size:13px;font-weight:${hasEntries?"600":"400"}">${item.name}</span>
@@ -298,6 +298,11 @@ function renderItems() {
 function addEntry(itemId) {
   reqEntries.push({ itemId, qty:1, date:todayISO });
   renderItems(); renderSaved();
+  // scroll ไปหา item ที่เพิ่งกด + เบิก
+  setTimeout(() => {
+    const el = document.getElementById('srow_' + itemId);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 60);
 }
 function updateEntry(itemId, ei, field, val) {
   const entries = reqEntries.filter(e=>e.itemId===itemId);

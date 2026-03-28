@@ -1834,7 +1834,11 @@ function calcTotalBill(custId, month) {
   const rangeEndDate  = new Date(ty, tm-1, dueDay - 1);
   const rangeEndStr   = `${rangeEndDate.getFullYear()}-${pad(rangeEndDate.getMonth()+1)}-${pad(rangeEndDate.getDate())}`;
 
-  const allReq = requisitions[reqKey(custId, month)] || [];
+  // รวม req จากทั้ง prevYM และ targetMonth (ช่วงวันอาจข้ามเดือน)
+  const allReq = [
+    ...(requisitions[reqKey(custId, prevYM)] || []),
+    ...(requisitions[reqKey(custId, month)] || [])
+  ];
   const inRange = allReq.filter(e => {
     if (!e.savedAt) return true;
     const d = e.savedAt.slice(0, 10);
@@ -2805,7 +2809,7 @@ function renderReqItems() {
       </div>`;
     }).join('');
 
-    return `<div class="req-item-row" style="flex-direction:column;align-items:stretch;${hasEntries?'background:var(--accent-light);border-radius:8px;padding:8px;margin:2px 0':'padding:6px 2px'}">
+    return `<div id="reqrow_${item.id}" class="req-item-row" style="flex-direction:column;align-items:stretch;${hasEntries?'background:var(--accent-light);border-radius:8px;padding:8px;margin:2px 0':'padding:6px 2px'}">
       <div style="display:flex;align-items:center;gap:6px">
         ${isSearchMode ? `<span class="req-tag ${meta.cls}" style="flex-shrink:0">${meta.icon}</span>` : ''}
         <span class="req-item-name" style="font-weight:${hasEntries?'600':'400'}">${nameHl}</span>
@@ -2828,6 +2832,11 @@ function addReqEntry(itemId) {
   requisitions[k].push({ itemId, qty: 1, savedAt: todayISO });
   renderReqItems();
   renderSavedReq();
+  // scroll ไปหา item ที่เพิ่งกด + เบิก
+  setTimeout(() => {
+    const el = document.getElementById('reqrow_' + itemId);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 60);
   if (window._fbSave) {
     const al = requisitions[k];
     window._fbSave('requisitions/' + k, al.length > 0 ? al : null);
@@ -3330,7 +3339,10 @@ function printReceipt(custId, month) {
   const [ty0, tm0]   = targetMonth.split('-').map(Number);
   const prevDate0    = new Date(ty0, tm0 - 2, 1);
   const prevYM0      = `${prevDate0.getFullYear()}-${String(prevDate0.getMonth()+1).padStart(2,'0')}`;
-  const reqList0  = requisitions[reqKey(custId, targetMonth)] || [];
+  // ดึง req จากทั้ง prevYM และ targetMonth เพราะช่วงวันอาจข้ามเดือน
+  const reqListCur  = requisitions[reqKey(custId, targetMonth)] || [];
+  const reqListPrev = requisitions[reqKey(custId, prevYM0)] || [];
+  const reqList0    = [...reqListPrev, ...reqListCur];
   // ส่ง allReqList ทั้งหมด — rcptBuildDefaultItems จะกรองตามช่วงวันเอง
   _rcptLineItems = rcptBuildDefaultItems(c, overrideDay0, targetMonth, prevYM0, reqList0);
 
@@ -3418,30 +3430,48 @@ function renderRcptEditor() {
   const el = document.getElementById('rcpt-items-editor');
   if (!el) return;
   el.innerHTML = _rcptLineItems.map((row, i) => {
-    const isSubStyle = row.isSub ? 'padding-left:20px;background:#f9f9f6;' : '';
-    return `<div style="display:flex;align-items:center;gap:4px;${isSubStyle}">
-      <span style="font-size:11px;color:var(--text3);width:18px;text-align:right;flex-shrink:0">${i+1}</span>
-      <button onclick="rcptToggleSub(${i})" title="${row.isSub?'ยกเลิกหัวข้อย่อย':'ทำเป็นหัวข้อย่อย'}"
-        style="width:24px;height:24px;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:11px;background:${row.isSub?'var(--accent-light)':'var(--surface)'};color:${row.isSub?'var(--accent)':'var(--text3)'}">↳</button>
-      <input type="text" value="${row.label.replace(/"/g,'&quot;')}" oninput="rcptUpdateRow(${i},'label',this.value)"
-        style="flex:1;padding:4px 7px;border:1px solid var(--border);border-radius:5px;font-size:12px;min-width:0">
-      <input type="number" value="${row.qty}" placeholder="จำนวน" oninput="rcptUpdateRow(${i},'qty',this.value)"
-        style="width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;text-align:center">
-      <input type="number" value="${row.price}" placeholder="ราคา/หน่วย" oninput="rcptUpdateRow(${i},'price',this.value)"
-        style="width:88px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;text-align:right">
-      <button onclick="rcptRemoveRow(${i})" style="width:24px;height:24px;border:1px solid #f5b8b0;border-radius:4px;cursor:pointer;font-size:14px;color:var(--danger);background:var(--danger-light);flex-shrink:0">×</button>
+    const isSubBg = row.isSub ? 'background:#f9f9f6;border-left:3px solid var(--accent);padding-left:10px;' : '';
+    return `<div style="display:flex;flex-direction:column;gap:4px;padding:6px 4px;border-bottom:1px solid var(--border-light,#f0ede8);${isSubBg}">
+      <div style="display:flex;align-items:center;gap:4px">
+        <span style="font-size:11px;color:var(--text3);width:18px;text-align:right;flex-shrink:0">${i+1}</span>
+        <button onclick="rcptToggleSub(${i})" title="${row.isSub?'ยกเลิกหัวข้อย่อย':'ทำเป็นหัวข้อย่อย'}"
+          style="width:24px;height:24px;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:11px;flex-shrink:0;background:${row.isSub?'var(--accent-light)':'var(--surface)'};color:${row.isSub?'var(--accent)':'var(--text3)'}">↳</button>
+        <input type="text" value="${row.label.replace(/"/g,'&quot;')}" oninput="rcptUpdateRow(${i},'label',this.value)"
+          placeholder="รายการ..."
+          style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;min-width:0;width:100%">
+        <button onclick="rcptRemoveRow(${i})" style="width:24px;height:24px;border:1px solid #f5b8b0;border-radius:4px;cursor:pointer;font-size:14px;color:var(--danger);background:var(--danger-light);flex-shrink:0">×</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;padding-left:46px">
+        <span style="font-size:11px;color:var(--text3);flex-shrink:0">จำนวน</span>
+        <input type="number" value="${row.qty}" placeholder="—" oninput="rcptUpdateRow(${i},'qty',this.value)"
+          style="width:64px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;text-align:center">
+        <span style="font-size:11px;color:var(--text3);flex-shrink:0">ราคา/หน่วย</span>
+        <input type="number" value="${row.price}" placeholder="—" oninput="rcptUpdateRow(${i},'price',this.value)"
+          style="width:96px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;text-align:right">
+        <span style="font-size:11px;color:var(--text3);margin-left:4px">= ฿${(((parseFloat(row.qty)||0)*(parseFloat(row.price)||0))||parseFloat(row.amount)||0).toLocaleString()}</span>
+      </div>
     </div>`;
   }).join('');
 }
 
+let _rcptLabelDebounce = null;
 function rcptUpdateRow(i, field, val) {
   if (!_rcptLineItems[i]) return;
   _rcptLineItems[i][field] = val;
+  if (field === 'label') {
+    // mark as user-edited so refresh won't overwrite
+    _rcptLineItems[i]._labelEdited = true;
+    // debounce receipt re-render so cursor stays while typing
+    clearTimeout(_rcptLabelDebounce);
+    _rcptLabelDebounce = setTimeout(() => reRenderReceipt(), 800);
+    return; // don't re-render now
+  }
   if (field === 'qty' || field === 'price') {
     const q = parseFloat(_rcptLineItems[i].qty) || 0;
     const p = parseFloat(_rcptLineItems[i].price) || 0;
     _rcptLineItems[i].amount = q * p;
   }
+  reRenderReceipt();
 }
 
 function rcptToggleSub(i) {
@@ -3480,16 +3510,20 @@ function renderReceiptContent() {
   const prevYM    = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
 
   // Update date labels + rebuild req sub-items live
-  const allReqList = requisitions[reqKey(custId, targetMonth)] || [];
+  // ดึง req จากทั้ง prevYM และ targetMonth เพราะช่วงวันอาจข้ามเดือน
+  const allReqList = [
+    ...(requisitions[reqKey(custId, prevYM)] || []),
+    ...(requisitions[reqKey(custId, targetMonth)] || [])
+  ];
   const newDefaults = rcptBuildDefaultItems(c, overrideDay, targetMonth, prevYM, allReqList);
 
   _rcptLineItems.forEach(row => {
     if (row.id === 'row_1') {
-      row.label  = newDefaults.find(r=>r.id==='row_1').label;
-      row.price  = c.fee; row.qty = 1; row.amount = c.fee;
+      if (!row._labelEdited) row.label = newDefaults.find(r=>r.id==='row_1')?.label || row.label;
+      row.price = c.fee; row.qty = 1; row.amount = c.fee;
     }
-    if (row.id === 'row_2') {
-      row.label = newDefaults.find(r=>r.id==='row_2').label;
+    if (row.id === 'row_2' && !row._labelEdited) {
+      row.label = newDefaults.find(r=>r.id==='row_2')?.label || row.label;
     }
   });
 
