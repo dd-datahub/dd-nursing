@@ -2,19 +2,12 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<link rel="manifest" href="/dd-nursing/staff-manifest.json">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="เบิกของ DD">
-<link rel="apple-touch-icon" href="/dd-nursing/icon-192.png">
-<meta name="theme-color" content="#1a6b4a">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DD Nursing — บันทึกเบิกของ</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
 const firebaseConfig = {
   apiKey: "AIzaSyDdt1rc23hxWNQFXDhp1we4rfN-lW0wh60",
   authDomain: "dd-data-88eb0.firebaseapp.com",
@@ -24,10 +17,17 @@ const firebaseConfig = {
   messagingSenderId: "586975391632",
   appId: "1:586975391632:web:3568fb7c4a3f694953cd15"
 };
-
 const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
-
+window._db      = db;
+window._ref     = ref;
+window._set     = set;
+window._get     = get;
+window._onValue = onValue;
+window.dispatchEvent(new Event("firebaseReady"));
+</script>
+<script>
+// CAT_META: default values, will be overwritten by Firebase realtime sync
 let CAT_META = {
   med:  {label:"ยา/อุปกรณ์การแพทย์", icon:"💊", color:"#b82c1f", bg:"#fde8e6"},
   cloth:{label:"ผ้าอ้อม/เสื้อผ้า",    icon:"👕", color:"#2856b8", bg:"#e8f0fe"},
@@ -75,106 +75,75 @@ let activeType = "cloth";
 const now = new Date();
 const todayISO = now.toISOString().split("T")[0];
 
-async function loadData() {
+function loadData() {
   showStatus("กำลังโหลดข้อมูล...", "info");
-  try {
-    const snap = await get(ref(db));
-    if (snap.exists()) {
-      const data = snap.val();
-      if (data.customers) {
-        allCustomers = Object.values(data.customers).filter(c => !c.discharged);
-        allCustomers.sort((a,b) => a.name.localeCompare(b.name,"th"));
-      }
-      if (data.catalog) catalog = Object.values(data.catalog).map(stripPrice);
-      if (data.cat_meta) mergeCatMeta(data.cat_meta);
-    }
-    // Load system_years
-    try {
-      const sySnap = await get(ref(db, "system_years"));
-      buildMonthSelect(sySnap.exists() ? sySnap.val() : null);
-    } catch(e) { buildMonthSelect(null); }
 
-    renderCustList();
-    renderCatTabs();
+  // === Realtime: catalog ===
+  window._onValue(window._ref(window._db, "catalog"), snap => {
+    if (snap.exists()) {
+      catalog = Object.values(snap.val());
+    } else {
+      catalog = DEFAULT_CATALOG;
+    }
     renderItems();
+  });
+
+  // === Realtime: cat_meta (category settings from admin) ===
+  window._onValue(window._ref(window._db, "cat_meta"), snap => {
+    if (snap.exists()) {
+      CAT_META = snap.val();
+      renderCatTabs();
+      renderItems();
+    }
+  });
+
+  // === Realtime: customers ===
+  window._onValue(window._ref(window._db, "customers"), snap => {
+    if (snap.exists()) {
+      const dischSnap_keys = Object.keys(window._dischargedKeys || {});
+      allCustomers = Object.values(snap.val()).filter(c => !c.discharged);
+      allCustomers.sort((a,b) => a.name.localeCompare(b.name,"th"));
+      renderCustList();
+    }
+    buildMonthSelect();
     showStatus("พร้อมใช้งาน ✓", "ok");
     setTimeout(() => { document.getElementById("status").style.display="none"; }, 2000);
-
-    // Real-time listeners
-    listenCatalog();
-    listenCatMeta();
-  } catch(e) {
-    showStatus("ไม่สามารถเชื่อมต่อ Firebase: " + e.message, "err");
-  }
-}
-
-// ลบราคาออกจาก catalog item (พนักงานไม่เห็นราคา)
-function stripPrice(item) {
-  const { price, ...rest } = item;
-  return rest;
-}
-
-// Merge cat_meta from Firebase
-function mergeCatMeta(data) {
-  Object.entries(data).forEach(([k,v]) => {
-    if (!CAT_META[k]) CAT_META[k] = v;
-    else Object.assign(CAT_META[k], v);
   });
-}
 
-// Listen for catalog changes (admin updates → staff sees immediately)
-function listenCatalog() {
-  onValue(ref(db, "catalog"), snap => {
-    if (snap.exists()) {
-      catalog = Object.values(snap.val()).map(stripPrice);
-      renderCatTabs();
+  // === Realtime: discharged (to filter out discharged customers) ===
+  window._onValue(window._ref(window._db, "discharged"), snap => {
+    window._dischargedKeys = snap.exists() ? snap.val() : {};
+    if (allCustomers.length > 0) {
+      allCustomers = allCustomers.filter(c => !window._dischargedKeys[c.id?.replace(/\//g,"_")]);
+      renderCustList();
+    }
+  });
+
+  // === Realtime: requisitions for selected customer/month ===
+  window._onValue(window._ref(window._db, "requisitions"), snap => {
+    window._allRequisitions = snap.exists() ? snap.val() : {};
+    // If a customer is already selected, reload their entries
+    if (selectedCustId && selectedMonth) {
+      const key = selectedCustId.replace(/\//g,"_") + "_" + selectedMonth;
+      const saved = window._allRequisitions[key];
+      if (saved && Array.isArray(saved)) {
+        reqEntries = saved.map(e => ({itemId: e.itemId, qty: e.qty, date: e.savedAt || todayISO}));
+      }
       renderItems();
+      renderSaved();
     }
   });
 }
 
-// Listen for cat_meta changes
-function listenCatMeta() {
-  onValue(ref(db, "cat_meta"), snap => {
-    if (snap.exists()) {
-      mergeCatMeta(snap.val());
-      renderCatTabs();
-      renderItems();
-    }
-  });
-}
-
-// Load existing req entries from Firebase when customer/month selected
-async function loadExistingReq() {
-  if (!selectedCustId || !selectedMonth) return;
-  try {
-    const key = selectedCustId.replace(/\//g,"_") + "_" + selectedMonth;
-    const snap = await get(ref(db, "requisitions/" + key));
-    if (snap.exists()) {
-      const data = snap.val();
-      reqEntries = Array.isArray(data)
-        ? data.map(e => ({ itemId: e.itemId, qty: e.qty||1, date: e.savedAt||todayISO }))
-        : [];
-    } else {
-      reqEntries = [];
-    }
-    renderItems();
-    renderSaved();
-  } catch(e) { console.warn("loadExistingReq error:", e); }
-}
-
-function buildMonthSelect(systemYears) {
+function buildMonthSelect() {
   const sel = document.getElementById("month-sel");
-  const thaiM = ["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-  const years = systemYears || [{ year: 2026, startMonth: 3, endMonth: 12 }];
   const months = [];
-  years.sort((a,b)=>a.year-b.year).forEach(y => {
-    for (let mo = y.startMonth; mo <= y.endMonth; mo++) {
-      months.push(y.year + "-" + String(mo).padStart(2,"0"));
-    }
-  });
-  const curRaw = now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
-  const cur = months.includes(curRaw) ? curRaw : months[0] || "2026-03";
+  for (let i=-1; i<=1; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+    months.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));
+  }
+  const thaiM = ["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+  const cur = now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
   sel.innerHTML = months.map(m => {
     const [y,mo] = m.split("-");
     return `<option value="${m}" ${m===cur?"selected":""}>${thaiM[+mo]} ${+y+543}</option>`;
@@ -221,26 +190,32 @@ function renderCustList() {
     </div>`).join("");
 }
 
-function selectCust(id) {
-  selectedCustId = id;
-  reqEntries = [];
-  loadExistingReq();
-  const c = allCustomers.find(x=>x.id===id);
-  reqEntries = [];
-  renderCustList();
+function loadExistingReq() {
+  if (!selectedCustId || !selectedMonth) return;
+  const key = selectedCustId.replace(/\//g,"_") + "_" + selectedMonth;
+  const saved = (window._allRequisitions || {})[key];
+  if (saved && Array.isArray(saved)) {
+    reqEntries = saved.map(e => ({itemId: e.itemId, qty: e.qty, date: e.savedAt || todayISO}));
+  } else {
+    reqEntries = [];
+  }
   renderItems();
   renderSaved();
+}
+
+function selectCust(id) {
+  selectedCustId = id;
+  const c = allCustomers.find(x=>x.id===id);
+  renderCustList();
   document.getElementById("form-section").style.display = "block";
   document.getElementById("cust-banner").innerHTML = `
     <b>${c.name}</b>
     <span style="font-size:12px;color:#666;margin-left:8px">${c.id}</span>
     <span class="branch-tag b${c.branch?.slice(-1)}" style="margin-left:6px">${c.branch||""}</span>`;
+  loadExistingReq();
   document.getElementById("month-sel").onchange = function(){
     selectedMonth = this.value;
-    reqEntries = [];
     loadExistingReq();
-    renderItems();
-    renderSaved();
   };
 }
 
@@ -251,13 +226,13 @@ function onItemSearch(v) {
 }
 
 function renderCatTabs() {
-  const container = document.getElementById("cat-tabs-container");
-  if (!container) return;
+  const el = document.getElementById("cat-tabs");
+  if (!el) return;
   const types = Object.keys(CAT_META);
   if (!types.includes(activeType)) activeType = types[0] || "cloth";
-  container.innerHTML = types.map(type => {
-    const m = CAT_META[type];
-    return `<button class="cat-tab ${type===activeType?'active':''}" data-type="${type}" onclick="setTab('${type}')">${m.icon} ${m.label}</button>`;
+  el.innerHTML = types.map(key => {
+    const m = CAT_META[key];
+    return `<button class="cat-tab ${key===activeType?'active':''}" data-type="${key}" onclick="setTab('${key}')">${m.icon} ${m.label}</button>`;
   }).join("");
 }
 
@@ -265,18 +240,16 @@ function setTab(type) {
   activeType = type;
   itemSearch = "";
   document.getElementById("item-search").value = "";
-  renderCatTabs();
+  document.querySelectorAll(".cat-tab").forEach(t => t.classList.toggle("active", t.dataset.type===type));
   renderItems();
 }
 
 function renderItems() {
-  const validTypes = Object.keys(CAT_META);
-  if (!validTypes.includes(activeType)) activeType = validTypes[0] || "cloth";
   let items = itemSearch
     ? catalog.filter(c => c.name.toLowerCase().includes(itemSearch) || (c.note||"").toLowerCase().includes(itemSearch))
     : catalog.filter(c => c.type === activeType);
 
-  const meta = CAT_META[activeType] || { icon:"📦", label:"สินค้า", bg:"#f0f0f0", color:"#333" };
+  const meta = CAT_META[activeType];
   const titleEl = document.getElementById("items-title");
   titleEl.textContent = itemSearch ? `🔍 ผลการค้นหา "${itemSearch}"` : `${meta.icon} ${meta.label}`;
 
@@ -289,19 +262,17 @@ function renderItems() {
     const m = CAT_META[item.type] || meta;
     const entries = reqEntries.filter(e=>e.itemId===item.id);
     const hasEntries = entries.length > 0;
-    const entryRows = entries.map((e,ei) => {
-      const uid = `${item.id}_${ei}`.replace(/[^a-zA-Z0-9_]/g,'_');
-      return `
+    const entryRows = entries.map((e,ei) => `
       <div style="display:flex;align-items:center;gap:6px;margin-top:5px;padding:5px 8px;background:#fff;border-radius:6px;border:1px solid #e0dbd2">
         <span style="font-size:11px;color:#999;min-width:16px">${ei+1}.</span>
-        <div style="flex:1;position:relative;min-width:120px">
-          <input type="date" id="date-inp-${uid}" value="${e.date}"
-            onchange="updateEntry('${item.id}',${ei},'date',this.value); document.getElementById('date-lbl-${uid}').textContent='📅 '+thaiDateShort(this.value)"
-            style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2">
-          <div id="date-lbl-${uid}"
-            style="padding:4px 10px;border:1px solid #1a6b4a;border-radius:5px;font-size:12px;color:#1a6b4a;background:#f0fbf5;text-align:center;font-weight:500;pointer-events:none">
-            📅 ${thaiDateShort(e.date)}
-          </div>
+        <div style="position:relative;flex:1;min-width:90px">
+          <label id="datelbl_${item.id}_${ei}"
+            style="display:block;padding:4px 6px;border:1px solid #e0dbd2;border-radius:5px;font-size:12px;cursor:pointer;color:#444;background:#fff;white-space:nowrap"
+            onclick="this.nextElementSibling.showPicker?this.nextElementSibling.showPicker():this.nextElementSibling.click()"
+          >${fmtDate(e.date)}</label>
+          <input type="date" value="${e.date}"
+            onchange="updateEntryDate('${item.id}',${ei},this.value)"
+            style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;pointer-events:none;border:none">
         </div>
         <button onclick="adjEntry('${item.id}',${ei},-1)" style="width:26px;height:26px;border:1px solid #ccc;border-radius:5px;cursor:pointer;background:#fff;font-size:15px">−</button>
         <input type="number" min="1" value="${e.qty}" onchange="updateEntry('${item.id}',${ei},'qty',this.value)"
@@ -309,8 +280,7 @@ function renderItems() {
         <button onclick="adjEntry('${item.id}',${ei},1)" style="width:26px;height:26px;border:1px solid #1a6b4a;border-radius:5px;cursor:pointer;background:#e8f5ee;font-size:15px;color:#1a6b4a">+</button>
         <span style="font-size:11px;color:#999;min-width:28px">${item.unit}</span>
         <button onclick="removeEntry('${item.id}',${ei})" style="width:24px;height:24px;border:1px solid #f5b8b0;border-radius:5px;cursor:pointer;font-size:13px;color:#c0392b;background:#fdf0ee">×</button>
-      </div>`;
-    }).join("");
+      </div>`).join("");
 
     return `<div style="padding:8px 4px;border-bottom:1px solid #f0ede8;${hasEntries?"background:#f0fbf5;border-radius:8px;padding:8px;margin:2px 0":""}">
       <div style="display:flex;align-items:center;gap:8px">
@@ -334,6 +304,17 @@ function updateEntry(itemId, ei, field, val) {
   if (!entries[ei]) return;
   const ri = reqEntries.indexOf(entries[ei]);
   reqEntries[ri][field] = field==="qty" ? Math.max(1,parseInt(val)||1) : val;
+  renderSaved();
+}
+
+function updateEntryDate(itemId, ei, val) {
+  const entries = reqEntries.filter(e=>e.itemId===itemId);
+  if (!entries[ei]) return;
+  const ri = reqEntries.indexOf(entries[ei]);
+  reqEntries[ri].date = val;
+  // update just the label text — no full re-render so focus stays
+  const lbl = document.getElementById(`datelbl_${itemId}_${ei}`);
+  if (lbl) lbl.textContent = fmtDate(val);
   renderSaved();
 }
 function adjEntry(itemId, ei, delta) {
@@ -377,13 +358,6 @@ function renderSaved() {
   }).join("");
 }
 
-function thaiDateShort(iso) {
-  if (!iso) return "เลือกวัน";
-  const thaiM = ["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-  const [y,m,d] = iso.split("-").map(Number);
-  return `${d} ${thaiM[m]} ${y+543}`;
-}
-
 function fmtDate(iso) {
   if(!iso) return "";
   const m=["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
@@ -399,9 +373,9 @@ async function saveRequisition() {
   btn.disabled=true; btn.textContent="กำลังบันทึก...";
   showStatus("กำลังบันทึก...", "info");
   try {
-    const key = selectedCustId.replace(/\//g,"_") + "_" + selectedMonth;
+    const key = selectedCustId.replace(/\//g,"_")+"_"+selectedMonth;
     const payload = reqEntries.map(e=>({itemId:e.itemId, qty:e.qty, savedAt:e.date, staffSaved:true}));
-    await set(ref(db,"requisitions/"+key), payload);
+    await window._set(window._ref(window._db,"requisitions/"+key), payload);
     showStatus("✓ บันทึกสำเร็จแล้วค่ะ", "ok");
     reqEntries=[];
     renderItems(); renderSaved();
@@ -422,13 +396,14 @@ function showStatus(msg,type) {
   if(type==="ok") setTimeout(()=>el.style.display="none", 3000);
 }
 
-window.setBranch=setBranch; window.onCustSearch=onCustSearch;
-window.selectCust=selectCust; window.setTab=setTab;
-window.onItemSearch=onItemSearch; window.addEntry=addEntry;
-window.updateEntry=updateEntry; window.adjEntry=adjEntry;
-window.removeEntry=removeEntry; window.saveRequisition=saveRequisition;
+// Wait for Firebase then load data
+window.updateEntryDate = updateEntryDate;
+window.loadExistingReq = loadExistingReq;
+window.renderCatTabs   = renderCatTabs;
 
-loadData();
+window.addEventListener("firebaseReady", function() {
+  loadData();
+});
 </script>
 
 <style>
@@ -513,7 +488,12 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
     <div class="card">
       <div class="card-title">3. รายการที่ต้องการเบิก</div>
       <!-- Category tabs -->
-      <div class="cat-tabs" id="cat-tabs-container"></div>
+      <div class="cat-tabs" id="cat-tabs">
+        <button class="cat-tab active" data-type="cloth" onclick="setTab('cloth')">👕 ผ้าอ้อม</button>
+        <button class="cat-tab" data-type="med"   onclick="setTab('med')">💊 ยา/อุปกรณ์</button>
+        <button class="cat-tab" data-type="food"  onclick="setTab('food')">🥛 อาหารเสริม</button>
+        <button class="cat-tab" data-type="pers"  onclick="setTab('pers')">🧴 ของใช้ส่วนตัว</button>
+      </div>
       <!-- Item search -->
       <div class="item-search-wrap">
         <input type="text" id="item-search" class="item-search" placeholder="ค้นหารายการของ เช่น ผ้าอ้อม, ยา..." oninput="onItemSearch(this.value)">
