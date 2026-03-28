@@ -3786,54 +3786,6 @@ window.onload = function() {
 };
 <\/script>
 
-<!-- Edit History Modal -->
-<div class="modal-overlay" id="edit-history-modal">
-  <div class="modal" style="width:460px">
-    <div class="modal-head">
-      <h2>✏️ แก้ไขประวัติการชำระ</h2>
-      <span class="modal-close" onclick="closeModal('edit-history-modal')">×</span>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>ลูกค้า</label>
-        <select id="eh-cust" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text)"></select>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>เดือน</label>
-          <select id="eh-month" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text)"></select>
-        </div>
-        <div class="form-group">
-          <label>วันที่ชำระ</label>
-          <input type="date" id="eh-date">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>จำนวนเงิน (฿)</label>
-          <input type="number" id="eh-amount" min="0">
-        </div>
-        <div class="form-group">
-          <label>ช่องทาง</label>
-          <select id="eh-channel" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text)">
-            <option value="โอนเงิน">โอนเงิน</option>
-            <option value="เงินสด">เงินสด</option>
-            <option value="เช็ค">เช็ค</option>
-            <option value="อื่นๆ">อื่นๆ</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-group">
-        <label>หมายเหตุ</label>
-        <input type="text" id="eh-note" placeholder="(ถ้ามี)">
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-primary" onclick="saveEditHistory()">💾 บันทึก</button>
-      <button class="btn" onclick="closeModal('edit-history-modal')">ยกเลิก</button>
-    </div>
-  </div>
-</div>
 </body>
 </html>`);
   win.document.close();
@@ -4466,5 +4418,55 @@ function onAccSelChange(prefix) {
 // ========== INIT ==========
 updateDashboard();
 </script>
+
+<!-- Edit History Modal -->
+<div class="modal-overlay" id="edit-history-modal">
+  <div class="modal" style="width:460px">
+    <div class="modal-head">
+      <h2>✏️ แก้ไขประวัติการชำระ</h2>
+      <span class="modal-close" onclick="closeModal('edit-history-modal')">×</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>ลูกค้า</label>
+        <select id="eh-cust" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text)"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>เดือน</label>
+          <select id="eh-month" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text)"></select>
+        </div>
+        <div class="form-group">
+          <label>วันที่ชำระ</label>
+          <input type="date" id="eh-date">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>จำนวนเงิน (฿)</label>
+          <input type="number" id="eh-amount" min="0">
+        </div>
+        <div class="form-group">
+          <label>ช่องทาง</label>
+          <select id="eh-channel" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text)">
+            <option value="โอนเงิน">โอนเงิน</option>
+            <option value="เงินสด">เงินสด</option>
+            <option value="เช็ค">เช็ค</option>
+            <option value="อื่นๆ">อื่นๆ</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>หมายเหตุ</label>
+        <input type="text" id="eh-note" placeholder="(ถ้ามี)">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="saveEditHistory()">💾 บันทึก</button>
+      <button class="btn" onclick="closeModal('edit-history-modal')">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
