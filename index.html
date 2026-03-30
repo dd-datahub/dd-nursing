@@ -3509,7 +3509,10 @@ function rcptUpdateRow(i, field, val) {
     const p = parseFloat(_rcptLineItems[i].price) || 0;
     _rcptLineItems[i].amount = q * p;
   }
+  // prevent editor re-render while user is typing in qty/price
+  window._rcptEditorTyping = true;
   reRenderReceipt();
+  window._rcptEditorTyping = false;
 }
 
 function rcptToggleSub(i) {
@@ -3570,7 +3573,8 @@ function renderReceiptContent() {
   const newSubItems = newDefaults.filter(r => r.isReq);
   _rcptLineItems  = [...nonReq, ...newSubItems];
 
-  renderRcptEditor();
+  // Only re-render editor if not triggered by user typing in editor
+  if (!window._rcptEditorTyping) renderRcptEditor();
 
   // Pre-calculate hasSubItems before building rows
   const hasSubItems = _rcptLineItems.some(item => item.isSub);
@@ -3594,9 +3598,9 @@ function renderReceiptContent() {
     rowsArr.push({ html: `<tr class="${item.isReq||isSub ? 'item-extra' : ''}">
       ${numCell}
       <td style="${labelStyle}">${item.label || ''}</td>
-      <td>${item.isOther ? (hasSubItems ? '' : '—') : qty > 0 ? qty+' หน่วย' : ''}</td>
-      <td>${item.isOther ? (hasSubItems ? '' : '—') : price > 0 ? fmt(price) : '—'}</td>
-      <td>${item.isOther ? (hasSubItems ? '' : '—') : amount > 0 ? fmt(amount) : '—'}</td>
+      <td>${item.isOther ? (hasSubItems ? '' : '—') : (qty || item.qty===0 || item.qty==='') ? (qty > 0 ? qty+' หน่วย' : '') : ''}</td>
+      <td>${item.isOther ? (hasSubItems ? '' : '—') : (price >= 0 && item.price !== '' && item.price != null) ? (price > 0 ? fmt(price) : '—') : '—'}</td>
+      <td>${item.isOther ? (hasSubItems ? '' : '—') : amount > 0 ? fmt(amount) : (qty > 0 && price > 0 ? fmt(qty*price) : '—')}</td>
     </tr>`, isSub });
   });
 
