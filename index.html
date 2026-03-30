@@ -320,7 +320,14 @@ async function fbLoad() {
       if (window._fbSave) window._fbSave('payHistory', payHistory);
     }
     if (d.requisitions) { requisitions = d.requisitions; }
-    if (d.discharged)   { discharged   = d.discharged;   }
+    if (d.discharged) {
+      discharged = {};
+      Object.entries(d.discharged).forEach(([k,v]) => {
+        // Restore key: DD1_03 → DD1/03
+        const restored = k.replace(/^(DD\d+)_(\d+)/, '$1/$2');
+        discharged[restored] = v;
+      });
+    }
     if (d.invoiced)     { invoiced     = d.invoiced;     }
     if (d.refunds && Array.isArray(d.refunds)) { refunds = d.refunds; }
     if (d.catalog) {
@@ -1525,7 +1532,10 @@ function confirmDischarge() {
   renderBilling();
   renderDischarged();
   updateDashboard();
-  safeFbSave('discharged', discharged);
+  // Sanitize keys before saving (Firebase key cannot contain "/")
+  const _dSave = {};
+  Object.entries(discharged).forEach(([k,v]) => { _dSave[k.replace(/\//g,'_')] = v; });
+  safeFbSave('discharged', _dSave);
 }
 
 function openRestoreModal(id) {
@@ -1551,7 +1561,10 @@ function confirmRestore() {
   renderBilling();
   renderDischarged();
   updateDashboard();
-  safeFbSave('discharged', discharged);
+  // Sanitize keys before saving (Firebase key cannot contain "/")
+  const _dSave = {};
+  Object.entries(discharged).forEach(([k,v]) => { _dSave[k.replace(/\//g,'_')] = v; });
+  safeFbSave('discharged', _dSave);
 }
 
 function renderDischarged() {
