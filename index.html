@@ -3529,6 +3529,8 @@ function rcptUpdateRow(i, field, val) {
   if (field === 'label') {
     // mark as user-edited so refresh won't overwrite
     _rcptLineItems[i]._labelEdited = true;
+    // if row was "isOther" (ค่าส่วนต่างอื่นๆ placeholder), clear it so qty/price show
+    if (_rcptLineItems[i].isOther) _rcptLineItems[i].isOther = false;
     // debounce receipt re-render so cursor stays while typing
     clearTimeout(_rcptLabelDebounce);
     _rcptLabelDebounce = setTimeout(() => reRenderReceipt(), 800);
@@ -3538,6 +3540,8 @@ function rcptUpdateRow(i, field, val) {
     const q = parseFloat(_rcptLineItems[i].qty) || 0;
     const p = parseFloat(_rcptLineItems[i].price) || 0;
     _rcptLineItems[i].amount = q * p;
+    // if row was "isOther" placeholder, clear so values display
+    if (_rcptLineItems[i].isOther) _rcptLineItems[i].isOther = false;
   }
   // prevent editor re-render while user is typing in qty/price
   window._rcptEditorTyping = true;
