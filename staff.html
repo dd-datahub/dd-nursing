@@ -417,9 +417,37 @@ window.loadExistingReq = loadExistingReq;
 window.renderCatTabs   = renderCatTabs;
 window.filterSidebarCases = filterSidebarCases;
 window.selectSidebarCase  = selectSidebarCase;
+window.toggleBranch = toggleBranch;
 window.setPage = setPage;
 
 let _sidebarSearch = '';
+
+// track which branches are open
+let _branchOpen = {'สาขา 1': true, 'สาขา 2': true, 'สาขา 3': true};
+
+function toggleBranch(branch) {
+  _branchOpen[branch] = !_branchOpen[branch];
+  const hdr = document.getElementById('bh_' + branch);
+  const body = document.getElementById('bb_' + branch);
+  if (hdr) hdr.classList.toggle('open', _branchOpen[branch]);
+  if (body) {
+    if (_branchOpen[branch]) {
+      body.classList.remove('closed');
+      body.style.maxHeight = body.scrollHeight + 'px';
+    } else {
+      body.style.maxHeight = body.scrollHeight + 'px';
+      requestAnimationFrame(() => { body.classList.add('closed'); body.style.maxHeight = '0'; });
+    }
+  }
+}
+
+function fmtDue(due_date) {
+  if (!due_date) return '';
+  // due_date format: "12-ก.พ.-2569" → "12 ก.พ."
+  const parts = due_date.split('-');
+  if (parts.length >= 2) return parts[0] + ' ' + parts[1];
+  return due_date;
+}
 
 function renderSidebarCases() {
   const el = document.getElementById('sidebar-cases-list');
@@ -431,26 +459,46 @@ function renderSidebarCases() {
   }
   if (list.length === 0) {
     el.innerHTML = allCustomers.length === 0
-      ? '<div style="padding:8px 14px;font-size:12px;color:#bbb">กำลังโหลด...</div>'
-      : '<div style="padding:8px 14px;font-size:12px;color:#bbb">ไม่พบลูกค้า</div>';
+      ? '<div style="padding:12px 14px;font-size:12px;color:#bbb">กำลังโหลด...</div>'
+      : '<div style="padding:12px 14px;font-size:12px;color:#bbb">ไม่พบลูกค้า</div>';
     return;
   }
-  // group by branch
+  // group & sort by branch
   const byBranch = {};
   list.forEach(c => {
     const b = c.branch || 'อื่นๆ';
     if (!byBranch[b]) byBranch[b] = [];
     byBranch[b].push(c);
   });
-  el.innerHTML = Object.entries(byBranch).sort().map(([branch, custs]) => `
-    <div style="padding:5px 14px 2px;font-size:10px;font-weight:600;color:#aaa;text-transform:uppercase;letter-spacing:.3px">${branch} (${custs.length})</div>
-    ${custs.map(c => `
-    <div class="case-item ${c.id === selectedCustId ? 'selected' : ''}"
-         onclick="selectSidebarCase('${c.id}')">
-      <span style="font-size:10px;color:#ccc;min-width:32px;flex-shrink:0">${c.id.replace(/DD\d?/,'')}</span>
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${c.name.replace('คุณ ','')}</span>
-    </div>`).join('')}
-  `).join('');
+  const branchOrder = ['สาขา 1','สาขา 2','สาขา 3'];
+  const branches = [...branchOrder.filter(b => byBranch[b]), ...Object.keys(byBranch).filter(b => !branchOrder.includes(b)).sort()];
+  const bColors = {'สาขา 1':'#1a5c9e','สาขา 2':'#1a6b4a','สาขา 3':'#7a4f0d'};
+
+  el.innerHTML = branches.map(branch => {
+    const custs = byBranch[branch] || [];
+    const isOpen = _branchOpen[branch] !== false;
+    const color = bColors[branch] || '#888';
+    return `
+    <div class="branch-group">
+      <div class="branch-header ${isOpen ? 'open' : ''}" id="bh_${branch}"
+           onclick="toggleBranch('${branch}')">
+        <span class="bh-icon">▶</span>
+        <span class="bh-label" style="color:${color}">${branch}</span>
+        <span class="bh-count">${custs.length} ราย</span>
+      </div>
+      <div class="branch-body ${isOpen ? '' : 'closed'}" id="bb_${branch}"
+           style="max-height:${isOpen ? custs.length * 52 + 'px' : '0'}">
+        ${custs.map(c => `
+        <div class="case-item ${c.id === selectedCustId ? 'selected' : ''}"
+             onclick="selectSidebarCase('${c.id}')">
+          <div style="flex:1;min-width:0">
+            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name.replace('คุณ ','')}</div>
+            <div style="font-size:10px;color:#bbb;margin-top:1px">${c.id} · ดิว ${fmtDue(c.due_date)}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function filterSidebarCases(q) {
@@ -494,9 +542,19 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .nav-badge{font-size:10px;background:#c45570;color:#fff;border-radius:10px;padding:1px 6px;margin-left:auto;font-weight:600}
 /* case list in sidebar */
 .sidebar-cases{padding:0 0 12px}
-.case-item{display:flex;align-items:center;gap:6px;padding:7px 14px;cursor:pointer;font-size:12px;color:#555;transition:background .1s;border-left:3px solid transparent}
+.branch-group{}
+.branch-header{display:flex;align-items:center;gap:6px;padding:8px 14px 6px;cursor:pointer;user-select:none;transition:background .1s;border-top:1px solid #f0ede8}
+.branch-header:hover{background:#f9f7f4}
+.branch-header .bh-icon{font-size:12px;color:#bbb;transition:transform .2s;flex-shrink:0}
+.branch-header.open .bh-icon{transform:rotate(90deg)}
+.branch-header .bh-label{font-size:11px;font-weight:700;color:#888;flex:1;text-transform:uppercase;letter-spacing:.4px}
+.branch-header .bh-count{font-size:10px;background:#f0ede8;color:#999;border-radius:10px;padding:1px 6px}
+.branch-body{overflow:hidden;transition:max-height .25s ease}
+.branch-body.closed{max-height:0!important}
+.case-item{display:flex;align-items:center;gap:6px;padding:7px 14px 7px 20px;cursor:pointer;font-size:12px;color:#555;transition:background .1s;border-left:3px solid transparent}
 .case-item:hover{background:#f5fbf7;color:#1a6b4a}
 .case-item.selected{background:#e8f5ee;color:#1a6b4a;border-left-color:#1a6b4a;font-weight:600}
+.case-due{font-size:10px;color:#bbb;white-space:nowrap;flex-shrink:0}
 .case-search{margin:6px 10px;padding:6px 10px;width:calc(100% - 20px);border:1px solid #e0dbd2;border-radius:7px;font-size:12px;font-family:inherit;outline:none}
 .case-search:focus{border-color:#1a6b4a}
 /* main content */
