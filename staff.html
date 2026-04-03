@@ -487,6 +487,7 @@ window.updateEntryDate = updateEntryDate;
 window.loadExistingReq = loadExistingReq;
 window.renderCatTabs   = renderCatTabs;
 window.filterSidebarCases = filterSidebarCases;
+window.toggleDashBranch = toggleDashBranch;
 window.selectSidebarCase  = selectSidebarCase;
 window.toggleBranch   = toggleBranch;
 window.setPage        = setPage;
@@ -594,6 +595,7 @@ function selectSidebarCase(id) {
 }
 
 let _dashSearch = '';
+let _dashBranchOpen = {'สาขา 1': true, 'สาขา 2': true, 'สาขา 3': true};
 let _dashMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'); // init to current month
 
 function buildDashMonthTabs() {
@@ -672,6 +674,25 @@ function filterDashboard(q) {
   renderDashboard();
 }
 
+function toggleDashBranch(branch) {
+  _dashBranchOpen[branch] = !_dashBranchOpen[branch];
+  const body = document.getElementById('dbb_' + branch);
+  const arrow = document.getElementById('dba_' + branch);
+  if (!body) return;
+  if (_dashBranchOpen[branch]) {
+    body.style.maxHeight = body.scrollHeight + 'px';
+    body.classList.remove('collapsed');
+    if (arrow) arrow.style.transform = 'rotate(0deg)';
+  } else {
+    body.style.maxHeight = body.scrollHeight + 'px';
+    requestAnimationFrame(() => {
+      body.style.maxHeight = '0';
+      body.classList.add('collapsed');
+      if (arrow) arrow.style.transform = 'rotate(-90deg)';
+    });
+  }
+}
+
 function renderDashboard() {
   const el = document.getElementById('dash-grid');
   if (!el) return;
@@ -696,14 +717,17 @@ function renderDashboard() {
     const custs = list.filter(c => c.branch === branch)
       .sort((a, b) => getDueDay(a.due_date) - getDueDay(b.due_date));
     if (custs.length === 0 && _dashSearch) return '';
+    const isOpen = _dashBranchOpen[branch] !== false;
     return `
     <div class="branch-card">
-      <div class="branch-card-header ${bClass[bi]}">
+      <div class="branch-card-header ${bClass[bi]}" onclick="toggleDashBranch('${branch}')" style="cursor:pointer;user-select:none">
+        <span id="dba_${branch}" style="font-size:12px;transition:transform .22s;transform:rotate(${isOpen?'0':'-90'}deg);flex-shrink:0">▼</span>
         <span>${bIcon[bi]}</span>
-        <span>${branch}</span>
+        <span style="flex:1">${branch}</span>
         <span class="bc-count">${custs.length} ราย</span>
       </div>
-      <div class="branch-card-body">
+      <div class="branch-card-body ${isOpen ? '' : 'collapsed'}" id="dbb_${branch}"
+           style="max-height:${isOpen ? 'none' : '0'}">
         ${custs.length === 0
           ? '<div style="padding:12px 14px;font-size:12px;color:#bbb">ไม่มีเคส</div>'
           : custs.map((cust, idx) => `
@@ -802,7 +826,7 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
   .topbar{padding:10px 14px}
   .card{padding:12px 14px;border-radius:10px}
   .dash-grid{grid-template-columns:1fr;gap:10px}
-  .branch-card-body{max-height:none;overflow-y:visible}
+  .branch-card-body{max-height:none!important;overflow-y:visible}
   .dash-case-row{padding:10px 14px}
   .dash-case-name{font-size:13px}
   .month-tab-btn{font-size:12px;padding:7px 13px}
@@ -876,7 +900,8 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .bc-b1{background:linear-gradient(135deg,#1a5c9e,#2471c2);color:#fff}
 .bc-b2{background:linear-gradient(135deg,#1a6b4a,#229960);color:#fff}
 .bc-b3{background:linear-gradient(135deg,#7a4f0d,#b07020);color:#fff}
-.branch-card-body{max-height:calc(100vh - 260px);overflow-y:auto}
+.branch-card-body{max-height:calc(100vh - 260px);overflow-y:auto;transition:max-height .25s ease;overflow:hidden}
+.branch-card-body.collapsed{max-height:0!important;overflow:hidden}
 .dash-case-row{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:.5px solid #f0ede8;cursor:pointer;transition:background .1s}
 .dash-case-row:last-child{border-bottom:none}
 .dash-case-row:hover{background:#f5fbf7}
