@@ -64,7 +64,10 @@ input, select, textarea, button { font-family: inherit; font-size: 14px; }
   .content { padding: 12px; }
   .stats-row { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .stat-value { font-size: 20px; }
-  .stat-card { padding: 12px; }
+  .stat-card { padding: 12px 12px 10px; }
+  .stat-icon { font-size: 15px; margin-bottom: 6px; }
+  .chart-grid { grid-template-columns: 1fr; }
+  .dash-controls { gap: 6px; }
   .hamburger { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; cursor: pointer; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); flex-shrink: 0; font-size: 18px; -webkit-tap-highlight-color: transparent; }
   .btn { padding: 8px 14px; font-size: 13px; }
   .btn-sm { padding: 6px 10px; font-size: 12px; }
@@ -121,13 +124,20 @@ input, select, textarea, button { font-family: inherit; font-size: 14px; }
 
 /* Stats row */
 .stats-row { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 20px; }
-.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
-.stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
-.stat-value { font-size: 24px; font-weight: 600; color: var(--text); font-family: 'IBM Plex Mono', monospace; }
-.stat-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; position: relative; overflow: hidden; }
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--border); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.stat-card.green::before { background: var(--accent); }
+.stat-card.red::before { background: var(--danger); }
+.stat-card.amber::before { background: var(--warning); }
+.stat-card.blue::before { background: var(--b1); }
+.stat-icon { font-size: 18px; margin-bottom: 8px; line-height: 1; }
+.stat-label { font-size: 11px; color: var(--text3); font-weight: 500; letter-spacing: .3px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-value { font-size: 22px; font-weight: 700; color: var(--text); font-family: 'IBM Plex Mono', monospace; line-height: 1.1; }
+.stat-sub { font-size: 11px; color: var(--text3); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-card.green .stat-value { color: var(--accent); }
 .stat-card.red .stat-value { color: var(--danger); }
 .stat-card.amber .stat-value { color: var(--warning); }
+.stat-card.blue .stat-value { color: var(--b1); }
 
 /* Table */
 .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
@@ -192,9 +202,9 @@ td { padding: 10px 12px; font-size: 13px; vertical-align: middle; }
 .bill-note { font-size: 12px; color: var(--text2); }
 
 /* Dashboard chart */
-.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
 .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
-.chart-card h3 { font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 12px; }
+.chart-card h3 { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .4px; }
 
 /* Alert strip */
 .alert { padding: 10px 14px; border-radius: var(--radius); font-size: 13px; margin-bottom: 12px; display: flex; align-items: flex-start; gap: 8px; }
@@ -205,9 +215,18 @@ td { padding: 10px 12px; font-size: 13px; vertical-align: middle; }
 
 /* Month tabs */
 .month-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 16px; }
-.month-tab { padding: 5px 12px; border: 1px solid var(--border); border-radius: 20px; cursor: pointer; font-size: 12px; color: var(--text2); background: var(--surface); transition: all .15s; }
+.month-tab { padding: 5px 13px; border: 1px solid var(--border); border-radius: 20px; cursor: pointer; font-size: 12px; color: var(--text2); background: var(--surface); transition: all .15s; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
 .month-tab:hover { border-color: var(--accent); color: var(--accent); }
-.month-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.month-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 500; }
+/* Dashboard month strip — horizontal scroll, no wrap */
+#dash-month-btns { overflow-x: auto; flex-wrap: nowrap !important; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 4px; }
+#dash-month-btns::-webkit-scrollbar { display: none; }
+/* Dashboard year/mode controls */
+.dash-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.dash-seg { display: flex; gap: 0; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 2px; overflow: hidden; }
+.dash-seg .month-tab { border: none; border-radius: 18px; padding: 4px 12px; font-size: 12px; }
+.dash-seg .month-tab.active { box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.dash-view-label { font-size: 12px; color: var(--text3); font-weight: 500; white-space: nowrap; }
 
 /* Progress bar */
 .progress-wrap { margin-top: 6px; }
@@ -593,63 +612,81 @@ if (sessionStorage.getItem("dd_admin") === "1") {
     <!-- DASHBOARD PAGE -->
     <div class="page active" id="page-dashboard">
 
-      <!-- Year/Mode selector -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-        <span style="font-size:13px;color:var(--text2);font-weight:500">ปี:</span>
+      <!-- Year / View controls -->
+      <div class="dash-controls">
+        <span class="dash-view-label">ปี:</span>
         <div id="dash-year-tabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-        <button class="btn btn-sm" onclick="dashAddYear()" style="font-size:12px">+ เพิ่มปี</button>
-        <div style="display:flex;gap:4px;margin-left:10px">
+        <button class="btn btn-sm" onclick="dashAddYear()" style="font-size:11px;padding:4px 10px">+ ปี</button>
+        <div style="flex:1;min-width:4px"></div>
+        <div class="dash-seg">
           <button id="dash-btn-month" class="month-tab active" onclick="setDashView('month')">รายเดือน</button>
           <button id="dash-btn-year"  class="month-tab"        onclick="setDashView('year')">รายปี</button>
         </div>
       </div>
-      <div id="dash-month-btns" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px"></div>
 
+      <!-- Month strip — horizontal scroll -->
+      <div id="dash-month-btns" style="display:flex;gap:6px;margin-bottom:16px"></div>
+
+      <!-- Stat cards -->
       <div class="stats-row">
-        <div class="stat-card">
-          <div class="stat-label">ลูกค้าทั้งหมด</div>
+        <div class="stat-card blue">
+          <div class="stat-icon">👥</div>
           <div class="stat-value" id="s-total">0</div>
+          <div class="stat-label">ลูกค้าทั้งหมด</div>
           <div class="stat-sub">3 สาขา</div>
         </div>
         <div class="stat-card green">
-          <div class="stat-label" id="s-revenue-label">รายได้/เดือน</div>
+          <div class="stat-icon">💰</div>
           <div class="stat-value" id="s-revenue">0</div>
-          <div class="stat-sub">บาท (จากประวัติชำระ)</div>
+          <div class="stat-label" id="s-revenue-label">รายได้/เดือน</div>
+          <div class="stat-sub">บาท</div>
         </div>
-        <div class="stat-card" id="sc-paid">
-          <div class="stat-label" id="s-paid-label">ชำระแล้ว</div>
+        <div class="stat-card" id="sc-paid" style="--top-color:var(--paid)">
+          <div class="stat-icon">✅</div>
           <div class="stat-value" id="s-paid">0</div>
+          <div class="stat-label" id="s-paid-label">ชำระแล้ว</div>
           <div class="stat-sub">ราย</div>
         </div>
         <div class="stat-card red">
-          <div class="stat-label" id="s-unpaid-label">ค้างชำระ</div>
+          <div class="stat-icon">⏳</div>
           <div class="stat-value" id="s-unpaid">0</div>
+          <div class="stat-label" id="s-unpaid-label">ค้างชำระ</div>
           <div class="stat-sub">ราย</div>
         </div>
       </div>
 
+      <!-- Charts -->
       <div class="chart-grid">
         <div class="chart-card">
           <h3 id="dchart1-title">รายได้ต่อสาขา</h3>
-          <div style="position:relative;height:180px"><canvas id="dchart1"></canvas></div>
+          <div style="position:relative;height:170px"><canvas id="dchart1"></canvas></div>
         </div>
         <div class="chart-card">
-          <h3 id="dchart2-title">การชำระบิล</h3>
+          <h3 id="dchart2-title">สถานะการชำระบิล</h3>
           <div id="dc-progress">
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
-              <span>ชำระแล้ว <b id="dc-paid-pct">0%</b></span>
-              <span id="dc-paid-amt" style="font-family:'IBM Plex Mono',monospace;font-size:13px">฿0 / ฿0</span>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+              <span style="font-size:13px;font-weight:600;color:var(--accent)"><b id="dc-paid-pct">0%</b> ชำระแล้ว</span>
+              <span id="dc-paid-amt" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2)">฿0 / ฿0</span>
             </div>
             <div class="progress-bar"><div class="progress-fill" id="dc-fill" style="width:0%"></div></div>
-            <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap">
-              <div style="font-size:12px;color:var(--paid)">✓ ชำระแล้ว: <b id="dc-paid-n">0</b> ราย</div>
-              <div style="font-size:12px;color:var(--warning)">◑ บางส่วน: <b id="dc-partial-n">0</b> ราย</div>
-              <div style="font-size:12px;color:var(--unpaid)">✗ ยังไม่ชำระ: <b id="dc-unpaid-n">0</b> ราย</div>
+            <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
+              <div style="display:flex;justify-content:space-between;font-size:12px">
+                <span style="color:var(--paid)">✓ ชำระแล้ว</span>
+                <b id="dc-paid-n">0</b>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:12px">
+                <span style="color:var(--warning)">◑ บางส่วน</span>
+                <b id="dc-partial-n">0</b>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:12px">
+                <span style="color:var(--danger)">✗ ค้างชำระ</span>
+                <b id="dc-unpaid-n">0</b>
+              </div>
             </div>
           </div>
           <div style="margin-top:14px">
             <h3 style="margin-bottom:8px">รายได้รายเดือน</h3>
-            <div style="position:relative;height:120px"><canvas id="dchart2"></canvas></div>
+            <div style="position:relative;height:110px"><canvas id="dchart2"></canvas></div>
           </div>
         </div>
       </div>
@@ -663,7 +700,6 @@ if (sessionStorage.getItem("dd_admin") === "1") {
         <button class="month-tab"        id="rbf-b3"   onclick="setReminderBranch('สาขา 3')">สาขา 3</button>
       </div>
       <div id="billing-reminders"></div>
-
 
     </div>
 
