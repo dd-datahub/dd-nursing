@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>DD Nursing Home — ระบบจัดการลูกค้า</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -48,17 +48,37 @@ input, select, textarea, button { font-family: inherit; font-size: 14px; }
 
 /* Mobile responsive */
 @media (max-width: 640px) {
-  .sidebar { position: fixed; top: 0; left: 0; height: 100vh; transform: translateX(-100%); box-shadow: 4px 0 20px rgba(0,0,0,.15); }
+  .sidebar { position: fixed; top: 0; left: 0; height: 100vh; transform: translateX(-100%); box-shadow: 4px 0 20px rgba(0,0,0,.15); width: 240px !important; min-width: 240px !important; }
   .sidebar.open { transform: translateX(0); }
   .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 199; }
   .sidebar-overlay.open { display: block; }
   .main { width: 100%; }
-  .topbar { padding: 0 12px; gap: 8px; }
-  .search-wrap input { width: 140px; font-size: 12px; }
+  .topbar { padding: 0 12px; gap: 8px; height: 52px; }
+  .search-wrap input { width: 130px; font-size: 13px; }
   .topbar-title { font-size: 14px; }
   .content { padding: 12px; }
   .stats-row { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .hamburger { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; cursor: pointer; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); flex-shrink: 0; font-size: 16px; }
+  .stat-value { font-size: 20px; }
+  .stat-card { padding: 12px; }
+  .hamburger { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; cursor: pointer; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); flex-shrink: 0; font-size: 18px; -webkit-tap-highlight-color: transparent; }
+  .btn { padding: 8px 14px; font-size: 13px; }
+  .btn-sm { padding: 6px 10px; font-size: 12px; }
+  .table-header { padding: 10px 12px; flex-wrap: wrap; gap: 8px; }
+  .filter-row { gap: 6px; padding: 8px 12px; }
+  .filter-row select, .filter-row input { padding: 7px 10px; font-size: 13px; }
+  td { padding: 9px 10px; font-size: 13px; }
+  thead th { padding: 9px 10px; }
+  .modal { width: calc(100vw - 20px) !important; max-width: 100%; margin: 10px; border-radius: 16px; }
+  .modal-body { padding: 14px; }
+  .modal-head { padding: 14px 16px 12px; }
+  .modal-foot { padding: 12px 14px; }
+  .form-row { grid-template-columns: 1fr !important; }
+  .pagination { padding: 10px 12px; gap: 6px; font-size: 12px; }
+}
+@media (max-width: 900px) and (min-width: 641px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .sidebar { width: 180px; min-width: 180px; }
+  .content { padding: 14px; }
 }
 @media (min-width: 641px) {
   .hamburger { display: none; }
@@ -70,7 +90,7 @@ input, select, textarea, button { font-family: inherit; font-size: 14px; }
 .brand-logo { font-size: 18px; font-weight: 600; color: var(--accent); letter-spacing: -.3px; }
 .brand-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
 .nav { padding: 8px 0; flex: 1; }
-.nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 16px; cursor: pointer; color: var(--text2); font-size: 13px; border-radius: 0; transition: all .15s; border-left: 3px solid transparent; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; color: var(--text2); font-size: 13px; border-radius: 0; transition: all .15s; border-left: 3px solid transparent; -webkit-tap-highlight-color: transparent; }
 .nav-item:hover { background: var(--surface2); color: var(--text); }
 .nav-item.active { background: var(--accent-light); color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
 .nav-icon { width: 18px; text-align: center; font-size: 15px; }
@@ -108,7 +128,7 @@ input, select, textarea, button { font-family: inherit; font-size: 14px; }
 .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
 .table-header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
 .table-header h3 { font-size: 14px; font-weight: 500; flex: 1; }
-.filter-row { display: flex; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface2); flex-wrap: wrap; }
+.filter-row { display: flex; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface2); flex-wrap: wrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .filter-row select, .filter-row input { padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); outline: none; font-size: 13px; }
 .filter-row select:focus, .filter-row input:focus { border-color: var(--accent); }
 table { width: 100%; border-collapse: collapse; }
@@ -136,7 +156,7 @@ td { padding: 10px 12px; font-size: 13px; vertical-align: middle; }
 /* Modal */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 100; align-items: center; justify-content: center; }
 .modal-overlay.open { display: flex; }
-.modal { background: var(--surface); border-radius: var(--radius-lg); width: 600px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-md); }
+.modal { background: var(--surface); border-radius: var(--radius-lg); width: 600px; max-width: 96vw; max-height: 92vh; overflow-y: auto; box-shadow: var(--shadow-md); -webkit-overflow-scrolling: touch; }
 .modal-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
 .modal-head h2 { font-size: 16px; font-weight: 600; flex: 1; }
 .modal-close { cursor: pointer; color: var(--text3); font-size: 20px; line-height: 1; padding: 2px 6px; border-radius: 4px; }

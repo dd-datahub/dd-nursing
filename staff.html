@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>DD Nursing — บันทึกเบิกของ</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script type="module">
@@ -641,6 +641,12 @@ function fmtDueForMonth(due_date, ym) {
   return `${d} ${thaiM[m]} ${y+543}`;
 }
 
+function setBottomNav(page) {
+  document.querySelectorAll('.bnav-item').forEach(b => b.classList.remove('active'));
+  const bnav = document.getElementById('bnav-' + page);
+  if (bnav) bnav.classList.add('active');
+}
+
 function setPage(page) {
   // nav active
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -654,6 +660,11 @@ function setPage(page) {
   const titles = {dashboard:'รายชื่อเคส', req:'บันทึกเบิกของ'};
   const tb = document.getElementById('topbar-title');
   if (tb) tb.textContent = titles[page] || page;
+  // sync bottom nav
+  setBottomNav(page);
+  // scroll to top
+  const mc = document.querySelector('.main-content');
+  if (mc) mc.scrollTop = 0;
 }
 
 function filterDashboard(q) {
@@ -723,9 +734,9 @@ function selectFromDashboard(id) {
   selectCust(id);
   setPage('req');
   renderDashboard(); // update highlight
-  // scroll req page to top
-  const el = document.getElementById('page-req');
-  if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  // scroll main content to top
+  const mc = document.querySelector('.main-content');
+  if (mc) mc.scrollTo({top: 0, behavior: 'smooth'});
 }
 
 window.addEventListener("firebaseReady", function() {
@@ -771,15 +782,61 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 /* top bar */
 .topbar{background:#fff;border-bottom:1px solid #e8e5e0;padding:10px 16px;display:flex;align-items:center;gap:10px;font-size:13px;position:sticky;top:0;z-index:10}
 .topbar .topbar-title{font-weight:600;color:#1a1916;flex:1}
-.card{background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
+.card{background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
 .card-title{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
-/* Mobile: collapse sidebar */
-@media(max-width:600px){
-  .sidebar{width:56px;min-width:56px}
+/* ===== RESPONSIVE — Mobile / Tablet / Desktop ===== */
+
+/* Tablet: 2-col dashboard */
+@media(max-width:960px) and (min-width:641px){
+  .dash-grid{grid-template-columns:repeat(2,1fr)}
+  .sidebar{width:64px;min-width:64px}
   .sidebar-logo,.sidebar-sub,.sidebar-section,.nav-item span:not(.nav-icon),.nav-badge,.sidebar-cases,.case-search{display:none}
   .nav-item{justify-content:center;padding:10px}
+  .main-content{padding:12px 14px 14px}
 }
-.branch-btn{padding:6px 14px;border:1px solid #e0dbd2;border-radius:20px;cursor:pointer;font-size:12px;color:#666;background:#fff;font-family:inherit;transition:all .15s}
+
+/* Mobile: hide sidebar, show bottom nav */
+@media(max-width:640px){
+  .sidebar{display:none}
+  .main-content{padding:10px 12px 76px}
+  .topbar{padding:10px 14px}
+  .card{padding:12px 14px;border-radius:10px}
+  .dash-grid{grid-template-columns:1fr;gap:10px}
+  .branch-card-body{max-height:none;overflow-y:visible}
+  .dash-case-row{padding:10px 14px}
+  .dash-case-name{font-size:13px}
+  .month-tab-btn{font-size:12px;padding:7px 13px}
+  .save-btn{font-size:16px;padding:15px}
+  .status-toggle-btn{padding:14px 16px;font-size:14px}
+  .cat-tab{padding:8px 14px;font-size:13px}
+  .branch-btn{padding:8px 14px;font-size:13px}
+  .cust-list{max-height:200px}
+  .form-row{grid-template-columns:1fr}
+  .topbar-title{font-size:15px}
+}
+
+/* Bottom navigation bar (mobile only) */
+.bottom-nav{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;
+  background:#fff;border-top:1.5px solid #e8e5e0;
+  z-index:200;padding:env(safe-area-inset-bottom,0) 0 0;
+  box-shadow:0 -2px 12px rgba(0,0,0,.08);
+}
+@media(max-width:640px){
+  .bottom-nav{display:flex}
+}
+.bnav-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:8px 0 10px;cursor:pointer;
+  color:#aaa;font-size:10px;gap:3px;border:none;
+  background:none;font-family:inherit;transition:color .15s;
+  -webkit-tap-highlight-color:transparent;
+}
+.bnav-item.active{color:#1a6b4a}
+.bnav-icon{font-size:22px;line-height:1}
+.bnav-label{font-size:10px;font-weight:500}
+.branch-btn{padding:8px 16px;border:1px solid #e0dbd2;border-radius:20px;cursor:pointer;font-size:13px;color:#666;background:#fff;font-family:inherit;transition:all .15s;-webkit-tap-highlight-color:transparent}
 .branch-btn:hover{border-color:#1a6b4a;color:#1a6b4a}
 .branch-btn.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a}
 .search-box{width:100%;padding:8px 12px;border:1px solid #e0dbd2;border-radius:8px;font-size:13px;font-family:inherit;outline:none;margin-top:8px}
@@ -797,7 +854,7 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .month-sel:focus{border-color:#1a6b4a}
 .cust-banner{background:#f5fbf7;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:10px}
 .cat-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-.cat-tab{padding:6px 14px;border:1px solid #e0dbd2;border-radius:20px;cursor:pointer;font-size:12px;color:#666;background:#fff;font-family:inherit;transition:all .15s}
+.cat-tab{padding:8px 15px;border:1px solid #e0dbd2;border-radius:20px;cursor:pointer;font-size:13px;color:#666;background:#fff;font-family:inherit;transition:all .15s;-webkit-tap-highlight-color:transparent}
 .cat-tab:hover{border-color:#1a6b4a;color:#1a6b4a}
 .cat-tab.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a}
 .item-search{width:100%;padding:7px 12px 7px 30px;border:1px solid #e0dbd2;border-radius:8px;font-size:13px;font-family:inherit;outline:none;margin-bottom:10px}
@@ -805,9 +862,9 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .item-search-wrap{position:relative}
 .item-search-wrap::before{content:"🔍";position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px;pointer-events:none}
 .items-title{font-size:12px;font-weight:600;color:#555;margin-bottom:8px}
-.save-btn{width:100%;padding:13px;background:#1a6b4a;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s}
+.save-btn{width:100%;padding:15px;background:#1a6b4a;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s;-webkit-tap-highlight-color:transparent}
 .save-btn:hover{background:#155c3e}
-.save-btn:disabled{background:#999;cursor:not-allowed}
+.save-btn:disabled{background:#bbb;cursor:not-allowed}
 #status{padding:9px 14px;border-radius:8px;font-size:13px;border:1px solid;margin-bottom:10px;display:none}
 #form-section{display:none}
 /* ===== DASHBOARD ===== */
@@ -849,8 +906,9 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .dot-blue{background:#1a5c9e}
 .dot-gray{background:#ccc}
 /* month tabs */
-.month-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-.month-tab-btn{padding:6px 14px;border:1px solid #e0dbd2;border-radius:20px;cursor:pointer;font-size:12px;color:#666;background:#fff;font-family:inherit;transition:all .15s;white-space:nowrap}
+.month-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px}
+.month-tabs::-webkit-scrollbar{display:none}
+.month-tab-btn{padding:6px 14px;border:1px solid #e0dbd2;border-radius:20px;cursor:pointer;font-size:12px;color:#666;background:#fff;font-family:inherit;transition:all .15s;white-space:nowrap;flex-shrink:0;-webkit-tap-highlight-color:transparent}
 .month-tab-btn:hover{border-color:#1a6b4a;color:#1a6b4a}
 .month-tab-btn.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a}
 </style>
@@ -988,5 +1046,18 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
     </div><!-- end main-content -->
   </div><!-- end main column -->
 </div><!-- end app-layout -->
+
+  <!-- Bottom Navigation (mobile only) -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="bnav-item active" id="bnav-dashboard" onclick="setPage('dashboard')">
+      <span class="bnav-icon">📋</span>
+      <span class="bnav-label">รายชื่อเคส</span>
+    </button>
+    <button class="bnav-item" id="bnav-req" onclick="setPage('req')">
+      <span class="bnav-icon">📦</span>
+      <span class="bnav-label">บันทึกเบิก</span>
+    </button>
+  </nav>
+
 </body>
 </html>
