@@ -955,10 +955,25 @@ if (sessionStorage.getItem("dd_admin") === "1") {
     <div class="page" id="page-history">
       <div class="table-wrap">
         <div class="table-header"><h3>ประวัติการชำระเงิน</h3></div>
+
+        <!-- Filter bar -->
+        <div class="filter-row" style="margin-bottom:12px;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);gap:8px;flex-wrap:wrap">
+          <select id="hist-f-month" onchange="renderHistory()" style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;min-width:120px">
+            <option value="">📅 ทุกเดือน</option>
+          </select>
+          <select id="hist-f-branch" onchange="renderHistory()" style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px">
+            <option value="">🏥 ทุกสาขา</option>
+            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option>
+          </select>
+          <button class="btn btn-sm" onclick="document.getElementById('hist-f-month').value='';document.getElementById('hist-f-branch').value='';renderHistory()" style="font-size:12px">✕ ล้าง</button>
+          <div style="flex:1"></div>
+          <div id="hist-summary" style="font-size:13px;color:var(--text2);padding:5px 8px;font-weight:500"></div>
+        </div>
+
         <div style="overflow-x:auto">
           <table>
             <thead><tr>
-              <th>วันที่</th><th>รหัส</th><th>ชื่อลูกค้า</th><th>เดือน</th>
+              <th>วันที่</th><th>รหัส</th><th>ชื่อลูกค้า</th><th>สาขา</th><th>เดือน</th>
               <th style="text-align:right">จำนวน</th><th>ช่องทาง</th><th>หมายเหตุ</th><th></th>
             </tr></thead>
             <tbody id="hist-tbody"></tbody>
@@ -2446,27 +2461,84 @@ function saveCustomer(){
 // HISTORY
 let _editHistIdx = -1;
 
+function _buildHistMonthOptions() {
+  const sel = document.getElementById('hist-f-month');
+  if (!sel) return;
+  const thaiM = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  // collect unique months from payHistory
+  const months = [...new Set(payHistory.map(p => p.month).filter(Boolean))];
+  // sort by mapping thai month label back to approximate date for sorting
+  months.sort((a, b) => {
+    // e.g. "เม.ย. 2569" → sortable
+    const toSort = lbl => {
+      const parts = lbl.split(' ');
+      const yr = parseInt(parts[1]) || 0;
+      const mo = thaiM.indexOf(parts[0]);
+      return yr * 100 + mo;
+    };
+    return toSort(b) - toSort(a); // newest first
+  });
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">📅 ทุกเดือน</option>' +
+    months.map(m => `<option value="${m}" ${m===cur?'selected':''}>${m}</option>`).join('');
+}
+
 function renderHistory(){
   const tbody = document.getElementById('hist-tbody');
   const empty = document.getElementById('hist-empty');
-  if(payHistory.length===0){ tbody.innerHTML=''; empty.style.display='block'; return; }
-  empty.style.display='none';
-  tbody.innerHTML = payHistory.slice(0,100).map((p,i)=>`
-    <tr>
-      <td style="font-size:12px">${p.date}</td>
-      <td class="td-id">${p.id}</td>
-      <td>${p.name}</td>
-      <td style="font-size:12px">${p.month}</td>
-      <td class="td-fee" style="color:var(--accent)">฿${fmt(p.amount)}</td>
-      <td style="font-size:12px">${p.channel}</td>
-      <td style="font-size:12px;color:var(--text3)">${p.note||'—'}</td>
-      <td style="white-space:nowrap">
-        <button class="btn btn-sm" onclick="openEditHistory(${i})" title="แก้ไข">✏️</button>
-        <button class="btn btn-sm" onclick="deleteHistory(${i})" style="color:var(--danger);margin-left:2px" title="ลบ">🗑</button>
-      </td>
-    </tr>
-  `).join('');
+
+  // Build month dropdown options
+  _buildHistMonthOptions();
+
+  const fMonth  = document.getElementById('hist-f-month')?.value  || '';
+  const fBranch = document.getElementById('hist-f-branch')?.value || '';
+
+  // Filter
+  let data = [...payHistory];
+  if (fMonth)  data = data.filter(p => p.month === fMonth);
+  if (fBranch) data = data.filter(p => {
+    const c = customers.find(x => x.id === p.id);
+    return c?.branch === fBranch;
+  });
+
+  // Sort newest first
+  data.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  if (data.length === 0) { tbody.innerHTML=''; empty.style.display='block'; }
+  else {
+    empty.style.display = 'none';
+    // Use original index for edit/delete (must reference payHistory, not filtered)
+    tbody.innerHTML = data.map(p => {
+      const origIdx = payHistory.indexOf(p);
+      const branch  = customers.find(x => x.id === p.id)?.branch || '—';
+      return `
+      <tr>
+        <td style="font-size:12px">${p.date}</td>
+        <td class="td-id">${p.id}</td>
+        <td>${p.name}</td>
+        <td style="font-size:12px;color:var(--text2)">${branch}</td>
+        <td style="font-size:12px">${p.month}</td>
+        <td class="td-fee" style="color:var(--accent)">฿${fmt(p.amount)}</td>
+        <td style="font-size:12px">${p.channel}</td>
+        <td style="font-size:12px;color:var(--text3)">${p.note||'—'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-sm" onclick="openEditHistory(${origIdx})" title="แก้ไข">✏️</button>
+          <button class="btn btn-sm" onclick="deleteHistory(${origIdx})" style="color:var(--danger);margin-left:2px" title="ลบ">🗑</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Summary
+  const total = data.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+  const sumEl = document.getElementById('hist-summary');
+  if (sumEl) {
+    sumEl.innerHTML = data.length > 0
+      ? `${data.length} รายการ &nbsp;|&nbsp; รวม <b style="color:var(--accent)">฿${fmt(total)}</b>`
+      : '';
+  }
 }
+const renderPayHistory = renderHistory; // alias used by realtime listeners
 
 function openEditHistory(idx) {
   const p = payHistory[idx];
