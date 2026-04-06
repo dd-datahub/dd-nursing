@@ -286,13 +286,13 @@ function renderItems() {
     const entryRows = entries.map((e,ei) => `
       <div style="display:flex;align-items:center;gap:6px;margin-top:5px;padding:5px 8px;background:#fff;border-radius:6px;border:1px solid #e0dbd2">
         <span style="font-size:11px;color:#999;min-width:16px">${ei+1}.</span>
-        <div style="position:relative;flex:1;min-width:90px">
-          <label id="datelbl_${item.id}_${ei}"
-            style="display:block;padding:4px 6px;border:1px solid #e0dbd2;border-radius:5px;font-size:12px;cursor:pointer;color:#444;background:#fff;white-space:nowrap;pointer-events:none"
-          >${fmtDate(e.date)}</label>
-          <input type="date" value="${e.date}"
+        <div style="position:relative;flex:1;min-width:90px;height:30px">
+          <span id="datelbl_${item.id}_${ei}"
+            style="position:absolute;inset:0;display:flex;align-items:center;padding:0 6px;font-size:12px;color:#444;white-space:nowrap;pointer-events:none;z-index:2"
+          >${fmtDate(e.date)}</span>
+          <input type="date" id="dateinp_${item.id}_${ei}" value="${e.date}"
             onchange="updateEntryDate('${item.id}',${ei},this.value)"
-            style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;z-index:1">
+            style="position:absolute;inset:0;width:100%;height:100%;opacity:0.01;border:1px solid #e0dbd2;border-radius:5px;cursor:pointer;font-size:16px;background:transparent;-webkit-appearance:none;box-sizing:border-box;padding:0">
         </div>
         <button onclick="adjEntry('${item.id}',${ei},-1)" style="width:26px;height:26px;border:1px solid #ccc;border-radius:5px;cursor:pointer;background:#fff;font-size:15px">−</button>
         <input type="number" min="1" value="${e.qty}" onchange="updateEntry('${item.id}',${ei},'qty',this.value)"
