@@ -288,12 +288,11 @@ function renderItems() {
         <span style="font-size:11px;color:#999;min-width:16px">${ei+1}.</span>
         <div style="position:relative;flex:1;min-width:90px">
           <label id="datelbl_${item.id}_${ei}"
-            style="display:block;padding:4px 6px;border:1px solid #e0dbd2;border-radius:5px;font-size:12px;cursor:pointer;color:#444;background:#fff;white-space:nowrap"
-            onclick="this.nextElementSibling.showPicker?this.nextElementSibling.showPicker():this.nextElementSibling.click()"
+            style="display:block;padding:4px 6px;border:1px solid #e0dbd2;border-radius:5px;font-size:12px;cursor:pointer;color:#444;background:#fff;white-space:nowrap;pointer-events:none"
           >${fmtDate(e.date)}</label>
           <input type="date" value="${e.date}"
             onchange="updateEntryDate('${item.id}',${ei},this.value)"
-            style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;pointer-events:none;border:none">
+            style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;z-index:1">
         </div>
         <button onclick="adjEntry('${item.id}',${ei},-1)" style="width:26px;height:26px;border:1px solid #ccc;border-radius:5px;cursor:pointer;background:#fff;font-size:15px">−</button>
         <input type="number" min="1" value="${e.qty}" onchange="updateEntry('${item.id}',${ei},'qty',this.value)"
