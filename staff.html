@@ -65,6 +65,7 @@ let catalog = DEFAULT_CATALOG;
 let allCustomers = [];
 let filteredCustomers = [];
 let selectedCustId = "";
+let _reqDirty = false;  // true = user has unsaved changes, don't overwrite from Firebase
 let selectedMonth  = "";
 let reqEntries = [];
 let activeBranch = "";
@@ -139,8 +140,9 @@ function loadData() {
   // === Realtime: requisitions for selected customer/month ===
   window._onValue(window._ref(window._db, "requisitions"), snap => {
     window._allRequisitions = snap.exists() ? snap.val() : {};
-    // If a customer is already selected, reload their entries
-    if (selectedCustId && selectedMonth) {
+    // Only reload reqEntries if user has NO unsaved changes
+    // (prevents Firebase sync from overwriting in-progress edits)
+    if (selectedCustId && selectedMonth && !_reqDirty) {
       const key = selectedCustId.replace(/\//g,"_") + "_" + selectedMonth;
       const saved = window._allRequisitions[key];
       if (saved && Array.isArray(saved)) {
@@ -211,6 +213,7 @@ function renderCustList() {
 
 function loadExistingReq() {
   if (!selectedCustId || !selectedMonth) return;
+  _reqDirty = false;  // loading fresh data — reset dirty flag
   const key = selectedCustId.replace(/\//g,"_") + "_" + selectedMonth;
   const saved = (window._allRequisitions || {})[key];
   if (saved && Array.isArray(saved)) {
@@ -316,9 +319,9 @@ function renderItems() {
 }
 
 function addEntry(itemId) {
+  _reqDirty = true;
   reqEntries.push({ itemId, qty:1, date:todayISO });
   renderItems(); renderSaved();
-  // scroll ไปหา item ที่เพิ่งกด + เบิก
   setTimeout(() => {
     const el = document.getElementById('srow_' + itemId);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -327,6 +330,7 @@ function addEntry(itemId) {
 function updateEntry(itemId, ei, field, val) {
   const entries = reqEntries.filter(e=>e.itemId===itemId);
   if (!entries[ei]) return;
+  _reqDirty = true;
   const ri = reqEntries.indexOf(entries[ei]);
   reqEntries[ri][field] = field==="qty" ? Math.max(1,parseInt(val)||1) : val;
   renderSaved();
@@ -335,9 +339,9 @@ function updateEntry(itemId, ei, field, val) {
 function updateEntryDate(itemId, ei, val) {
   const entries = reqEntries.filter(e=>e.itemId===itemId);
   if (!entries[ei]) return;
+  _reqDirty = true;
   const ri = reqEntries.indexOf(entries[ei]);
   reqEntries[ri].date = val;
-  // update button text (no full re-render so focus stays)
   const lbl = document.getElementById(`datelbl_${itemId}_${ei}`);
   if (lbl) lbl.textContent = '📅 ' + fmtDate(val);
   renderSaved();
@@ -345,6 +349,7 @@ function updateEntryDate(itemId, ei, val) {
 function adjEntry(itemId, ei, delta) {
   const entries = reqEntries.filter(e=>e.itemId===itemId);
   if (!entries[ei]) return;
+  _reqDirty = true;
   const ri = reqEntries.indexOf(entries[ei]);
   reqEntries[ri].qty = Math.max(1,(reqEntries[ri].qty||1)+delta);
   renderItems(); renderSaved();
@@ -352,6 +357,7 @@ function adjEntry(itemId, ei, delta) {
 function removeEntry(itemId, ei) {
   const entries = reqEntries.filter(e=>e.itemId===itemId);
   if (!entries[ei]) return;
+  _reqDirty = true;
   reqEntries.splice(reqEntries.indexOf(entries[ei]),1);
   renderItems(); renderSaved();
 }
@@ -402,6 +408,7 @@ async function saveRequisition() {
     const payload = reqEntries.map(e=>({itemId:e.itemId, qty:e.qty, savedAt:e.date, staffSaved:true}));
     await window._set(window._ref(window._db,"requisitions/"+key), payload);
     showStatus("✓ บันทึกสำเร็จแล้วค่ะ", "ok");
+    _reqDirty = false;  // saved — Firebase sync can update freely again
     reqEntries=[];
     renderItems(); renderSaved();
     btn.textContent="✓ บันทึกแล้ว";
