@@ -1155,7 +1155,7 @@ if (sessionStorage.getItem("dd_admin") === "1") {
               <th style="padding:8px 10px;text-align:left;white-space:nowrap">รอบล้าง</th>
               <th style="padding:8px 10px;text-align:left;white-space:nowrap">ล้างล่าสุด</th>
               <th style="padding:8px 10px;text-align:left;white-space:nowrap">นัดต่อไป</th>
-              <th style="padding:8px 10px;text-align:left"></th>
+              <th style="padding:8px 10px;text-align:left;white-space:nowrap">จัดการ</th>
             </tr></thead>
             <tbody id="air-table-body"></tbody>
           </table>
@@ -1219,6 +1219,98 @@ if (sessionStorage.getItem("dd_admin") === "1") {
         </div>
       </div>
 
+    </div>
+
+      <!-- REMOVED UNITS SECTION -->
+      <div class="card" id="air-removed-card" style="margin-top:16px;display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="font-size:14px;font-weight:600;color:var(--text3)">📤 แอร์ที่ถอดออกแล้ว</h3>
+          <button onclick="airToggleRemoved()" id="air-removed-toggle" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:12px;color:var(--text2)">▼ ซ่อน</button>
+        </div>
+        <div id="air-removed-body" style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="background:var(--text3);color:#fff">
+              <th style="padding:8px 10px;text-align:left">รหัส</th>
+              <th style="padding:8px 10px;text-align:left">ยี่ห้อ/รุ่น</th>
+              <th style="padding:8px 10px;text-align:left">ตำแหน่ง</th>
+              <th style="padding:8px 10px;text-align:left">วันที่ถอด</th>
+              <th style="padding:8px 10px;text-align:left">หมายเหตุ</th>
+              <th style="padding:8px 10px"></th>
+            </tr></thead>
+            <tbody id="air-removed-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MODAL: แก้ไขแอร์ -->
+    <div id="air-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;justify-content:center;align-items:center">
+      <div style="background:white;border-radius:14px;padding:22px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h3 style="font-size:15px;font-weight:700">✏️ แก้ไขข้อมูลแอร์</h3>
+          <span onclick="airCloseModal('air-edit-modal')" style="cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</span>
+        </div>
+        <input type="hidden" id="edit-air-id-hidden"/>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="grid-column:1/-1"><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">👥 ผูกกับลูกค้า</label><select id="edit-air-customer" class="input-field" style="width:100%"><option value="">— ยังไม่ระบุ —</option></select></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">ยี่ห้อ</label><input id="edit-air-brand" class="input-field" style="width:100%"/></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">รุ่น</label><input id="edit-air-model" class="input-field" style="width:100%"/></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">BTU</label><input id="edit-air-btu" type="number" class="input-field" style="width:100%"/></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">ล้างทุก (เดือน)</label><input id="edit-air-interval" type="number" min="1" class="input-field" style="width:100%"/></div>
+          <div style="grid-column:1/-1"><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">ตำแหน่งติดตั้ง</label><input id="edit-air-location" class="input-field" style="width:100%"/></div>
+          <div style="grid-column:1/-1"><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">หมายเหตุ</label><textarea id="edit-air-note" class="input-field" rows="2" style="width:100%;resize:vertical"></textarea></div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="airCloseModal('air-edit-modal')" class="btn" style="font-size:13px">ยกเลิก</button>
+          <button onclick="airSaveEdit()" class="btn btn-primary" style="font-size:13px">💾 บันทึก</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: เปลี่ยนแอร์ -->
+    <div id="air-replace-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;justify-content:center;align-items:center">
+      <div style="background:white;border-radius:14px;padding:22px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <h3 style="font-size:15px;font-weight:700">🔄 เปลี่ยนแอร์</h3>
+          <span onclick="airCloseModal('air-replace-modal')" style="cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</span>
+        </div>
+        <p id="replace-air-desc" style="font-size:12.5px;color:var(--text2);margin-bottom:14px;background:var(--surface2);padding:8px 12px;border-radius:8px"></p>
+        <input type="hidden" id="replace-air-id-hidden"/>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">วันที่เปลี่ยน</label><input id="replace-date" type="date" class="input-field" style="width:100%"/></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">ค่าใช้จ่าย (฿)</label><input id="replace-cost" type="number" class="input-field" placeholder="0" style="width:100%"/></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">ยี่ห้อใหม่</label><input id="replace-brand" class="input-field" style="width:100%"/></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">รุ่นใหม่</label><input id="replace-model" class="input-field" style="width:100%"/></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">BTU ใหม่</label><input id="replace-btu" type="number" class="input-field" style="width:100%"/></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">ล้างทุก (เดือน)</label><input id="replace-interval" type="number" min="1" value="6" class="input-field" style="width:100%"/></div>
+          <div style="grid-column:1/-1"><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">หมายเหตุ</label><textarea id="replace-note" class="input-field" rows="2" placeholder="เช่น เปลี่ยนเนื่องจากคอมเพรสเซอร์เสีย..." style="width:100%;resize:vertical"></textarea></div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="airCloseModal('air-replace-modal')" class="btn" style="font-size:13px">ยกเลิก</button>
+          <button onclick="airSaveReplace()" class="btn btn-primary" style="font-size:13px">🔄 เปลี่ยนแอร์</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: ถอดแอร์ -->
+    <div id="air-remove-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;justify-content:center;align-items:center">
+      <div style="background:white;border-radius:14px;padding:22px;width:90%;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <h3 style="font-size:15px;font-weight:700">📤 ถอดแอร์ออก</h3>
+          <span onclick="airCloseModal('air-remove-modal')" style="cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</span>
+        </div>
+        <p id="remove-air-desc" style="font-size:12.5px;color:var(--text2);margin-bottom:14px;background:#fef2f2;padding:8px 12px;border-radius:8px;border-left:3px solid #ef4444"></p>
+        <input type="hidden" id="remove-air-id-hidden"/>
+        <div style="display:grid;gap:10px">
+          <div><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">วันที่ถอด</label><input id="remove-date" type="date" class="input-field" style="width:100%"/></div>
+          <div><label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:3px">สาเหตุ / หมายเหตุ</label><textarea id="remove-reason" class="input-field" rows="2" placeholder="เช่น เสียซ่อมไม่ได้, ห้องว่าง..." style="width:100%;resize:vertical"></textarea></div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="airCloseModal('air-remove-modal')" class="btn" style="font-size:13px">ยกเลิก</button>
+          <button onclick="airConfirmRemove()" style="background:#ef4444;color:white;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:13px;font-weight:600">📤 ถอดแอร์</button>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -5027,10 +5119,11 @@ function airRenderStats() {
   const grid = document.getElementById('air-stats-grid');
   if (!grid) return;
   const totalCost = _airHistories.reduce((s, h) => s + (parseFloat(h.labor)||0) + (parseFloat(h.parts)||0), 0);
-  const upcoming = _airs.filter(a => { const n=_airNextAppt(a.id); return n && _airDaysDiff(n.date) >= 0 && _airDaysDiff(n.date) <= 30; }).length;
-  const overdue  = _airs.filter(a => { const n=_airNextAppt(a.id); return n && _airDaysDiff(n.date) < 0; }).length;
+  const activeAirs = _airs.filter(a => a.status !== 'removed');
+  const upcoming = activeAirs.filter(a => { const n=_airNextAppt(a.id); return n && _airDaysDiff(n.date) >= 0 && _airDaysDiff(n.date) <= 30; }).length;
+  const overdue  = activeAirs.filter(a => { const n=_airNextAppt(a.id); return n && _airDaysDiff(n.date) < 0; }).length;
   grid.innerHTML = [
-    ['❄️', _airs.length, 'แอร์ทั้งหมด'],
+    ['❄️', activeAirs.length, 'แอร์ทั้งหมด'],
     ['🔧', _airHistories.length, 'ครั้งที่ซ่อม/ล้าง'],
     ['💰', '฿' + totalCost.toLocaleString(), 'ค่าใช้จ่ายรวม'],
     ['🔔', upcoming, 'นัดภายใน 30 วัน'],
@@ -5075,6 +5168,7 @@ function airRenderTable() {
   if (!tbody) return;
   const q = (document.getElementById('air-search')?.value || '').toLowerCase();
   const filtered = _airs.filter(a => {
+    if (a.status === 'removed') return false;
     const c = _airGetCust(a.customerId);
     return (a.id+a.brand+a.model+a.location+(c?.name||'')+(c?.id||'')).toLowerCase().includes(q);
   });
@@ -5101,7 +5195,11 @@ function airRenderTable() {
       <td style="padding:9px 10px;text-align:center"><span style="background:var(--surface2);color:var(--text2);font-size:11.5px;padding:2px 8px;border-radius:20px">🗓️ ทุก ${a.interval||6} เดือน</span></td>
       <td style="padding:9px 10px">${last ? _airFmtDate(last.date) : '—'}</td>
       <td style="padding:9px 10px">${nextHtml}</td>
-      <td style="padding:9px 10px"><button onclick="airDeleteUnit('${a.id}')" style="background:#ef4444;color:white;border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:12px">🗑️</button></td>
+      <td style="padding:9px 10px;white-space:nowrap">
+        <button onclick="airOpenEdit('${a.id}')" title="แก้ไข" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px;margin-right:3px">✏️</button>
+        <button onclick="airOpenReplace('${a.id}')" title="เปลี่ยนแอร์" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px;margin-right:3px">🔄</button>
+        <button onclick="airOpenRemove('${a.id}')" title="ถอดแอร์" style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px">📤</button>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -5234,6 +5332,7 @@ function airRefresh() {
   airRenderUpcoming();
   airRenderCharts();
   airRenderTable();
+  airRenderRemoved();
   airRenderHistory();
   airPopulateAirSel();
 }
@@ -5330,6 +5429,180 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // =========================================================
+
+// =========================================================
+// ❄️  AIR MANAGEMENT — EDIT / REPLACE / REMOVE
+// =========================================================
+
+function airCloseModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'none';
+}
+function airOpenModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'flex';
+}
+
+// ── EDIT ──
+function airOpenEdit(airId) {
+  const a = _airs.find(x => x.id === airId);
+  if (!a) return;
+  document.getElementById('edit-air-id-hidden').value = a.id;
+  document.getElementById('edit-air-brand').value    = a.brand || '';
+  document.getElementById('edit-air-model').value    = a.model || '';
+  document.getElementById('edit-air-btu').value      = a.btu || '';
+  document.getElementById('edit-air-location').value = a.location || '';
+  document.getElementById('edit-air-interval').value = a.interval || 6;
+  document.getElementById('edit-air-note').value     = a.note || '';
+  // Populate customer select
+  const sel = document.getElementById('edit-air-customer');
+  sel.innerHTML = '<option value="">— ยังไม่ระบุ —</option>' +
+    (customers || []).map(c => `<option value="${c.id}" ${c.id === a.customerId ? 'selected' : ''}>${c.id} — ${c.name}</option>`).join('');
+  airOpenModal('air-edit-modal');
+}
+function airSaveEdit() {
+  const id = document.getElementById('edit-air-id-hidden').value;
+  const a  = _airs.find(x => x.id === id);
+  if (!a) return;
+  a.customerId = document.getElementById('edit-air-customer').value;
+  a.brand      = document.getElementById('edit-air-brand').value.trim();
+  a.model      = document.getElementById('edit-air-model').value.trim();
+  a.btu        = document.getElementById('edit-air-btu').value;
+  a.location   = document.getElementById('edit-air-location').value.trim();
+  a.interval   = parseInt(document.getElementById('edit-air-interval').value) || 6;
+  a.note       = document.getElementById('edit-air-note').value.trim();
+  _airFbSave('airs/' + _airFbKey(id), a);
+  airCloseModal('air-edit-modal');
+  alert('✅ แก้ไขข้อมูลแอร์เรียบร้อยแล้ว');
+}
+
+// ── REPLACE ──
+function airOpenReplace(airId) {
+  const a = _airs.find(x => x.id === airId);
+  if (!a) return;
+  document.getElementById('replace-air-id-hidden').value = a.id;
+  document.getElementById('replace-air-desc').innerHTML =
+    `<strong>แอร์ปัจจุบัน:</strong> ${a.brand || '—'} ${a.model || ''} (${a.id})<br>📍 ${a.location || ''}`;
+  document.getElementById('replace-brand').value    = a.brand || '';
+  document.getElementById('replace-model').value    = '';
+  document.getElementById('replace-btu').value      = a.btu || '';
+  document.getElementById('replace-interval').value = a.interval || 6;
+  document.getElementById('replace-note').value     = '';
+  document.getElementById('replace-cost').value     = '';
+  document.getElementById('replace-date').value     = new Date().toISOString().split('T')[0];
+  airOpenModal('air-replace-modal');
+}
+function airSaveReplace() {
+  const id    = document.getElementById('replace-air-id-hidden').value;
+  const a     = _airs.find(x => x.id === id);
+  if (!a) return;
+  const date  = document.getElementById('replace-date').value;
+  const brand = document.getElementById('replace-brand').value.trim();
+  const model = document.getElementById('replace-model').value.trim();
+  const btu   = document.getElementById('replace-btu').value;
+  const interval = parseInt(document.getElementById('replace-interval').value) || 6;
+  const cost  = document.getElementById('replace-cost').value;
+  const note  = document.getElementById('replace-note').value.trim();
+  if (!date || !brand) { alert('กรุณาระบุวันที่และยี่ห้อแอร์ใหม่'); return; }
+  // Record replacement history
+  const h = {
+    id: Date.now(), airId: id, date,
+    type: 'other',
+    work: `🔄 เปลี่ยนแอร์ใหม่: ${brand} ${model}` + (note ? ` — ${note}` : ''),
+    tech: '', labor: cost || '0', parts: '0',
+    nextDate: _airCalcNextDate(id, date), note
+  };
+  _airFbSave('air_histories/' + h.id, h);
+  // Update air unit
+  a.brand    = brand;
+  a.model    = model;
+  a.btu      = btu;
+  a.interval = interval;
+  a.replacedDate = date;
+  _airFbSave('airs/' + _airFbKey(id), a);
+  airCloseModal('air-replace-modal');
+  alert('✅ บันทึกการเปลี่ยนแอร์เรียบร้อยแล้ว');
+}
+
+// ── REMOVE ──
+function airOpenRemove(airId) {
+  const a = _airs.find(x => x.id === airId);
+  if (!a) return;
+  document.getElementById('remove-air-id-hidden').value = a.id;
+  document.getElementById('remove-air-desc').innerHTML =
+    `<strong>แอร์:</strong> ${a.brand || '—'} ${a.model || ''} (${a.id})<br>📍 ${a.location || ''}`;
+  document.getElementById('remove-date').value   = new Date().toISOString().split('T')[0];
+  document.getElementById('remove-reason').value = '';
+  airOpenModal('air-remove-modal');
+}
+function airConfirmRemove() {
+  const id     = document.getElementById('remove-air-id-hidden').value;
+  const a      = _airs.find(x => x.id === id);
+  if (!a) return;
+  const date   = document.getElementById('remove-date').value;
+  const reason = document.getElementById('remove-reason').value.trim();
+  if (!date) { alert('กรุณาระบุวันที่ถอด'); return; }
+  // Record removal in history
+  const h = {
+    id: Date.now(), airId: id, date, type: 'other',
+    work: `📤 ถอดแอร์ออก` + (reason ? ` — ${reason}` : ''),
+    tech: '', labor: '0', parts: '0', nextDate: '', note: reason
+  };
+  _airFbSave('air_histories/' + h.id, h);
+  // Mark as removed
+  a.status      = 'removed';
+  a.removedDate = date;
+  a.removedNote = reason;
+  _airFbSave('airs/' + _airFbKey(id), a);
+  airCloseModal('air-remove-modal');
+  alert('✅ ถอดแอร์เรียบร้อยแล้ว');
+}
+
+// ── RESTORE ──
+function airRestoreUnit(airId) {
+  if (!confirm('คืนสถานะแอร์ ' + airId + ' กลับมาใช้งานหรือไม่?')) return;
+  const a = _airs.find(x => x.id === airId);
+  if (!a) return;
+  delete a.status;
+  delete a.removedDate;
+  delete a.removedNote;
+  _airFbSave('airs/' + _airFbKey(airId), a);
+}
+
+// ── RENDER REMOVED ──
+function airRenderRemoved() {
+  const removed = _airs.filter(a => a.status === 'removed');
+  const card = document.getElementById('air-removed-card');
+  const tbody = document.getElementById('air-removed-tbody');
+  if (!card || !tbody) return;
+  card.style.display = removed.length ? 'block' : 'none';
+  tbody.innerHTML = removed.map(a => `
+    <tr style="border-bottom:1px solid var(--border);opacity:.8">
+      <td style="padding:8px 10px;font-weight:600">${a.id}</td>
+      <td style="padding:8px 10px">${a.brand||'—'} ${a.model||''}</td>
+      <td style="padding:8px 10px">📍 ${a.location||'—'}</td>
+      <td style="padding:8px 10px">${a.removedDate ? new Date(a.removedDate).toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'}) : '—'}</td>
+      <td style="padding:8px 10px;font-size:12px;color:var(--text3)">${a.removedNote||'—'}</td>
+      <td style="padding:8px 10px">
+        <button onclick="airRestoreUnit('${a.id}')" style="background:#d1fae5;color:#065f46;border:none;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:12px">♻️ คืนสถานะ</button>
+      </td>
+    </tr>`).join('');
+}
+
+function airToggleRemoved() {
+  const body = document.getElementById('air-removed-body');
+  const btn  = document.getElementById('air-removed-toggle');
+  if (!body || !btn) return;
+  const hidden = body.style.display === 'none';
+  body.style.display = hidden ? 'block' : 'none';
+  btn.textContent = hidden ? '▼ ซ่อน' : '▶ แสดง';
+}
+
+// Close modals when clicking backdrop
+['air-edit-modal','air-replace-modal','air-remove-modal'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('click', e => { if (e.target === el) airCloseModal(id); });
+});
 </script>
 
 <!-- Edit History Modal -->
