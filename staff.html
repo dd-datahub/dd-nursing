@@ -286,14 +286,14 @@ function renderItems() {
     const entryRows = entries.map((e,ei) => `
       <div style="display:flex;align-items:center;gap:6px;margin-top:5px;padding:5px 8px;background:#fff;border-radius:6px;border:1px solid #e0dbd2">
         <span style="font-size:11px;color:#999;min-width:16px">${ei+1}.</span>
-        <div style="position:relative;flex:1;min-width:90px;height:30px">
-          <span id="datelbl_${item.id}_${ei}"
-            style="position:absolute;inset:0;display:flex;align-items:center;padding:0 6px;font-size:12px;color:#444;white-space:nowrap;pointer-events:none;z-index:2"
-          >${fmtDate(e.date)}</span>
-          <input type="date" id="dateinp_${item.id}_${ei}" value="${e.date}"
-            onchange="updateEntryDate('${item.id}',${ei},this.value)"
-            style="position:absolute;inset:0;width:100%;height:100%;opacity:0.01;border:1px solid #e0dbd2;border-radius:5px;cursor:pointer;font-size:16px;background:transparent;-webkit-appearance:none;box-sizing:border-box;padding:0">
-        </div>
+        <button type="button" id="datelbl_${item.id}_${ei}"
+          onclick="openDatePicker('${item.id}',${ei})"
+          style="flex:1;min-width:90px;padding:5px 8px;border:1px solid #e0dbd2;border-radius:5px;font-size:12px;color:#444;background:#fff;cursor:pointer;text-align:left;white-space:nowrap;-webkit-tap-highlight-color:transparent">
+          📅 ${fmtDate(e.date)}
+        </button>
+        <input type="date" id="dateinp_${item.id}_${ei}" value="${e.date}"
+          onchange="updateEntryDate('${item.id}',${ei},this.value)"
+          style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;top:0;left:0">
         <button onclick="adjEntry('${item.id}',${ei},-1)" style="width:26px;height:26px;border:1px solid #ccc;border-radius:5px;cursor:pointer;background:#fff;font-size:15px">−</button>
         <input type="number" min="1" value="${e.qty}" onchange="updateEntry('${item.id}',${ei},'qty',this.value)"
           style="width:50px;padding:4px 6px;border:1px solid #e0dbd2;border-radius:5px;font-size:13px;text-align:center">
@@ -337,9 +337,9 @@ function updateEntryDate(itemId, ei, val) {
   if (!entries[ei]) return;
   const ri = reqEntries.indexOf(entries[ei]);
   reqEntries[ri].date = val;
-  // update just the label text — no full re-render so focus stays
+  // update button text (no full re-render so focus stays)
   const lbl = document.getElementById(`datelbl_${itemId}_${ei}`);
-  if (lbl) lbl.textContent = fmtDate(val);
+  if (lbl) lbl.textContent = '📅 ' + fmtDate(val);
   renderSaved();
 }
 function adjEntry(itemId, ei, delta) {
@@ -481,8 +481,40 @@ function showStatus(msg,type) {
   if(type==="ok") setTimeout(()=>el.style.display="none", 3000);
 }
 
+// Open date picker for an entry row
+function openDatePicker(itemId, ei) {
+  const inp = document.getElementById(`dateinp_${itemId}_${ei}`);
+  if (!inp) return;
+  // Temporarily make it interactive, trigger picker, then hide again
+  inp.style.opacity = '1';
+  inp.style.pointerEvents = 'auto';
+  inp.style.position = 'fixed';
+  inp.style.top = '50%';
+  inp.style.left = '50%';
+  inp.style.width = '1px';
+  inp.style.height = '1px';
+  inp.style.zIndex = '9999';
+  inp.focus();
+  try {
+    if (inp.showPicker) inp.showPicker();
+    else inp.click();
+  } catch(e) { inp.click(); }
+  // hide again after picker closes (blur)
+  const hide = () => {
+    inp.style.opacity = '0';
+    inp.style.pointerEvents = 'none';
+    inp.style.position = 'absolute';
+    inp.style.zIndex = '';
+    inp.removeEventListener('blur', hide);
+    inp.removeEventListener('change', hide);
+  };
+  inp.addEventListener('blur', hide);
+  inp.addEventListener('change', hide);
+}
+
 // Wait for Firebase then load data
 window.updateEntryDate = updateEntryDate;
+window.openDatePicker  = openDatePicker;
 window.loadExistingReq = loadExistingReq;
 window.renderCatTabs   = renderCatTabs;
 window.filterSidebarCases = filterSidebarCases;
