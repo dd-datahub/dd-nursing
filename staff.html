@@ -501,30 +501,110 @@ function showStatus(msg,type) {
 }
 
 // ===== Thai Date Picker =====
+// ===== Thai Calendar Date Picker =====
 let _tdpTarget = null;
+let _tdpYear   = 0;
+let _tdpMonth  = 0; // 1–12
+let _tdpSelDay = 0;
+
+const _THAI_MON_FULL = ["","มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+const _THAI_DOW      = ["อา","จ","อ","พ","พฤ","ศ","ส"];
 
 function openTdp(itemId, ei, currentDate) {
   _tdpTarget = { itemId, ei };
-  const thaiM = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-  const parts = (currentDate || todayISO).split("-").map(Number);
-  const [y, mo, d] = parts;
-  const dayEl = document.getElementById("tdp-day");
-  dayEl.innerHTML = Array.from({length:31},(_,i) =>
-    `<option value="${i+1}" ${i+1===d?"selected":""}>${i+1}</option>`).join("");
-  const monEl = document.getElementById("tdp-month");
-  monEl.innerHTML = thaiM.map((m,i) =>
-    `<option value="${i+1}" ${i+1===mo?"selected":""}>${m}</option>`).join("");
-  const curY = new Date().getFullYear();
-  const yearEl = document.getElementById("tdp-year");
-  yearEl.innerHTML = Array.from({length:5},(_,i) => {
-    const yr = curY - 2 + i;
-    return `<option value="${yr}" ${yr===y?"selected":""}>${yr+543}</option>`;
-  }).join("");
+  const [y, mo, d] = (currentDate || todayISO).split("-").map(Number);
+  _tdpYear   = y;
+  _tdpMonth  = mo;
+  _tdpSelDay = d;
+  _renderTdpCalendar();
   document.getElementById("tdp-overlay").style.display = "block";
   const sheet = document.getElementById("tdp-sheet");
   sheet.style.display = "block";
   sheet.style.transform = "translateY(100%)";
-  requestAnimationFrame(() => { sheet.style.transition = "transform .25s ease"; sheet.style.transform = "translateY(0)"; });
+  requestAnimationFrame(() => {
+    sheet.style.transition = "transform .25s ease";
+    sheet.style.transform  = "translateY(0)";
+  });
+}
+
+function _renderTdpCalendar() {
+  const firstDow    = new Date(_tdpYear, _tdpMonth - 1, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(_tdpYear, _tdpMonth, 0).getDate();
+  const today       = new Date();
+  const isCurMonth  = today.getFullYear() === _tdpYear && today.getMonth() + 1 === _tdpMonth;
+  const todayD      = today.getDate();
+
+  // Header
+  const hdr = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <button onclick="tdpNavMonth(-1)"
+        style="width:34px;height:34px;border:1px solid #e0dbd2;border-radius:50%;background:#fff;cursor:pointer;font-size:18px;line-height:1;color:#555">‹</button>
+      <span style="font-weight:700;font-size:15px;color:#333">${_THAI_MON_FULL[_tdpMonth]} ${_tdpYear+543}</span>
+      <button onclick="tdpNavMonth(1)"
+        style="width:34px;height:34px;border:1px solid #e0dbd2;border-radius:50%;background:#fff;cursor:pointer;font-size:18px;line-height:1;color:#555">›</button>
+    </div>`;
+
+  // Day-of-week header row
+  const dowRow = `<div style="display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px">
+    ${_THAI_DOW.map((h,i) =>
+      `<div style="text-align:center;font-size:11px;font-weight:600;padding:4px 0;color:${i===0?'#c0392b':i===6?'#2856b8':'#888'}">${h}</div>`
+    ).join("")}
+  </div>`;
+
+  // Day cells
+  let cells = Array(firstDow).fill(`<div></div>`);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isSel   = d === _tdpSelDay;
+    const isTday  = isCurMonth && d === todayD;
+    const dow     = (firstDow + d - 1) % 7;
+    const textCol = isSel ? '#fff' : dow===0 ? '#c0392b' : dow===6 ? '#2856b8' : '#333';
+    const bg      = isSel ? '#1a6b4a' : 'transparent';
+    const border  = !isSel && isTday ? '2px solid #1a6b4a' : 'none';
+    const weight  = isSel || isTday ? '700' : '400';
+    cells.push(`
+      <div onclick="tdpSelectDay(${d})"
+        style="display:flex;align-items:center;justify-content:center;aspect-ratio:1;border-radius:50%;
+               background:${bg};border:${border};cursor:pointer;font-size:14px;
+               color:${textCol};font-weight:${weight};-webkit-tap-highlight-color:transparent">
+        ${d}
+      </div>`);
+  }
+  const grid = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${cells.join("")}</div>`;
+
+  // Confirm bar
+  const selLabel = _tdpSelDay
+    ? fmtDate(`${_tdpYear}-${String(_tdpMonth).padStart(2,"0")}-${String(_tdpSelDay).padStart(2,"0")}`)
+    : "ยังไม่ได้เลือก";
+  const bar = `
+    <div style="display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid #f0ede8">
+      <button onclick="closeTdp()"
+        style="flex:1;padding:12px;border:1.5px solid #e0dbd2;border-radius:12px;font-size:14px;background:#f5f3ef;color:#666;cursor:pointer;font-family:inherit">
+        ยกเลิก
+      </button>
+      <div style="flex:2;display:flex;flex-direction:column;align-items:stretch;gap:4px">
+        <span style="text-align:center;font-size:11px;color:#888">วันที่เลือก: <b style="color:#1a6b4a">${selLabel}</b></span>
+        <button onclick="confirmTdp()" ${!_tdpSelDay?"disabled":""}
+          style="padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:600;
+                 background:${_tdpSelDay?'#1a6b4a':'#c8d8cf'};color:#fff;cursor:${_tdpSelDay?'pointer':'default'};font-family:inherit">
+          ✓ ยืนยัน
+        </button>
+      </div>
+    </div>`;
+
+  document.getElementById("tdp-calendar").innerHTML = hdr + dowRow + grid + bar;
+}
+
+function tdpNavMonth(delta) {
+  _tdpMonth += delta;
+  if (_tdpMonth > 12) { _tdpMonth = 1;  _tdpYear++; }
+  if (_tdpMonth < 1)  { _tdpMonth = 12; _tdpYear--; }
+  _tdpSelDay = 0; // reset selection when month changes
+  _renderTdpCalendar();
+}
+
+function tdpSelectDay(d) {
+  _tdpSelDay = d;
+  _renderTdpCalendar();
 }
 
 function closeTdp() {
@@ -532,18 +612,15 @@ function closeTdp() {
   sheet.style.transform = "translateY(100%)";
   setTimeout(() => {
     document.getElementById("tdp-overlay").style.display = "none";
-    sheet.style.display = "none";
+    sheet.style.display    = "none";
     sheet.style.transition = "";
   }, 250);
   _tdpTarget = null;
 }
 
 function confirmTdp() {
-  if (!_tdpTarget) return;
-  const d  = parseInt(document.getElementById("tdp-day").value);
-  const mo = parseInt(document.getElementById("tdp-month").value);
-  const y  = parseInt(document.getElementById("tdp-year").value);
-  const iso = `${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  if (!_tdpTarget || !_tdpSelDay) return;
+  const iso = `${_tdpYear}-${String(_tdpMonth).padStart(2,"0")}-${String(_tdpSelDay).padStart(2,"0")}`;
   updateEntryDate(_tdpTarget.itemId, _tdpTarget.ei, iso);
   const btn = document.getElementById(`tdp_btn_${_tdpTarget.itemId}_${_tdpTarget.ei}`);
   if (btn) btn.textContent = "📅 " + fmtDate(iso);
@@ -555,6 +632,8 @@ window.updateEntryDate = updateEntryDate;
 window.openTdp         = openTdp;
 window.confirmTdp      = confirmTdp;
 window.closeTdp        = closeTdp;
+window.tdpNavMonth     = tdpNavMonth;
+window.tdpSelectDay    = tdpSelectDay;
 window.loadExistingReq = loadExistingReq;
 window.renderCatTabs   = renderCatTabs;
 window.filterSidebarCases = filterSidebarCases;
@@ -1155,40 +1234,16 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
     </button>
   </nav>
 
-<!-- ===== Thai Date Picker Modal ===== -->
+<!-- ===== Thai Calendar Date Picker ===== -->
 <div id="tdp-overlay" onclick="closeTdp()"
   style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.45)"></div>
 <div id="tdp-sheet"
-  style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9001;background:#fff;border-radius:16px 16px 0 0;padding:20px 16px 36px;box-shadow:0 -4px 24px rgba(0,0,0,.18);font-family:'IBM Plex Sans Thai',sans-serif;max-width:480px;margin:0 auto">
-  <div style="width:36px;height:4px;background:#e0dbd2;border-radius:2px;margin:0 auto 16px"></div>
-  <div style="text-align:center;font-size:15px;font-weight:600;color:#333;margin-bottom:16px">📅 เลือกวันที่</div>
-  <div style="display:flex;gap:8px;align-items:flex-end">
-    <div style="flex:1;text-align:center">
-      <div style="font-size:11px;color:#888;font-weight:500;margin-bottom:6px">วัน</div>
-      <select id="tdp-day"
-        style="width:100%;padding:10px 4px;border:1.5px solid #e0dbd2;border-radius:10px;font-size:16px;color:#333;background:#fafaf8;text-align:center;-webkit-appearance:none;appearance:none;cursor:pointer;font-family:'IBM Plex Sans Thai',sans-serif"></select>
-    </div>
-    <div style="flex:2;text-align:center">
-      <div style="font-size:11px;color:#888;font-weight:500;margin-bottom:6px">เดือน</div>
-      <select id="tdp-month"
-        style="width:100%;padding:10px 4px;border:1.5px solid #e0dbd2;border-radius:10px;font-size:16px;color:#333;background:#fafaf8;text-align:center;-webkit-appearance:none;appearance:none;cursor:pointer;font-family:'IBM Plex Sans Thai',sans-serif"></select>
-    </div>
-    <div style="flex:1.6;text-align:center">
-      <div style="font-size:11px;color:#888;font-weight:500;margin-bottom:6px">ปี (พ.ศ.)</div>
-      <select id="tdp-year"
-        style="width:100%;padding:10px 4px;border:1.5px solid #e0dbd2;border-radius:10px;font-size:16px;color:#333;background:#fafaf8;text-align:center;-webkit-appearance:none;appearance:none;cursor:pointer;font-family:'IBM Plex Sans Thai',sans-serif"></select>
-    </div>
-  </div>
-  <div style="display:flex;gap:10px;margin-top:20px">
-    <button onclick="closeTdp()"
-      style="flex:1;padding:14px;border:1.5px solid #e0dbd2;border-radius:12px;font-size:15px;background:#f5f3ef;color:#666;cursor:pointer;font-family:'IBM Plex Sans Thai',sans-serif">
-      ยกเลิก
-    </button>
-    <button onclick="confirmTdp()"
-      style="flex:2;padding:14px;border:none;border-radius:12px;font-size:15px;background:#1a6b4a;color:#fff;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans Thai',sans-serif">
-      ✓ ยืนยัน
-    </button>
-  </div>
+  style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9001;
+         background:#fff;border-radius:16px 16px 0 0;
+         padding:16px 16px 32px;box-shadow:0 -4px 24px rgba(0,0,0,.18);
+         font-family:'IBM Plex Sans Thai',sans-serif;max-width:480px;margin:0 auto">
+  <div style="width:36px;height:4px;background:#e0dbd2;border-radius:2px;margin:0 auto 14px"></div>
+  <div id="tdp-calendar"></div>
 </div>
 
 </body>
