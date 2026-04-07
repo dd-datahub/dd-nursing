@@ -306,14 +306,9 @@ function renderItems() {
     const entryRows = entries.map((e,ei) => `
       <div style="display:flex;align-items:center;gap:6px;margin-top:5px;padding:5px 8px;background:#fff;border-radius:6px;border:1px solid #e0dbd2">
         <span style="font-size:11px;color:#999;min-width:16px">${ei+1}.</span>
-        <button type="button" id="datelbl_${item.id}_${ei}"
-          onclick="openDatePicker('${item.id}',${ei})"
-          style="flex:1;min-width:90px;padding:5px 8px;border:1px solid #e0dbd2;border-radius:5px;font-size:12px;color:#444;background:#fff;cursor:pointer;text-align:left;white-space:nowrap;-webkit-tap-highlight-color:transparent">
-          📅 ${fmtDate(e.date)}
-        </button>
         <input type="date" id="dateinp_${item.id}_${ei}" value="${e.date}"
           onchange="updateEntryDate('${item.id}',${ei},this.value)"
-          style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;top:0;left:0">
+          style="flex:1;min-width:110px;padding:5px 8px;border:1px solid #e0dbd2;border-radius:5px;font-size:12px;color:#444;background:#fff;cursor:pointer;-webkit-appearance:none">
         <button onclick="adjEntry('${item.id}',${ei},-1)" style="width:26px;height:26px;border:1px solid #ccc;border-radius:5px;cursor:pointer;background:#fff;font-size:15px">−</button>
         <input type="number" min="1" value="${e.qty}" onchange="updateEntry('${item.id}',${ei},'qty',this.value)"
           style="width:50px;padding:4px 6px;border:1px solid #e0dbd2;border-radius:5px;font-size:13px;text-align:center">
@@ -359,8 +354,6 @@ function updateEntryDate(itemId, ei, val) {
   _reqDirty = true;
   const ri = reqEntries.indexOf(entries[ei]);
   reqEntries[ri].date = val;
-  const lbl = document.getElementById(`datelbl_${itemId}_${ei}`);
-  if (lbl) lbl.textContent = '📅 ' + fmtDate(val);
   renderSaved();
 }
 function adjEntry(itemId, ei, delta) {
