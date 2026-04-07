@@ -306,9 +306,11 @@ function renderItems() {
     const entryRows = entries.map((e,ei) => `
       <div style="display:flex;align-items:center;gap:6px;margin-top:5px;padding:5px 8px;background:#fff;border-radius:6px;border:1px solid #e0dbd2">
         <span style="font-size:11px;color:#999;min-width:16px">${ei+1}.</span>
-        <input type="date" id="dateinp_${item.id}_${ei}" value="${e.date}"
-          onchange="updateEntryDate('${item.id}',${ei},this.value)"
-          style="flex:1;min-width:110px;padding:5px 8px;border:1px solid #e0dbd2;border-radius:5px;font-size:12px;color:#444;background:#fff;cursor:pointer;-webkit-appearance:none">
+        <button type="button" id="tdp_btn_${item.id}_${ei}"
+          onclick="openTdp('${item.id}',${ei},'${e.date}')"
+          style="flex:1;min-width:90px;padding:5px 8px;border:1px solid #e0dbd2;border-radius:5px;font-size:12px;color:#444;background:#fff;cursor:pointer;text-align:left;white-space:nowrap">
+          📅 ${fmtDate(e.date)}
+        </button>
         <button onclick="adjEntry('${item.id}',${ei},-1)" style="width:26px;height:26px;border:1px solid #ccc;border-radius:5px;cursor:pointer;background:#fff;font-size:15px">−</button>
         <input type="number" min="1" value="${e.qty}" onchange="updateEntry('${item.id}',${ei},'qty',this.value)"
           style="width:50px;padding:4px 6px;border:1px solid #e0dbd2;border-radius:5px;font-size:13px;text-align:center">
@@ -498,40 +500,61 @@ function showStatus(msg,type) {
   if(type==="ok") setTimeout(()=>el.style.display="none", 3000);
 }
 
-// Open date picker for an entry row
-function openDatePicker(itemId, ei) {
-  const inp = document.getElementById(`dateinp_${itemId}_${ei}`);
-  if (!inp) return;
-  // Temporarily make it interactive, trigger picker, then hide again
-  inp.style.opacity = '1';
-  inp.style.pointerEvents = 'auto';
-  inp.style.position = 'fixed';
-  inp.style.top = '50%';
-  inp.style.left = '50%';
-  inp.style.width = '1px';
-  inp.style.height = '1px';
-  inp.style.zIndex = '9999';
-  inp.focus();
-  try {
-    if (inp.showPicker) inp.showPicker();
-    else inp.click();
-  } catch(e) { inp.click(); }
-  // hide again after picker closes (blur)
-  const hide = () => {
-    inp.style.opacity = '0';
-    inp.style.pointerEvents = 'none';
-    inp.style.position = 'absolute';
-    inp.style.zIndex = '';
-    inp.removeEventListener('blur', hide);
-    inp.removeEventListener('change', hide);
-  };
-  inp.addEventListener('blur', hide);
-  inp.addEventListener('change', hide);
+// ===== Thai Date Picker =====
+let _tdpTarget = null;
+
+function openTdp(itemId, ei, currentDate) {
+  _tdpTarget = { itemId, ei };
+  const thaiM = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+  const parts = (currentDate || todayISO).split("-").map(Number);
+  const [y, mo, d] = parts;
+  const dayEl = document.getElementById("tdp-day");
+  dayEl.innerHTML = Array.from({length:31},(_,i) =>
+    `<option value="${i+1}" ${i+1===d?"selected":""}>${i+1}</option>`).join("");
+  const monEl = document.getElementById("tdp-month");
+  monEl.innerHTML = thaiM.map((m,i) =>
+    `<option value="${i+1}" ${i+1===mo?"selected":""}>${m}</option>`).join("");
+  const curY = new Date().getFullYear();
+  const yearEl = document.getElementById("tdp-year");
+  yearEl.innerHTML = Array.from({length:5},(_,i) => {
+    const yr = curY - 2 + i;
+    return `<option value="${yr}" ${yr===y?"selected":""}>${yr+543}</option>`;
+  }).join("");
+  document.getElementById("tdp-overlay").style.display = "block";
+  const sheet = document.getElementById("tdp-sheet");
+  sheet.style.display = "block";
+  sheet.style.transform = "translateY(100%)";
+  requestAnimationFrame(() => { sheet.style.transition = "transform .25s ease"; sheet.style.transform = "translateY(0)"; });
+}
+
+function closeTdp() {
+  const sheet = document.getElementById("tdp-sheet");
+  sheet.style.transform = "translateY(100%)";
+  setTimeout(() => {
+    document.getElementById("tdp-overlay").style.display = "none";
+    sheet.style.display = "none";
+    sheet.style.transition = "";
+  }, 250);
+  _tdpTarget = null;
+}
+
+function confirmTdp() {
+  if (!_tdpTarget) return;
+  const d  = parseInt(document.getElementById("tdp-day").value);
+  const mo = parseInt(document.getElementById("tdp-month").value);
+  const y  = parseInt(document.getElementById("tdp-year").value);
+  const iso = `${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  updateEntryDate(_tdpTarget.itemId, _tdpTarget.ei, iso);
+  const btn = document.getElementById(`tdp_btn_${_tdpTarget.itemId}_${_tdpTarget.ei}`);
+  if (btn) btn.textContent = "📅 " + fmtDate(iso);
+  closeTdp();
 }
 
 // Wait for Firebase then load data
 window.updateEntryDate = updateEntryDate;
-window.openDatePicker  = openDatePicker;
+window.openTdp         = openTdp;
+window.confirmTdp      = confirmTdp;
+window.closeTdp        = closeTdp;
 window.loadExistingReq = loadExistingReq;
 window.renderCatTabs   = renderCatTabs;
 window.filterSidebarCases = filterSidebarCases;
@@ -1131,6 +1154,42 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
       <span class="bnav-label">บันทึกเบิก</span>
     </button>
   </nav>
+
+<!-- ===== Thai Date Picker Modal ===== -->
+<div id="tdp-overlay" onclick="closeTdp()"
+  style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.45)"></div>
+<div id="tdp-sheet"
+  style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9001;background:#fff;border-radius:16px 16px 0 0;padding:20px 16px 36px;box-shadow:0 -4px 24px rgba(0,0,0,.18);font-family:'IBM Plex Sans Thai',sans-serif;max-width:480px;margin:0 auto">
+  <div style="width:36px;height:4px;background:#e0dbd2;border-radius:2px;margin:0 auto 16px"></div>
+  <div style="text-align:center;font-size:15px;font-weight:600;color:#333;margin-bottom:16px">📅 เลือกวันที่</div>
+  <div style="display:flex;gap:8px;align-items:flex-end">
+    <div style="flex:1;text-align:center">
+      <div style="font-size:11px;color:#888;font-weight:500;margin-bottom:6px">วัน</div>
+      <select id="tdp-day"
+        style="width:100%;padding:10px 4px;border:1.5px solid #e0dbd2;border-radius:10px;font-size:16px;color:#333;background:#fafaf8;text-align:center;-webkit-appearance:none;appearance:none;cursor:pointer;font-family:'IBM Plex Sans Thai',sans-serif"></select>
+    </div>
+    <div style="flex:2;text-align:center">
+      <div style="font-size:11px;color:#888;font-weight:500;margin-bottom:6px">เดือน</div>
+      <select id="tdp-month"
+        style="width:100%;padding:10px 4px;border:1.5px solid #e0dbd2;border-radius:10px;font-size:16px;color:#333;background:#fafaf8;text-align:center;-webkit-appearance:none;appearance:none;cursor:pointer;font-family:'IBM Plex Sans Thai',sans-serif"></select>
+    </div>
+    <div style="flex:1.6;text-align:center">
+      <div style="font-size:11px;color:#888;font-weight:500;margin-bottom:6px">ปี (พ.ศ.)</div>
+      <select id="tdp-year"
+        style="width:100%;padding:10px 4px;border:1.5px solid #e0dbd2;border-radius:10px;font-size:16px;color:#333;background:#fafaf8;text-align:center;-webkit-appearance:none;appearance:none;cursor:pointer;font-family:'IBM Plex Sans Thai',sans-serif"></select>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:20px">
+    <button onclick="closeTdp()"
+      style="flex:1;padding:14px;border:1.5px solid #e0dbd2;border-radius:12px;font-size:15px;background:#f5f3ef;color:#666;cursor:pointer;font-family:'IBM Plex Sans Thai',sans-serif">
+      ยกเลิก
+    </button>
+    <button onclick="confirmTdp()"
+      style="flex:2;padding:14px;border:none;border-radius:12px;font-size:15px;background:#1a6b4a;color:#fff;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans Thai',sans-serif">
+      ✓ ยืนยัน
+    </button>
+  </div>
+</div>
 
 </body>
 </html>
