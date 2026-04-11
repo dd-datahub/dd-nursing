@@ -386,19 +386,29 @@ async function fbLoad() {
       // Merge Firebase cat_meta with defaults (keep defaults as fallback)
       Object.assign(CAT_META, d.cat_meta);
     }
+    if (d.customers) {
+      // ใช้ข้อมูลลูกค้าจาก Firebase เป็นหลัก (รองรับการเพิ่ม/แก้ไขลูกค้า)
+      const fbCusts = Object.values(d.customers).map(c => ({...c, _dupName: false}));
+      // Merge กับ RAW: เอา Firebase เป็นหลัก แต่ถ้า RAW มีที่ Firebase ไม่มีให้เพิ่มด้วย
+      const fbIds = new Set(fbCusts.map(c => c.id));
+      const rawOnly = RAW.filter(r => !fbIds.has(r.id));
+      customers = [...fbCusts, ...rawOnly.map(r => ({...r, _dupName: false}))];
+      console.log("✓ Loaded customers from Firebase:", customers.length, "รายการ");
+    } else {
+      // ครั้งแรก: ยังไม่มีใน Firebase → sync จาก RAW ขึ้น Firebase
+      const custObj = {};
+      customers.forEach(x => { custObj[x.id.replace(/\//g,'_')] = x; });
+      if (window._fbSave) {
+        window._fbSave('customers', custObj);
+        console.log("✓ Initial sync customers to Firebase");
+      }
+    }
     if (d.customers_extra) {
       // Merge extra customer data (edits) back
       Object.entries(d.customers_extra).forEach(([id, extra]) => {
         const c = customers.find(x=>x.id===id);
         if (c) Object.assign(c, extra);
       });
-    }
-    // Sync customers from RAW → Firebase (so staff.html always sees latest IDs/names)
-    if (window._fbSave) {
-      const custObj = {};
-      customers.forEach(x => { custObj[x.id.replace(/\//g,'_')] = x; });
-      window._fbSave('customers', custObj);
-      console.log("✓ Synced customers to Firebase");
     }
     // Render after load
     updateDashboard();
