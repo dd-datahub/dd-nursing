@@ -32,16 +32,44 @@ window._auth = auth;
 window._googleSignIn = () => signInWithPopup(auth, googleProvider);
 window._signOut = () => signOut(auth);
 
-onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth, async user => {
   if (user) {
-    window._currentUser = user;
-    const ls = document.getElementById("staff-login-screen");
-    if (ls) ls.style.display = "none";
-    const uname = document.getElementById("staff-user-name");
-    const uphoto = document.getElementById("staff-user-photo");
-    if (uname) uname.textContent = user.displayName || user.email;
-    if (uphoto && user.photoURL) { uphoto.src = user.photoURL; uphoto.style.display = "block"; }
-    window.dispatchEvent(new Event("firebaseReady"));
+    // ตรวจสอบสิทธิ์จาก Firebase allowed_emails
+    try {
+      const snap = await get(ref(db, "allowed_emails"));
+      if (snap.exists()) {
+        const allowed = snap.val();
+        const emailKey = user.email.toLowerCase().replace(/[@.]/g, '_');
+        if (!allowed[emailKey]) {
+          // ไม่มีสิทธิ์ — sign out แล้วแสดงข้อความ
+          await signOut(auth);
+          const errEl = document.getElementById("staff-login-err");
+          const btn = document.querySelector(".staff-google-btn");
+          if (errEl) {
+            errEl.style.display = "block";
+            errEl.innerHTML = `⛔ <b>${user.email}</b><br>ไม่มีสิทธิ์เข้าใช้งานระบบ<br><span style="color:#aaa;font-size:11px">กรุณาติดต่อผู้ดูแลระบบ</span>`;
+          }
+          if (btn) btn.disabled = false;
+          return;
+        }
+      }
+      // อนุญาต — เข้าระบบได้
+      window._currentUser = user;
+      const ls = document.getElementById("staff-login-screen");
+      if (ls) ls.style.display = "none";
+      const uname = document.getElementById("staff-user-name");
+      const uphoto = document.getElementById("staff-user-photo");
+      if (uname) uname.textContent = user.displayName || user.email;
+      if (uphoto && user.photoURL) { uphoto.src = user.photoURL; uphoto.style.display = "block"; }
+      window.dispatchEvent(new Event("firebaseReady"));
+    } catch(e) {
+      // ถ้าโหลด allowed_emails ไม่ได้ (rules ปิด ฯลฯ) — ให้เข้าได้ตามปกติ
+      console.warn("Could not check allowed_emails:", e);
+      window._currentUser = user;
+      const ls = document.getElementById("staff-login-screen");
+      if (ls) ls.style.display = "none";
+      window.dispatchEvent(new Event("firebaseReady"));
+    }
   } else {
     window._currentUser = null;
     const ls = document.getElementById("staff-login-screen");
