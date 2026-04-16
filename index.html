@@ -548,19 +548,21 @@ window._signOut = () => signOut(auth);
 onAuthStateChanged(auth, async user => {
   if (user) {
     window._currentUser = user;
-    // Auto-register admin UID (bootstrap: ถ้า admin_uids ว่าง = คนแรก)
+    // Auto-register admin UID
+    // Rules อนุญาต self-read admin_uids/$uid และ write ถ้า admin_uids ยังว่างอยู่
     try {
       const mySnap = await get(ref(db, `admin_uids/${user.uid}`));
       if (!mySnap.exists()) {
-        const listSnap = await get(ref(db, 'admin_uids'));
-        if (!listSnap.exists()) {
-          await set(ref(db, `admin_uids/${user.uid}`), {
-            email: user.email, displayName: user.displayName || '', addedAt: new Date().toLocaleDateString('th-TH')
-          });
-          console.log('✓ First admin registered:', user.email);
-        }
+        // ลอง write — สำเร็จถ้า admin_uids ว่าง (bootstrap), ล้มเหลวถ้ามีคนอื่นเป็น admin อยู่แล้ว
+        await set(ref(db, `admin_uids/${user.uid}`), {
+          email: user.email, displayName: user.displayName || '', addedAt: new Date().toLocaleDateString('th-TH')
+        });
+        console.log('✓ Admin UID registered:', user.email);
       }
-    } catch(e) { console.warn('admin_uids check failed:', e); }
+    } catch(e) {
+      // write ล้มเหลว = มี admin อยู่แล้วและ user นี้ไม่ใช่ admin → แสดง warning
+      console.warn('Not an admin or admin_uids write failed:', e.message);
+    }
 
     const ls = document.getElementById("login-screen");
     if (ls) ls.style.display = "none";
