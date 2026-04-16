@@ -521,6 +521,18 @@ function listenAllData() {
     const ap = document.querySelector(".page.active")?.id;
     if (ap === "page-billing") renderBilling?.();
   });
+
+  // uid_requests — พนักงานรออนุมัติ (realtime)
+  onValue(ref(db, "uid_requests"), snap => {
+    window._uidRequests = snap.exists() ? snap.val() : {};
+    if (document.querySelector(".page.active")?.id === "page-permissions") renderPermissions?.();
+  });
+
+  // allowed_uids — พนักงานที่อนุมัติแล้ว (realtime)
+  onValue(ref(db, "allowed_uids"), snap => {
+    window._allowedUids = snap.exists() ? snap.val() : {};
+    if (document.querySelector(".page.active")?.id === "page-permissions") renderPermissions?.();
+  });
 }
 
 window._fbSave = fbSave;
@@ -533,21 +545,31 @@ window._googleSignIn = () => signInWithPopup(auth, googleProvider);
 window._signOut = () => signOut(auth);
 
 // รอ auth state — ถ้า login แล้วค่อยโหลดข้อมูล
-onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth, async user => {
   if (user) {
-    // login สำเร็จ — ซ่อนหน้า login แสดงแอป
     window._currentUser = user;
+    // Auto-register admin UID (bootstrap: ถ้า admin_uids ว่าง = คนแรก)
+    try {
+      const mySnap = await get(ref(db, `admin_uids/${user.uid}`));
+      if (!mySnap.exists()) {
+        const listSnap = await get(ref(db, 'admin_uids'));
+        if (!listSnap.exists()) {
+          await set(ref(db, `admin_uids/${user.uid}`), {
+            email: user.email, displayName: user.displayName || '', addedAt: new Date().toLocaleDateString('th-TH')
+          });
+          console.log('✓ First admin registered:', user.email);
+        }
+      }
+    } catch(e) { console.warn('admin_uids check failed:', e); }
+
     const ls = document.getElementById("login-screen");
     if (ls) ls.style.display = "none";
-    // อัพเดท user info ใน UI
-    const uname = document.getElementById("login-user-name");
+    const uname  = document.getElementById("login-user-name");
     const uphoto = document.getElementById("login-user-photo");
-    if (uname) uname.textContent = user.displayName || user.email;
+    if (uname)  uname.textContent = user.displayName || user.email;
     if (uphoto && user.photoURL) { uphoto.src = user.photoURL; uphoto.style.display = "block"; }
-    // โหลดข้อมูลครั้งแรก แล้วเปิด realtime listeners
     fbLoad().then(() => { listenRequisitions(); listenAllData(); });
   } else {
-    // ยังไม่ได้ login — แสดงหน้า login
     window._currentUser = null;
     const ls = document.getElementById("login-screen");
     if (ls) ls.style.display = "flex";
@@ -1106,37 +1128,41 @@ onAuthStateChanged(auth, user => {
 
     <!-- ===== PAGE: จัดการสิทธิ์ ===== -->
     <div class="page" id="page-permissions">
-      <div style="max-width:600px;margin:0 auto">
-        <div style="background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px">
-          <h3 style="font-size:15px;font-weight:700;margin-bottom:4px;color:#1a1916">🔑 สิทธิ์เข้าใช้ระบบพนักงาน</h3>
-          <p style="font-size:12px;color:#888;margin-bottom:20px">เพิ่ม Google email ของพนักงานที่อนุญาตให้เข้าใช้ staff.html ได้ ถ้ารายการว่างเปล่า ทุก Google account เข้าได้</p>
-          <!-- Add form -->
-          <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-bottom:20px">
-            <div>
-              <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Google Email</label>
-              <input id="perm-email" type="email" placeholder="staff@gmail.com"
-                style="width:100%;padding:9px 12px;border:1px solid #e0dbd2;border-radius:8px;font-size:13px;font-family:inherit;outline:none"
-                onkeydown="if(event.key==='Enter')addPermEmail()">
-            </div>
-            <div>
-              <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">ชื่อ/ตำแหน่ง (ไม่บังคับ)</label>
-              <input id="perm-label" type="text" placeholder="เช่น นายสมชาย พยาบาล"
-                style="width:100%;padding:9px 12px;border:1px solid #e0dbd2;border-radius:8px;font-size:13px;font-family:inherit;outline:none"
-                onkeydown="if(event.key==='Enter')addPermEmail()">
-            </div>
-            <button onclick="addPermEmail()"
-              style="padding:9px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap">
-              + เพิ่ม
-            </button>
+      <div style="max-width:620px;margin:0 auto;display:flex;flex-direction:column;gap:14px">
+
+        <!-- รออนุมัติ -->
+        <div style="background:#fff;border-radius:12px;padding:20px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <span style="font-size:16px">⏳</span>
+            <h3 style="font-size:14px;font-weight:700;color:#1a1916;flex:1">รออนุมัติ</h3>
+            <span id="perm-pending-count" style="background:#e67e22;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:2px 8px">0</span>
           </div>
-          <div id="perm-msg" style="font-size:12px;margin-bottom:12px;display:none"></div>
-          <!-- List -->
-          <div id="perm-list">
-            <div style="color:#aaa;font-size:13px;text-align:center;padding:20px">กำลังโหลด...</div>
+          <div id="perm-pending-list">
+            <div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ไม่มีคำขอเข้าใช้งานที่รอการอนุมัติ</div>
           </div>
         </div>
-        <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:14px 16px;font-size:12px;color:#7a5a00">
-          ⚠️ <b>หมายเหตุ:</b> ถ้ารายการ email ว่างเปล่า — พนักงานทุกคนที่มี Google account จะเข้าระบบได้ เพื่อความปลอดภัยควรเพิ่ม email ที่อนุญาตไว้เสมอ
+
+        <!-- พนักงานที่อนุมัติแล้ว -->
+        <div style="background:#fff;border-radius:12px;padding:20px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <span style="font-size:16px">✅</span>
+            <h3 style="font-size:14px;font-weight:700;color:#1a1916;flex:1">พนักงานที่อนุมัติแล้ว</h3>
+            <span id="perm-approved-count" style="background:#1a6b4a;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:2px 8px">0</span>
+          </div>
+          <div id="perm-approved-list">
+            <div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ยังไม่มีพนักงาน</div>
+          </div>
+        </div>
+
+        <div id="perm-msg" style="font-size:12px;display:none;padding:10px 14px;border-radius:8px"></div>
+
+        <!-- คำอธิบาย flow -->
+        <div style="background:#e8f5ee;border:1px solid #b0d8c0;border-radius:10px;padding:14px 16px;font-size:12px;color:#1a4a30;line-height:1.7">
+          🔑 <b>วิธีให้สิทธิ์พนักงาน:</b><br>
+          1. แจ้งพนักงานให้เปิด staff.html แล้ว Login ด้วย Google<br>
+          2. ระบบจะส่งคำขอมาขึ้นที่ "รออนุมัติ" ด้านบนโดยอัตโนมัติ<br>
+          3. กด <b>อนุมัติ</b> — พนักงานจะเข้าระบบได้ทันที<br>
+          4. ต้องการยกเลิกสิทธิ์ → กด <b>ลบ</b> ในรายการที่อนุมัติแล้ว
         </div>
       </div>
     </div>
@@ -4711,80 +4737,106 @@ window.onload = function() { setTimeout(function() { window.print(); }, 600); };
 }
 
 // ========== PERMISSIONS MANAGEMENT ==========
-function emailToKey(email) {
-  return email.toLowerCase().replace(/[@.]/g, '_');
-}
 
 function renderPermissions() {
-  const listEl = document.getElementById('perm-list');
-  if (!listEl) return;
-  const data = window._allowedEmails || {};
-  const entries = Object.values(data);
-  if (entries.length === 0) {
-    listEl.innerHTML = `
-      <div style="text-align:center;padding:24px;color:#aaa;font-size:13px">
-        <div style="font-size:32px;margin-bottom:8px">📭</div>
-        ยังไม่มีรายการ — ทุก Google account เข้าได้
-      </div>`;
-    return;
+  const requests  = window._uidRequests  || {};
+  const approved  = window._allowedUids  || {};
+  const reqList   = Object.entries(requests);
+  const appList   = Object.entries(approved);
+
+  // pending count badge
+  const countEl = document.getElementById('perm-pending-count');
+  if (countEl) countEl.textContent = reqList.length;
+  const appCountEl = document.getElementById('perm-approved-count');
+  if (appCountEl) appCountEl.textContent = appList.length;
+
+  // pending list
+  const pendingEl = document.getElementById('perm-pending-list');
+  if (pendingEl) {
+    if (reqList.length === 0) {
+      pendingEl.innerHTML = '<div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ไม่มีคำขอรออนุมัติ</div>';
+    } else {
+      pendingEl.innerHTML = reqList.map(([uid, r]) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #fde8c8;border-radius:8px;margin-bottom:6px;background:#fffbf5">
+          ${r.photoURL ? `<img src="${r.photoURL}" style="width:34px;height:34px;border-radius:50%;flex-shrink:0">` : '<div style="width:34px;height:34px;border-radius:50%;background:#fde8c8;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>'}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:#1a1916;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.displayName || '(ไม่ระบุชื่อ)'}</div>
+            <div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.email}</div>
+            <div style="font-size:10px;color:#aaa">ขอเข้าเมื่อ ${r.requestedAt ? new Date(r.requestedAt).toLocaleDateString('th-TH') : '-'}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button onclick="approveUid('${uid}')"
+              style="padding:6px 12px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">อนุมัติ</button>
+            <button onclick="rejectUid('${uid}')"
+              style="padding:6px 10px;background:#fff5f5;color:#c0392b;border:1px solid #f5c6cb;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">ปฏิเสธ</button>
+          </div>
+        </div>`).join('');
+    }
   }
-  listEl.innerHTML = `
-    <div style="font-size:11px;color:#888;margin-bottom:8px;font-weight:600">รายการที่อนุญาต (${entries.length} รายการ)</div>
-    ${entries.map(e => `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #eee;border-radius:8px;margin-bottom:6px;background:#fafaf8">
-        <div style="width:34px;height:34px;border-radius:50%;background:#e8f5ee;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:#1a1916;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.label || '(ไม่ระบุชื่อ)'}</div>
-          <div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.email}</div>
-          <div style="font-size:10px;color:#aaa">เพิ่มเมื่อ ${e.addedAt || '-'}</div>
-        </div>
-        <button onclick="removePermEmail('${emailToKey(e.email)}')"
-          style="padding:5px 10px;background:#fff5f5;color:#c0392b;border:1px solid #f5c6cb;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0">
-          ลบ
-        </button>
-      </div>
-    `).join('')}`;
+
+  // approved list
+  const approvedEl = document.getElementById('perm-approved-list');
+  if (approvedEl) {
+    if (appList.length === 0) {
+      approvedEl.innerHTML = '<div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ยังไม่มีพนักงานที่อนุมัติ</div>';
+    } else {
+      approvedEl.innerHTML = appList.map(([uid, u]) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e0f0e8;border-radius:8px;margin-bottom:6px;background:#f5fbf7">
+          ${u.photoURL ? `<img src="${u.photoURL}" style="width:34px;height:34px;border-radius:50%;flex-shrink:0">` : '<div style="width:34px;height:34px;border-radius:50%;background:#e0f0e8;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>'}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:#1a1916;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.displayName || '(ไม่ระบุชื่อ)'}</div>
+            <div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.email}</div>
+            <div style="font-size:10px;color:#aaa">อนุมัติเมื่อ ${u.approvedAt || '-'}</div>
+          </div>
+          <button onclick="revokeUid('${uid}')"
+            style="padding:6px 10px;background:#fff5f5;color:#c0392b;border:1px solid #f5c6cb;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0">ลบสิทธิ์</button>
+        </div>`).join('');
+    }
+  }
 }
 
 function showPermMsg(msg, ok) {
   const el = document.getElementById('perm-msg');
   if (!el) return;
   el.textContent = msg;
-  el.style.color = ok ? '#1a6b4a' : '#c0392b';
-  el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 3000);
+  el.style.color      = ok ? '#1a6b4a' : '#c0392b';
+  el.style.background = ok ? '#e8f5ee' : '#fff5f5';
+  el.style.border     = ok ? '1px solid #b0d8c0' : '1px solid #f5c6cb';
+  el.style.display    = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 4000);
 }
 
-function addPermEmail() {
-  const emailEl = document.getElementById('perm-email');
-  const labelEl = document.getElementById('perm-label');
-  const email = emailEl.value.trim().toLowerCase();
-  const label = labelEl.value.trim();
-  if (!email) { showPermMsg('กรุณาใส่ email', false); return; }
-  if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) { showPermMsg('รูปแบบ email ไม่ถูกต้อง', false); return; }
-  const key = emailToKey(email);
-  if (!window._allowedEmails) window._allowedEmails = {};
-  if (window._allowedEmails[key]) { showPermMsg('email นี้มีอยู่แล้ว', false); return; }
+async function approveUid(uid) {
+  const r = (window._uidRequests || {})[uid];
+  if (!r) return;
   const now = new Date().toLocaleDateString('th-TH', {year:'numeric',month:'short',day:'numeric'});
-  window._allowedEmails[key] = { email, label, addedAt: now };
-  if (window._fbSave) window._fbSave('allowed_emails', window._allowedEmails);
-  emailEl.value = '';
-  labelEl.value = '';
-  renderPermissions();
-  showPermMsg(`✅ เพิ่ม ${email} เรียบร้อย`, true);
+  try {
+    await set(ref(db, `allowed_uids/${uid}`), {
+      email: r.email, displayName: r.displayName || '', photoURL: r.photoURL || '', approvedAt: now
+    });
+    await set(ref(db, `uid_requests/${uid}`), null);  // ลบออกจาก pending
+    showPermMsg(`✅ อนุมัติ ${r.email} เรียบร้อย`, true);
+  } catch(e) { showPermMsg('เกิดข้อผิดพลาด: ' + e.message, false); }
 }
 
-function removePermEmail(key) {
-  if (!window._allowedEmails || !window._allowedEmails[key]) return;
-  const email = window._allowedEmails[key].email;
-  if (!confirm(`ลบ ${email} ออกจากรายการ?`)) return;
-  delete window._allowedEmails[key];
-  if (window._fbSave) {
-    const remaining = Object.keys(window._allowedEmails).length;
-    window._fbSave('allowed_emails', remaining > 0 ? window._allowedEmails : null);
-  }
-  renderPermissions();
-  showPermMsg(`ลบ ${email} แล้ว`, true);
+async function rejectUid(uid) {
+  const r = (window._uidRequests || {})[uid];
+  if (!r) return;
+  if (!confirm(`ปฏิเสธคำขอของ ${r.email}?`)) return;
+  try {
+    await set(ref(db, `uid_requests/${uid}`), null);
+    showPermMsg(`ปฏิเสธ ${r.email} แล้ว`, true);
+  } catch(e) { showPermMsg('เกิดข้อผิดพลาด: ' + e.message, false); }
+}
+
+async function revokeUid(uid) {
+  const u = (window._allowedUids || {})[uid];
+  if (!u) return;
+  if (!confirm(`ยกเลิกสิทธิ์ของ ${u.email}?`)) return;
+  try {
+    await set(ref(db, `allowed_uids/${uid}`), null);
+    showPermMsg(`ยกเลิกสิทธิ์ ${u.email} แล้ว`, true);
+  } catch(e) { showPermMsg('เกิดข้อผิดพลาด: ' + e.message, false); }
 }
 
 // ========== goPage (includes requisition) ==========

@@ -35,12 +35,19 @@ window._auth = auth;
 window._googleSignIn = () => signInWithPopup(auth, googleProvider);
 window._signOut = () => signOut(auth);
 
-function _showStaffDenied(email, msg) {
+function _showStaffMessage(html, type) {
+  // type: 'denied' | 'pending' | 'error'
   const errEl = document.getElementById("staff-login-err");
   const btn   = document.querySelector(".staff-google-btn");
+  const colors = { denied:'#c0392b', pending:'#e67e22', error:'#c0392b' };
   if (errEl) {
-    errEl.style.display = "block";
-    errEl.innerHTML = msg || `⛔ <b>${email}</b><br>ไม่มีสิทธิ์เข้าใช้งานระบบ<br><span style="color:#aaa;font-size:11px">กรุณาติดต่อผู้ดูแลระบบ</span>`;
+    errEl.style.display   = "block";
+    errEl.style.color     = colors[type] || '#c0392b';
+    errEl.style.background = type === 'pending' ? '#fff8f0' : '#fff5f5';
+    errEl.style.border    = type === 'pending' ? '1px solid #fde8c8' : '1px solid #f5c6cb';
+    errEl.style.borderRadius = '8px';
+    errEl.style.padding   = '10px 12px';
+    errEl.innerHTML       = html;
   }
   if (btn) btn.disabled = false;
   const ls = document.getElementById("staff-login-screen");
@@ -55,7 +62,6 @@ function _grantStaffAccess(user) {
   const uphoto = document.getElementById("staff-user-photo");
   if (uname)  uname.textContent = user.displayName || user.email;
   if (uphoto && user.photoURL) { uphoto.src = user.photoURL; uphoto.style.display = "block"; }
-  // dispatch firebaseReady only once
   if (!window._staffReady) {
     window._staffReady = true;
     window.dispatchEvent(new Event("firebaseReady"));
@@ -64,37 +70,46 @@ function _grantStaffAccess(user) {
 
 onAuthStateChanged(auth, async user => {
   if (user) {
-    // บังคับ refresh token ก่อน เพื่อให้ Firebase Database ใช้ token ใหม่แน่ๆ
     try { await user.getIdToken(true); } catch(_) {}
 
-    // ตรวจสอบสิทธิ์จาก Firebase allowed_emails
-    let snap;
+    // 1. ตรวจสอบ allowed_uids (server-enforced)
+    let allowedSnap;
     try {
-      snap = await get(ref(db, "allowed_emails"));
+      allowedSnap = await get(ref(db, `allowed_uids/${user.uid}`));
     } catch(e) {
-      // อ่าน Firebase ไม่ได้ — DENY ปลอดภัยกว่า
-      console.warn("Cannot read allowed_emails:", e);
+      console.warn("Cannot read allowed_uids:", e);
       await signOut(auth);
-      _showStaffDenied(user.email, `⚠️ ไม่สามารถตรวจสอบสิทธิ์ได้<br><span style="font-size:11px;color:#aaa">กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่</span>`);
+      _showStaffMessage(`⚠️ ไม่สามารถตรวจสอบสิทธิ์ได้<br><span style="font-size:11px;color:#aaa">กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่</span>`, 'error');
       return;
     }
 
-    if (snap.exists()) {
-      // มีรายการ allowed_emails → ตรวจสอบ
-      const allowed  = snap.val();
-      const emailKey = user.email.toLowerCase().replace(/[@.]/g, '_');
-      if (!allowed[emailKey]) {
-        // email ไม่ได้รับอนุญาต — sign out ทันที
-        await signOut(auth);
-        _showStaffDenied(user.email);
-        return;
-      }
+    if (allowedSnap.exists()) {
+      // ✅ UID ได้รับอนุมัติแล้ว
+      _grantStaffAccess(user);
+      return;
     }
-    // snap ไม่มี (ยังไม่ได้ตั้งค่า) หรือ email อยู่ในรายการ → อนุญาต
-    _grantStaffAccess(user);
+
+    // 2. ยังไม่ได้รับอนุมัติ — ส่งคำขอไปที่ uid_requests
+    try {
+      await set(ref(db, `uid_requests/${user.uid}`), {
+        email:        user.email,
+        displayName:  user.displayName || '',
+        photoURL:     user.photoURL || '',
+        requestedAt:  new Date().toISOString()
+      });
+    } catch(e) { console.warn("Cannot write uid_requests:", e); }
+
+    // Sign out และแสดงข้อความรออนุมัติ
+    await signOut(auth);
+    _showStaffMessage(
+      `⏳ <b>${user.displayName || user.email}</b><br>` +
+      `คำขอเข้าใช้งานถูกส่งไปยังผู้ดูแลระบบแล้ว<br>` +
+      `<span style="font-size:11px;color:#aaa">กรุณารอการอนุมัติและลองเข้าสู่ระบบใหม่อีกครั้ง</span>`,
+      'pending'
+    );
   } else {
-    window._currentUser  = null;
-    window._staffReady   = false;
+    window._currentUser = null;
+    window._staffReady  = false;
     const ls = document.getElementById("staff-login-screen");
     if (ls) ls.style.display = "flex";
   }
