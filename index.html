@@ -4813,10 +4813,10 @@ async function approveUid(uid) {
   if (!r) return;
   const now = new Date().toLocaleDateString('th-TH', {year:'numeric',month:'short',day:'numeric'});
   try {
-    await set(ref(db, `allowed_uids/${uid}`), {
+    await window._set(window._ref(window._db, `allowed_uids/${uid}`), {
       email: r.email, displayName: r.displayName || '', photoURL: r.photoURL || '', approvedAt: now
     });
-    await set(ref(db, `uid_requests/${uid}`), null);  // ลบออกจาก pending
+    await window._set(window._ref(window._db, `uid_requests/${uid}`), null);  // ลบออกจาก pending
     // อัพเดท local cache ทันที เผื่อ realtime listener ช้า
     if (window._uidRequests) delete window._uidRequests[uid];
     if (!window._allowedUids) window._allowedUids = {};
@@ -4837,7 +4837,7 @@ async function rejectUid(uid) {
   if (!r) return;
   if (!confirm(`ปฏิเสธคำขอของ ${r.email}?`)) return;
   try {
-    await set(ref(db, `uid_requests/${uid}`), null);
+    await window._set(window._ref(window._db, `uid_requests/${uid}`), null);
     // ลบออกจาก local cache ด้วย เผื่อ realtime listener ช้า
     if (window._uidRequests) delete window._uidRequests[uid];
     renderPermissions();
@@ -4856,7 +4856,7 @@ async function revokeUid(uid) {
   if (!u) return;
   if (!confirm(`ยกเลิกสิทธิ์ของ ${u.email}?`)) return;
   try {
-    await set(ref(db, `allowed_uids/${uid}`), null);
+    await window._set(window._ref(window._db, `allowed_uids/${uid}`), null);
     showPermMsg(`ยกเลิกสิทธิ์ ${u.email} แล้ว`, true);
   } catch(e) { showPermMsg('เกิดข้อผิดพลาด: ' + e.message, false); }
 }
