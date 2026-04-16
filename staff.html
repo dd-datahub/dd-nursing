@@ -1113,7 +1113,7 @@ function renderVitalTable() {
   const empty = document.getElementById('vital-empty');
   if (!tbody) return;
 
-  const customers = (typeof allCustomers !== 'undefined') ? allCustomers : [];
+  const customers = _getVitalCustomers();
   if (customers.length === 0) {
     tbody.innerHTML = '';
     if (empty) empty.style.display = 'block';
@@ -1190,6 +1190,28 @@ window.saveVitalSigns = saveVitalSigns;
 //  SUB-SHEET MANAGEMENT — ลงบันทึกรวม
 // ============================================================
 let _activeVitalSheet = 'vs';
+let _vitalBranch = ''; // '' = ทั้งหมด
+
+// helper: return customers filtered by selected branch
+function _getVitalCustomers() {
+  const all = (typeof allCustomers !== 'undefined') ? allCustomers : [];
+  return _vitalBranch ? all.filter(c => c.branch === _vitalBranch) : all;
+}
+
+function setVitalBranch(branch) {
+  _vitalBranch = branch;
+  // update button states
+  document.querySelectorAll('.vbranch-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.branch === branch));
+  // re-render whichever sheet is active
+  const sheet = _activeVitalSheet;
+  if (sheet === 'vs')        renderVitalTable?.();
+  else if (sheet === 'summary')  renderCaseSummary?.();
+  else if (sheet === 'registry') renderRegistry?.();
+  else if (sheet === 'meddaily') renderMedDaily?.();
+  else if (sheet === 'medcheck') renderMedCheckCustSelect?.();
+}
+window.setVitalBranch = setVitalBranch;
 
 function setVitalSheet(sheet) {
   _activeVitalSheet = sheet;
@@ -1234,7 +1256,7 @@ function loadCaseSummary() {
 function renderCaseSummary() {
   const tbody = document.getElementById('summary-tbody');
   if (!tbody) return;
-  const custs = (typeof allCustomers !== 'undefined') ? allCustomers : [];
+  const custs = _getVitalCustomers();
   if (!custs.length) { tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:20px;color:#bbb">ไม่มีข้อมูลผู้ป่วย</td></tr>'; return; }
   const LEVELS = ['','ระดับ 1','ระดับ 2','ระดับ 3','ระดับ 4'];
   tbody.innerHTML = custs.map((c,i) => {
@@ -1379,7 +1401,7 @@ function loadRegistryExtra() {
 function renderRegistry() {
   const tbody=document.getElementById('registry-tbody');
   if(!tbody) return;
-  const custs=(typeof allCustomers!=='undefined')?allCustomers:[];
+  const custs=_getVitalCustomers();
   if(!custs.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:#bbb">ไม่มีข้อมูลผู้ป่วย</td></tr>';return;}
   tbody.innerHTML=custs.map((c,i)=>{
     const cid=(c.id||'').replace(/\//g,'_');
@@ -1434,7 +1456,7 @@ function initMedCheck() {
 function renderMedCheckCustSelect() {
   const sel=document.getElementById('medcheck-cust-sel');
   if(!sel) return;
-  const custs=(typeof allCustomers!=='undefined')?allCustomers:[];
+  const custs=_getVitalCustomers();
   sel.innerHTML='<option value="">-- เลือกผู้ป่วย --</option>'+custs.map(c=>`<option value="${(c.id||'').replace(/\//g,'_')}">${c.name}</option>`).join('');
   sel.onchange=()=>{_medCheckCust=sel.value;loadMedCheck();};
 }
@@ -1511,7 +1533,7 @@ function loadMedDaily() {
 function renderMedDaily() {
   const tbody=document.getElementById('meddaily-tbody');
   if(!tbody) return;
-  const custs=(typeof allCustomers!=='undefined')?allCustomers:[];
+  const custs=_getVitalCustomers();
   if(!custs.length){tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:20px;color:#bbb">ไม่มีข้อมูลผู้ป่วย</td></tr>';return;}
   tbody.innerHTML=custs.map((c,i)=>{
     const cid=(c.id||'').replace(/\//g,'_');
@@ -1707,6 +1729,7 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .vsheet-btn.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a;font-weight:600}
 .vsheet-panel{display:none}
 .vsheet-panel.active{display:block}
+.vbranch-btn.active{background:#f0ede8 !important;border-color:#bbb !important;font-weight:700 !important}
 /* status toggle buttons */
 .status-toggle-btn{width:100%;padding:13px 16px;border:1.5px solid #e0dbd2;border-radius:12px;cursor:pointer;font-size:14px;font-weight:500;font-family:inherit;text-align:left;transition:all .18s;background:#fff;color:#555;margin-bottom:10px;display:flex;align-items:center;gap:12px}
 .status-toggle-btn:last-child{margin-bottom:0}
@@ -1905,6 +1928,19 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 
       <!-- ===== PAGE: ลงบันทึกรวม (6 sheets) ===== -->
       <div class="page-section" id="page-vital">
+
+        <!-- Branch filter -->
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          <span style="font-size:11px;color:#aaa;font-weight:600;white-space:nowrap">สาขา:</span>
+          <button class="vbranch-btn active" data-branch="" onclick="setVitalBranch('')"
+            style="padding:5px 12px;border:1.5px solid #ddd;border-radius:16px;background:#fff;font-size:12px;font-family:inherit;cursor:pointer;color:#555;transition:all .15s;font-weight:500">ทั้งหมด</button>
+          <button class="vbranch-btn" data-branch="สาขา 1" onclick="setVitalBranch('สาขา 1')"
+            style="padding:5px 12px;border:1.5px solid #ddd;border-radius:16px;background:#fff;font-size:12px;font-family:inherit;cursor:pointer;color:#1a5c9e;transition:all .15s;font-weight:500">สาขา 1</button>
+          <button class="vbranch-btn" data-branch="สาขา 2" onclick="setVitalBranch('สาขา 2')"
+            style="padding:5px 12px;border:1.5px solid #ddd;border-radius:16px;background:#fff;font-size:12px;font-family:inherit;cursor:pointer;color:#1a6b4a;transition:all .15s;font-weight:500">สาขา 2</button>
+          <button class="vbranch-btn" data-branch="สาขา 3" onclick="setVitalBranch('สาขา 3')"
+            style="padding:5px 12px;border:1.5px solid #ddd;border-radius:16px;background:#fff;font-size:12px;font-family:inherit;cursor:pointer;color:#7a4f0d;transition:all .15s;font-weight:500">สาขา 3</button>
+        </div>
 
         <!-- Sub-sheet navigation -->
         <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">
