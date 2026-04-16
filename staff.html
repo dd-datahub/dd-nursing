@@ -937,7 +937,7 @@ function setPage(page) {
   const pageEl = document.getElementById('page-' + page);
   if (pageEl) pageEl.classList.add('active');
   // update topbar title
-  const titles = {dashboard:'รายชื่อเคส', req:'บันทึกเบิกของ', vital:'ลงบันทึกรวม'};
+  const titles = {dashboard:'รายชื่อเคส', req:'บันทึกเบิกของ', vital:'ลงบันทึกรวม', indiv:'ลงบันทึกรายบุคคล'};
   const tb = document.getElementById('topbar-title');
   if (tb) tb.textContent = titles[page] || page;
   // sync bottom nav
@@ -1044,6 +1044,8 @@ function selectFromDashboard(id) {
 window.addEventListener("firebaseReady", function() {
   loadData();
   initVitalSigns();
+  initIndivVS();
+  renderIndivCustSelect();
 });
 
 // ============================================================
@@ -1571,6 +1573,629 @@ async function saveMedDaily() {
   }
 }
 window.saveMedDaily=saveMedDaily;
+
+// ============================================================
+//  ลงบันทึกรายบุคคล — INDIVIDUAL PATIENT RECORDS
+// ============================================================
+let _indivCustId = '';
+let _indivBranch = '';
+let _activeIndivSheet = 'ivs';
+
+function _getIndivCusts() {
+  const all = (typeof allCustomers !== 'undefined') ? allCustomers : [];
+  return _indivBranch ? all.filter(c => c.branch === _indivBranch) : all;
+}
+function setIndivBranch(branch) {
+  _indivBranch = branch;
+  document.querySelectorAll('.ibranch-btn').forEach(b => b.classList.toggle('active', b.dataset.branch === branch));
+  renderIndivCustSelect();
+}
+window.setIndivBranch = setIndivBranch;
+
+function renderIndivCustSelect() {
+  const sel = document.getElementById('indiv-cust-sel');
+  if (!sel) return;
+  const custs = _getIndivCusts();
+  sel.innerHTML = '<option value="">-- เลือกผู้ป่วย --</option>' +
+    custs.map(c => {
+      const cid = (c.id||'').replace(/\//g,'_');
+      return `<option value="${cid}" ${_indivCustId===cid?'selected':''}>${c.name}</option>`;
+    }).join('');
+  sel.onchange = () => { _indivCustId = sel.value; updateIndivBanner(); loadActiveIndivSheet(); };
+}
+window.renderIndivCustSelect = renderIndivCustSelect;
+
+function updateIndivBanner() {
+  const banner = document.getElementById('indiv-banner');
+  if (!banner) return;
+  if (!_indivCustId) { banner.style.display='none'; return; }
+  const c = allCustomers.find(x => (x.id||'').replace(/\//g,'_') === _indivCustId);
+  if (!c) { banner.style.display='none'; return; }
+  banner.style.display='block';
+  banner.innerHTML = `<b>${c.name}</b><span style="font-size:12px;color:#666;margin-left:8px">${c.id}</span><span class="branch-tag b${c.branch?.slice(-1)}" style="margin-left:6px">${c.branch||''}</span>`;
+}
+
+function setIndivSheet(sheet) {
+  _activeIndivSheet = sheet;
+  document.querySelectorAll('.isheet-btn').forEach(b => b.classList.toggle('active', b.dataset.sheet === sheet));
+  document.querySelectorAll('.isheet-panel').forEach(p => p.classList.toggle('active', p.id === 'ip-' + sheet));
+  loadActiveIndivSheet();
+}
+window.setIndivSheet = setIndivSheet;
+
+function loadActiveIndivSheet() {
+  if (!_indivCustId) return;
+  const s = _activeIndivSheet;
+  if (s==='ivs')      loadIndivVS();
+  else if (s==='iio') loadIndivIO();
+  else if (s==='icare') loadIndivCare();
+  else if (s==='imedfam') loadIndivMedFam();
+  else if (s==='imedrec') loadIndivMedRec();
+  else if (s==='iadl') loadIndivADL();
+  else if (s==='ihosp') loadIndivHosp();
+  else if (s==='ihospsum') loadIndivHospSum();
+}
+
+// ─── SHEET 1: VS รายบุคคล ───
+const INDIV_VS_TIMES = ['06:00','18:00'];
+let _ivDate = new Date().toISOString().split('T')[0];
+let _ivTime = '06:00';
+let _ivData = {};
+
+function initIndivVS() {
+  const d = document.getElementById('iv-date');
+  if (d) { d.value = _ivDate; d.addEventListener('change', () => { _ivDate = d.value; loadIndivVS(); }); }
+  renderIVTimeTabs();
+}
+window.initIndivVS = initIndivVS;
+
+function renderIVTimeTabs() {
+  const el = document.getElementById('iv-time-tabs');
+  if (!el) return;
+  el.innerHTML = INDIV_VS_TIMES.map(t =>
+    `<button class="vital-time-btn ${t===_ivTime?'active':''}" onclick="setIVTime('${t}')">${t} น.</button>`).join('');
+}
+function setIVTime(t) { _ivTime = t; renderIVTimeTabs(); loadIndivVS(); }
+window.setIVTime = setIVTime;
+
+function loadIndivVS() {
+  if (!_indivCustId || !_ivDate) { renderIndivVSForm(); return; }
+  window._get(window._ref(window._db, `indiv_vs/${_indivCustId}/${_ivDate}/${_ivTime.replace(':','')}`)).then(snap => {
+    _ivData = snap.exists() ? snap.val() : {};
+    renderIndivVSForm();
+  }).catch(() => { _ivData = {}; renderIndivVSForm(); });
+}
+
+function renderIndivVSForm() {
+  const el = document.getElementById('iv-form');
+  if (!el) return;
+  if (!_indivCustId) { el.innerHTML = '<div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div>'; return; }
+  const v = _ivData;
+  const inp = (f,ph,tp='text',extra='') =>
+    `<input type="${tp}" value="${v[f]||''}" placeholder="${ph}" oninput="updateIV('${f}',this.value)"
+      style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;font-family:inherit" ${extra}>`;
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div><div style="font-size:11px;color:#888;margin-bottom:3px">T (°C)</div>${inp('T','36.5','number','step="0.1" min="34" max="42"')}</div>
+      <div><div style="font-size:11px;color:#888;margin-bottom:3px">P (ครั้ง/นาที)</div>${inp('P','80','number','min="20" max="250"')}</div>
+      <div><div style="font-size:11px;color:#888;margin-bottom:3px">R (ครั้ง/นาที)</div>${inp('R','18','number','min="5" max="60"')}</div>
+      <div><div style="font-size:11px;color:#888;margin-bottom:3px">BP (mmHg)</div>${inp('BP','120/80')}</div>
+      <div><div style="font-size:11px;color:#888;margin-bottom:3px">O2 (%)</div>${inp('O2','98','number','min="50" max="100"')}</div>
+      <div><div style="font-size:11px;color:#888;margin-bottom:3px">DTX (mg/dL)</div>${inp('DTX','','number','min="0"')}</div>
+      <div><div style="font-size:11px;color:#888;margin-bottom:3px">Stool</div>${inp('Stool','-')}</div>
+      <div><div style="font-size:11px;color:#888;margin-bottom:3px">Urine</div>${inp('Urine','-')}</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;color:#888;margin-bottom:3px">อาการและอาการเปลี่ยนแปลง</div>
+      <textarea oninput="updateIV('note',this.value)" placeholder="บันทึกอาการ..."
+        style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;font-family:inherit;min-height:60px;resize:vertical">${v.note||''}</textarea>
+    </div>
+    <button onclick="saveIndivVS()" class="save-btn">💾 บันทึก VS</button>`;
+}
+function updateIV(f,val){_ivData[f]=val;}
+window.updateIV=updateIV;
+async function saveIndivVS(){
+  if(!_indivCustId)return;
+  const user=window._currentUser;
+  const hasData=Object.entries(_ivData).some(([k,v])=>k!=='note'&&v)||(!!_ivData.note);
+  try{
+    await window._set(window._ref(window._db,`indiv_vs/${_indivCustId}/${_ivDate}/${_ivTime.replace(':','')}`),
+      hasData?{..._ivData,savedBy:user?(user.displayName||user.email):'staff',savedAt:new Date().toISOString()}:null);
+    showStatus('✓ บันทึก VS รายบุคคลแล้ว','ok');
+  }catch(e){showStatus('บันทึกไม่สำเร็จ: '+e.message,'err');}
+}
+window.saveIndivVS=saveIndivVS;
+
+// ─── SHEET 2: IO / DTX / BMI ───
+let _iioMonth = new Date().toISOString().slice(0,7);
+let _iioData = {}, _idtxData = [], _ibmiData = [];
+
+function loadIndivIO(){
+  if(!_indivCustId)return;
+  Promise.all([
+    window._get(window._ref(window._db,`indiv_io/${_indivCustId}/${_iioMonth}`)),
+    window._get(window._ref(window._db,`indiv_dtx/${_indivCustId}/${_iioMonth}`)),
+    window._get(window._ref(window._db,`indiv_bmi/${_indivCustId}`))
+  ]).then(([ioS,dtxS,bmiS])=>{
+    _iioData  = ioS.exists()  ? ioS.val()  : {};
+    _idtxData = dtxS.exists() ? Object.values(dtxS.val()) : [];
+    _ibmiData = bmiS.exists() ? Object.values(bmiS.val()) : [];
+    renderIndivIO();
+  }).catch(()=>renderIndivIO());
+}
+
+function renderIndivIO(){
+  const el=document.getElementById('iio-content');
+  if(!el)return;
+  if(!_indivCustId){el.innerHTML='<div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div>';return;}
+  const [y,m]=_iioMonth.split('-').map(Number);
+  const days=new Date(y,m,0).getDate();
+  let ioRows='';
+  for(let d=1;d<=days;d++){
+    const k=String(d).padStart(2,'0'), row=_iioData[k]||{}, bg=d%2===0?'#fafaf8':'#fff';
+    ioRows+=`<tr style="background:${bg}">
+      <td style="padding:4px 6px;border:1px solid #eee;text-align:center;font-size:12px;font-weight:500">${d}</td>
+      <td style="padding:2px;border:1px solid #eee"><input type="text" value="${row.ch||''}" placeholder="ช" oninput="updateIO('${k}','ch',this.value)" style="width:50px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>
+      <td style="padding:2px;border:1px solid #eee"><input type="text" value="${row.dd||''}" placeholder="ด" oninput="updateIO('${k}','dd',this.value)" style="width:50px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>
+      <td style="padding:2px;border:1px solid #eee"><input type="number" value="${row.I||''}" placeholder="I" oninput="updateIO('${k}','I',this.value)" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>
+      <td style="padding:2px;border:1px solid #eee"><input type="number" value="${row.O||''}" placeholder="O" oninput="updateIO('${k}','O',this.value)" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>
+      <td style="padding:2px;border:1px solid #eee"><input type="text" value="${row.note||''}" placeholder="หมายเหตุ" oninput="updateIO('${k}','note',this.value)" style="width:100%;min-width:80px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px"></td>
+    </tr>`;
+  }
+  if(!_idtxData.length)_idtxData=[{}];
+  if(!_ibmiData.length)_ibmiData=[{}];
+  const dtxRows=_idtxData.map((r,i)=>`<tr>
+    <td style="padding:2px;border:1px solid #eee"><input type="date" value="${r.date||''}" oninput="updateDTX(${i},'date',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px"></td>
+    <td style="padding:2px;border:1px solid #eee"><input type="time" value="${r.time||''}" oninput="updateDTX(${i},'time',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px;width:90px"></td>
+    <td style="padding:2px;border:1px solid #eee"><input type="number" value="${r.dtx||''}" placeholder="mg/dL" oninput="updateDTX(${i},'dtx',this.value)" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>
+    <td style="padding:2px;border:1px solid #eee"><input type="text" value="${r.note||''}" placeholder="หมายเหตุ" oninput="updateDTX(${i},'note',this.value)" style="width:100%;min-width:80px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px"></td>
+    <td style="padding:2px;border:1px solid #eee;text-align:center"><button onclick="removeDTX(${i})" style="padding:2px 8px;border:1px solid #f5b8b0;border-radius:4px;background:#fdf0ee;color:#c0392b;cursor:pointer;font-size:11px">ลบ</button></td>
+  </tr>`).join('');
+  const bmiRows=_ibmiData.map((r,i)=>`<tr>
+    <td style="padding:2px;border:1px solid #eee"><input type="date" value="${r.date||''}" oninput="updateBMI(${i},'date',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px"></td>
+    <td style="padding:2px;border:1px solid #eee"><input type="number" step="0.1" value="${r.weight||''}" placeholder="กก." oninput="updateBMI(${i},'weight',this.value);calcBMI(${i})" style="width:65px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>
+    <td style="padding:2px;border:1px solid #eee"><input type="number" step="0.01" value="${r.height||''}" placeholder="เมตร" oninput="updateBMI(${i},'height',this.value);calcBMI(${i})" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>
+    <td style="padding:3px 6px;border:1px solid #eee;font-size:12px;text-align:center;font-weight:600" id="bmi-val-${i}">${r.bmi||''}</td>
+    <td style="padding:3px 6px;border:1px solid #eee;font-size:11px" id="bmi-res-${i}">${r.result||''}</td>
+    <td style="padding:2px;border:1px solid #eee"><input type="text" value="${r.change||''}" placeholder="เปลี่ยนแปลง" oninput="updateBMI(${i},'change',this.value)" style="width:90px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px"></td>
+    <td style="padding:2px;border:1px solid #eee;text-align:center"><button onclick="removeBMI(${i})" style="padding:2px 8px;border:1px solid #f5b8b0;border-radius:4px;background:#fdf0ee;color:#c0392b;cursor:pointer;font-size:11px">ลบ</button></td>
+  </tr>`).join('');
+
+  el.innerHTML=`
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <label style="font-size:12px;color:#666">เดือน:</label>
+    <input type="month" value="${_iioMonth}" onchange="_iioMonth=this.value;loadIndivIO()" style="padding:5px 8px;border:1px solid #ddd;border-radius:6px;font-size:12px">
+  </div>
+  <div style="margin-bottom:14px">
+    <div style="font-size:12px;font-weight:600;color:#1a5c9e;margin-bottom:6px;background:#e8f0fe;padding:6px 10px;border-radius:6px">💧 น้ำเข้า-ออก (I/O)</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:400px">
+      <thead><tr style="background:#f0ede8">
+        <th style="padding:6px;border:1px solid #ddd">วันที่</th>
+        <th style="padding:6px;border:1px solid #ddd">เวร ช</th>
+        <th style="padding:6px;border:1px solid #ddd">เวร ด</th>
+        <th style="padding:6px;border:1px solid #ddd">I</th>
+        <th style="padding:6px;border:1px solid #ddd">O</th>
+        <th style="padding:6px;border:1px solid #ddd">หมายเหตุ</th>
+      </tr></thead><tbody>${ioRows}</tbody>
+    </table></div>
+    <button onclick="saveIndivIO()" style="margin-top:8px;padding:8px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600">💾 บันทึก I/O</button>
+  </div>
+  <div style="margin-bottom:14px">
+    <div style="font-size:12px;font-weight:600;color:#7a4f0d;margin-bottom:6px;background:#f5e8d0;padding:6px 10px;border-radius:6px">🩸 บันทึก DTX</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:360px">
+      <thead><tr style="background:#f0ede8">
+        <th style="padding:6px;border:1px solid #ddd">วดป.</th><th style="padding:6px;border:1px solid #ddd">เวลา</th>
+        <th style="padding:6px;border:1px solid #ddd">DTX</th><th style="padding:6px;border:1px solid #ddd">หมายเหตุ</th>
+        <th style="padding:6px;border:1px solid #ddd"></th>
+      </tr></thead><tbody id="dtx-tbody">${dtxRows}</tbody>
+    </table></div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button onclick="addDTXRow()" style="padding:6px 14px;border:1px solid #7a4f0d;border-radius:6px;background:#f5e8d0;color:#7a4f0d;cursor:pointer;font-size:12px;font-family:inherit">+ เพิ่มแถว</button>
+      <button onclick="saveIndivDTX()" style="padding:6px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600">💾 บันทึก DTX</button>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:12px;font-weight:600;color:#1a5c9e;margin-bottom:6px;background:#e8f0fe;padding:6px 10px;border-radius:6px">⚖️ บันทึก BMI</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:440px">
+      <thead><tr style="background:#f0ede8">
+        <th style="padding:6px;border:1px solid #ddd">วดป.</th><th style="padding:6px;border:1px solid #ddd">น้ำหนัก(กก.)</th>
+        <th style="padding:6px;border:1px solid #ddd">ส่วนสูง(เมตร)</th><th style="padding:6px;border:1px solid #ddd">BMI</th>
+        <th style="padding:6px;border:1px solid #ddd">แปลผล</th><th style="padding:6px;border:1px solid #ddd">เปลี่ยนแปลง</th>
+        <th style="padding:6px;border:1px solid #ddd"></th>
+      </tr></thead><tbody id="bmi-tbody">${bmiRows}</tbody>
+    </table></div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button onclick="addBMIRow()" style="padding:6px 14px;border:1px solid #1a5c9e;border-radius:6px;background:#e8f0fe;color:#1a5c9e;cursor:pointer;font-size:12px;font-family:inherit">+ เพิ่มแถว</button>
+      <button onclick="saveIndivBMI()" style="padding:6px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600">💾 บันทึก BMI</button>
+    </div>
+  </div>`;
+}
+function updateIO(day,f,val){if(!_iioData[day])_iioData[day]={};_iioData[day][f]=val;}
+window.updateIO=updateIO;
+function updateDTX(i,f,val){if(!_idtxData[i])_idtxData[i]={};_idtxData[i][f]=val;}
+window.updateDTX=updateDTX;
+function removeDTX(i){_idtxData.splice(i,1);renderIndivIO();}window.removeDTX=removeDTX;
+function addDTXRow(){_idtxData.push({});renderIndivIO();}window.addDTXRow=addDTXRow;
+function updateBMI(i,f,val){if(!_ibmiData[i])_ibmiData[i]={};_ibmiData[i][f]=val;}
+window.updateBMI=updateBMI;
+function calcBMI(i){
+  const r=_ibmiData[i]||{};const w=parseFloat(r.weight),h=parseFloat(r.height);
+  if(w&&h&&h>0){
+    const bmi=(w/(h*h)).toFixed(1);
+    const res=bmi<18.5?'น้ำหนักต่ำ':bmi<23?'ปกติ':bmi<25?'น้ำหนักเกิน':bmi<30?'อ้วน ระดับ 1':'อ้วน ระดับ 2+';
+    _ibmiData[i].bmi=bmi;_ibmiData[i].result=res;
+    const vEl=document.getElementById('bmi-val-'+i),rEl=document.getElementById('bmi-res-'+i);
+    if(vEl)vEl.textContent=bmi;if(rEl)rEl.textContent=res;
+  }
+}
+window.calcBMI=calcBMI;
+function addBMIRow(){_ibmiData.push({});renderIndivIO();}window.addBMIRow=addBMIRow;
+function removeBMI(i){_ibmiData.splice(i,1);renderIndivIO();}window.removeBMI=removeBMI;
+async function saveIndivIO(){
+  if(!_indivCustId)return;
+  const user=window._currentUser;
+  try{
+    await window._set(window._ref(window._db,`indiv_io/${_indivCustId}/${_iioMonth}`),
+      Object.keys(_iioData).length?{..._iioData,_by:user?(user.displayName||user.email):'staff'}:null);
+    showStatus('✓ บันทึก I/O แล้ว','ok');
+  }catch(e){showStatus('บันทึกไม่สำเร็จ: '+e.message,'err');}
+}
+window.saveIndivIO=saveIndivIO;
+async function saveIndivDTX(){
+  if(!_indivCustId)return;
+  const data=_idtxData.filter(r=>r.date||r.dtx);
+  try{await window._set(window._ref(window._db,`indiv_dtx/${_indivCustId}/${_iioMonth}`),data.length?data:null);showStatus('✓ บันทึก DTX แล้ว','ok');}
+  catch(e){showStatus('บันทึกไม่สำเร็จ: '+e.message,'err');}
+}
+window.saveIndivDTX=saveIndivDTX;
+async function saveIndivBMI(){
+  if(!_indivCustId)return;
+  const data=_ibmiData.filter(r=>r.date||r.weight);
+  try{await window._set(window._ref(window._db,`indiv_bmi/${_indivCustId}`),data.length?data:null);showStatus('✓ บันทึก BMI แล้ว','ok');}
+  catch(e){showStatus('บันทึกไม่สำเร็จ: '+e.message,'err');}
+}
+window.saveIndivBMI=saveIndivBMI;
+
+// ─── SHEET 3: กิจกรรมการดูแล ───
+const CARE_ACTS=['ประเมินอาการแรกรับในเคสรับใหม่','ประเมินอาการคนไข้ในเวร และลงบันทึก','ประเมินอาการคนไข้ต่อเนื่อง (ADL/IADL)','วัดสัญญาณชีพ','ส่งแล็ป','การดูแลช่วยเหลือการรับประทานอาหารและโภชนาการ','เคสที่ดูแลตัวเองไม่ได้ ช่วยป้อนอาหารและน้ำ','ดูแลให้อาหารทางสายยาง','เจาะน้ำตาลก่อนอาหารเคสเบาหวานและลงบันทึก','ชั่งน้ำหนักและวัด BMI','ดูแลความสะอาดร่างกาย และสิ่งแวดล้อม','ดูแลเรื่องการให้ยาตามเวลา','เปลี่ยนแพมเพิส ทำความสะอาดบริเวณขับถ่ายและอวัยวะสืบพันธุ์','เคสใส่สายสวนปัสสาวะ ดูแลความสะอาดอวัยวะสืบพันธุ์','สวนล้างปัสสาวะ','ลงบันทึก I/O','สวนอุจจาระและให้ยาระบาย','การดูแลการนอนหลับพักผ่อน','เคสที่ต้องใช้ยานอนหลับ ดูแลให้ได้รับยา','ดูแลการเคลื่อนไหว การออกกำลังกาย กายภาพบำบัด','พลิกตะแคงตัวทุก 2 ชั่วโมง','ติดต่อประสานงานญาติรายงานอาการ','แนะนำญาติเรื่องสิทธิการรักษา การขอใบส่งตัว','สรุปอาการและประสานงานรถพยาบาลและโรงพยาบาล'];
+let _icareMonth=new Date().toISOString().slice(0,7), _icareData={};
+
+function loadIndivCare(){
+  if(!_indivCustId)return;
+  window._get(window._ref(window._db,`indiv_care/${_indivCustId}/${_icareMonth}`)).then(snap=>{
+    _icareData=snap.exists()?snap.val():{};renderIndivCare();
+  }).catch(()=>{_icareData={};renderIndivCare();});
+}
+
+function renderIndivCare(){
+  const el=document.getElementById('icare-content');
+  if(!el)return;
+  if(!_indivCustId){el.innerHTML='<div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div>';return;}
+  const [y,m]=_icareMonth.split('-').map(Number);
+  const daysInMonth=new Date(y,m,0).getDate();
+  const days=Array.from({length:daysInMonth},(_,i)=>i+1);
+  let hdr=`<th style="padding:5px 8px;border:1px solid #ddd;background:#f0ede8;min-width:200px;text-align:left;font-size:11px;position:sticky;left:0;z-index:2">กิจกรรม</th>`;
+  days.forEach(d=>{hdr+=`<th style="padding:5px 4px;border:1px solid #ddd;background:#f0ede8;text-align:center;font-size:11px;min-width:28px">${d}</th>`;});
+  const rows=CARE_ACTS.map((act,ai)=>{
+    const bg=ai%2===0?'#fff':'#fafaf8';
+    let cells=`<td style="padding:5px 8px;border:1px solid #eee;font-size:11px;white-space:nowrap;position:sticky;left:0;background:${bg};z-index:1">${act}</td>`;
+    days.forEach(d=>{
+      const chk=(_icareData[ai]||{})[d];
+      cells+=`<td style="padding:2px;border:1px solid #eee;text-align:center;background:${bg}"><input type="checkbox" ${chk?'checked':''} onchange="updateCare(${ai},${d},this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#1a6b4a"></td>`;
+    });
+    return `<tr>${cells}</tr>`;
+  }).join('');
+  el.innerHTML=`
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <label style="font-size:12px;color:#666">เดือน:</label>
+    <input type="month" value="${_icareMonth}" onchange="_icareMonth=this.value;loadIndivCare()" style="padding:5px 8px;border:1px solid #ddd;border-radius:6px;font-size:12px">
+  </div>
+  <div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px">
+    <thead><tr>${hdr}</tr></thead><tbody>${rows}</tbody>
+  </table></div>
+  <button onclick="saveIndivCare()" style="margin-top:10px;padding:10px 24px;background:#1a6b4a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600">💾 บันทึกกิจกรรม</button>`;
+}
+function updateCare(ai,day,val){if(!_icareData[ai])_icareData[ai]={};_icareData[ai][day]=val;}
+window.updateCare=updateCare;
+async function saveIndivCare(){
+  if(!_indivCustId)return;
+  try{
+    await window._set(window._ref(window._db,`indiv_care/${_indivCustId}/${_icareMonth}`),Object.keys(_icareData).length?_icareData:null);
+    showStatus('✓ บันทึกกิจกรรมแล้ว','ok');
+  }catch(e){showStatus('บันทึกไม่สำเร็จ: '+e.message,'err');}
+}
+window.saveIndivCare=saveIndivCare;
+
+// ─── SHEET 4: รับยาจากญาติ ───
+let _imedfamData=[];
+function loadIndivMedFam(){
+  if(!_indivCustId)return;
+  window._get(window._ref(window._db,`indiv_medfam/${_indivCustId}`)).then(snap=>{
+    _imedfamData=snap.exists()?Object.values(snap.val()):[];
+    if(!_imedfamData.length)_imedfamData=[{}];renderIndivMedFam();
+  }).catch(()=>{_imedfamData=[{}];renderIndivMedFam();});
+}
+function renderIndivMedFam(){
+  const el=document.getElementById('imedfam-content');
+  if(!el)return;
+  if(!_indivCustId){el.innerHTML='<div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div>';return;}
+  const rows=_imedfamData.map((r,i)=>{
+    const bg=i%2===0?'#fff':'#fafaf8';
+    const inp=(f,ph,w='100%',tp='text')=>`<input type="${tp}" value="${(r[f]||'').toString().replace(/"/g,'&quot;')}" placeholder="${ph}" oninput="updateMedFam(${i},'${f}',this.value)" style="width:${w};padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit">`;
+    return `<tr style="background:${bg}">
+      <td style="padding:4px 6px;border:1px solid #eee;text-align:center;color:#888;font-size:11px">${i+1}</td>
+      <td style="padding:3px;border:1px solid #eee">${inp('name','ชื่อยา')}</td>
+      <td style="padding:3px;border:1px solid #eee">${inp('dosage','ครั้งละ...เม็ด','80px')}</td>
+      <td style="padding:3px;border:1px solid #eee">${inp('freq','วันละ...ครั้ง','80px')}</td>
+      <td style="padding:3px;border:1px solid #eee">${inp('time','เวลา','80px')}</td>
+      <td style="padding:3px;border:1px solid #eee">${inp('qty','จำนวน','70px','number')}</td>
+      <td style="padding:3px;border:1px solid #eee">${inp('note','หมายเหตุ')}</td>
+      <td style="padding:3px;border:1px solid #eee;text-align:center"><button onclick="removeMedFam(${i})" style="padding:2px 8px;border:1px solid #f5b8b0;border-radius:4px;background:#fdf0ee;color:#c0392b;cursor:pointer;font-size:11px">ลบ</button></td>
+    </tr>`;
+  }).join('');
+  el.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
+    <thead><tr style="background:#f0ede8">
+      <th style="padding:6px;border:1px solid #ddd;width:30px">ลำดับ</th>
+      <th style="padding:6px;border:1px solid #ddd">ชื่อยา</th>
+      <th style="padding:6px;border:1px solid #ddd">ครั้งละ</th>
+      <th style="padding:6px;border:1px solid #ddd">วันละ</th>
+      <th style="padding:6px;border:1px solid #ddd">เวลา</th>
+      <th style="padding:6px;border:1px solid #ddd">จำนวน(เม็ด)</th>
+      <th style="padding:6px;border:1px solid #ddd">หมายเหตุ</th>
+      <th style="padding:6px;border:1px solid #ddd"></th>
+    </tr></thead><tbody>${rows}</tbody>
+  </table></div>
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button onclick="addMedFamRow()" style="padding:7px 16px;border:1px solid #1a6b4a;border-radius:6px;background:#e8f5ee;color:#1a6b4a;cursor:pointer;font-size:12px;font-family:inherit">+ เพิ่มรายการยา</button>
+    <button onclick="saveIndivMedFam()" style="padding:7px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600">💾 บันทึก</button>
+  </div>`;
+}
+function updateMedFam(i,f,val){if(!_imedfamData[i])_imedfamData[i]={};_imedfamData[i][f]=val;}window.updateMedFam=updateMedFam;
+function removeMedFam(i){_imedfamData.splice(i,1);if(!_imedfamData.length)_imedfamData=[{}];renderIndivMedFam();}window.removeMedFam=removeMedFam;
+function addMedFamRow(){_imedfamData.push({});renderIndivMedFam();}window.addMedFamRow=addMedFamRow;
+async function saveIndivMedFam(){
+  if(!_indivCustId)return;
+  const data=_imedfamData.filter(r=>r.name);
+  try{await window._set(window._ref(window._db,`indiv_medfam/${_indivCustId}`),data.length?data:null);showStatus('✓ บันทึกรายการยาจากญาติแล้ว','ok');}
+  catch(e){showStatus('บันทึกไม่สำเร็จ: '+e.message,'err');}
+}
+window.saveIndivMedFam=saveIndivMedFam;
+
+// ─── SHEET 5: รายการบันทึกยา ───
+const MED_REC_SLOTS=[{k:'bfr_morn',l:'ก่อนเช้า'},{k:'bfr_noon',l:'ก่อนเที่ยง'},{k:'bfr_eve',l:'ก่อนเย็น'},{k:'aft_morn',l:'หลังเช้า'},{k:'aft_noon',l:'หลังเที่ยง'},{k:'aft_eve',l:'หลังเย็น'},{k:'sleep',l:'ก่อนนอน'},{k:'other',l:'ยาอื่นๆ'}];
+let _imedrecMonth=new Date().toISOString().slice(0,7), _imedrecData=[];
+
+function loadIndivMedRec(){
+  if(!_indivCustId)return;
+  window._get(window._ref(window._db,`indiv_medrec/${_indivCustId}/${_imedrecMonth}`)).then(snap=>{
+    _imedrecData=snap.exists()?Object.values(snap.val()):[];
+    if(!_imedrecData.length)_imedrecData=[{name:'',dose:'',time:'',slots:{},days:{}}];renderIndivMedRec();
+  }).catch(()=>{_imedrecData=[{name:'',dose:'',time:'',slots:{},days:{}}];renderIndivMedRec();});
+}
+function renderIndivMedRec(){
+  const el=document.getElementById('imedrec-content');
+  if(!el)return;
+  if(!_indivCustId){el.innerHTML='<div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div>';return;}
+  const [y,m]=_imedrecMonth.split('-').map(Number);
+  const daysInMonth=new Date(y,m,0).getDate();
+  const days=Array.from({length:daysInMonth},(_,i)=>i+1);
+  let hdr=`<tr style="background:#f0ede8">
+    <th style="padding:5px 4px;border:1px solid #ddd;font-size:10px;min-width:25px">ที่</th>
+    <th style="padding:5px 6px;border:1px solid #ddd;font-size:10px;min-width:120px">ชื่อยา</th>
+    <th style="padding:5px 4px;border:1px solid #ddd;font-size:10px;min-width:60px">ขนาด</th>
+    <th style="padding:5px 4px;border:1px solid #ddd;font-size:10px;min-width:60px">เวลา</th>`;
+  MED_REC_SLOTS.forEach(s=>{hdr+=`<th style="padding:5px 3px;border:1px solid #ddd;font-size:9px;text-align:center;min-width:34px">${s.l}</th>`;});
+  days.forEach(d=>{hdr+=`<th style="padding:5px 2px;border:1px solid #ddd;font-size:9px;text-align:center;min-width:24px">${d}</th>`;});
+  hdr+=`<th style="padding:5px;border:1px solid #ddd"></th></tr>`;
+  const rows=_imedrecData.map((r,i)=>{
+    const bg=i%2===0?'#fff':'#fafaf8';
+    let cells=`<td style="padding:3px 4px;border:1px solid #eee;text-align:center;color:#888;font-size:10px">${i+1}</td>
+      <td style="padding:2px;border:1px solid #eee"><input type="text" value="${(r.name||'').replace(/"/g,'&quot;')}" placeholder="ชื่อยา" oninput="updateMedRec(${i},'name',this.value)" style="width:100%;min-width:110px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>
+      <td style="padding:2px;border:1px solid #eee"><input type="text" value="${r.dose||''}" placeholder="ขนาด" oninput="updateMedRec(${i},'dose',this.value)" style="width:58px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px"></td>
+      <td style="padding:2px;border:1px solid #eee"><input type="text" value="${r.time||''}" placeholder="เวลา" oninput="updateMedRec(${i},'time',this.value)" style="width:58px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px"></td>`;
+    MED_REC_SLOTS.forEach(s=>{const chk=(r.slots||{})[s.k];cells+=`<td style="padding:2px;border:1px solid #eee;text-align:center;background:${bg}"><input type="checkbox" ${chk?'checked':''} onchange="updateMedRecSlot(${i},'${s.k}',this.checked)" style="width:13px;height:13px;cursor:pointer;accent-color:#1a6b4a"></td>`;});
+    days.forEach(d=>{const chk=(r.days||{})[d];cells+=`<td style="padding:2px;border:1px solid #eee;text-align:center;background:${bg}"><input type="checkbox" ${chk?'checked':''} onchange="updateMedRecDay(${i},${d},this.checked)" style="width:12px;height:12px;cursor:pointer;accent-color:#2856b8"></td>`;});
+    cells+=`<td style="padding:2px;border:1px solid #eee;text-align:center"><button onclick="removeMedRec(${i})" style="padding:2px 7px;border:1px solid #f5b8b0;border-radius:4px;background:#fdf0ee;color:#c0392b;cursor:pointer;font-size:11px">ลบ</button></td>`;
+    return `<tr style="background:${bg}">${cells}</tr>`;
+  }).join('');
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <label style="font-size:12px;color:#666">เดือน:</label>
+    <input type="month" value="${_imedrecMonth}" onchange="_imedrecMonth=this.value;loadIndivMedRec()" style="padding:5px 8px;border:1px solid #ddd;border-radius:6px;font-size:12px">
+  </div>
+  <div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;min-width:600px">
+    <thead>${hdr}</thead><tbody>${rows}</tbody>
+  </table></div>
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button onclick="addMedRecRow()" style="padding:7px 16px;border:1px solid #1a6b4a;border-radius:6px;background:#e8f5ee;color:#1a6b4a;cursor:pointer;font-size:12px;font-family:inherit">+ เพิ่มยา</button>
+    <button onclick="saveIndivMedRec()" style="padding:7px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600">💾 บันทึก</button>
+  </div>`;
+}
+function updateMedRec(i,f,val){if(!_imedrecData[i])_imedrecData[i]={};_imedrecData[i][f]=val;}window.updateMedRec=updateMedRec;
+function updateMedRecSlot(i,k,val){if(!_imedrecData[i])_imedrecData[i]={};if(!_imedrecData[i].slots)_imedrecData[i].slots={};_imedrecData[i].slots[k]=val;}window.updateMedRecSlot=updateMedRecSlot;
+function updateMedRecDay(i,d,val){if(!_imedrecData[i])_imedrecData[i]={};if(!_imedrecData[i].days)_imedrecData[i].days={};_imedrecData[i].days[d]=val;}window.updateMedRecDay=updateMedRecDay;
+function removeMedRec(i){_imedrecData.splice(i,1);if(!_imedrecData.length)_imedrecData=[{}];renderIndivMedRec();}window.removeMedRec=removeMedRec;
+function addMedRecRow(){_imedrecData.push({name:'',dose:'',time:'',slots:{},days:{}});renderIndivMedRec();}window.addMedRecRow=addMedRecRow;
+async function saveIndivMedRec(){
+  if(!_indivCustId)return;
+  const data=_imedrecData.filter(r=>r.name);
+  try{await window._set(window._ref(window._db,`indiv_medrec/${_indivCustId}/${_imedrecMonth}`),data.length?data:null);showStatus('✓ บันทึกรายการยาแล้ว','ok');}
+  catch(e){showStatus('บันทึกไม่สำเร็จ: '+e.message,'err');}
+}
+window.saveIndivMedRec=saveIndivMedRec;
+
+// ─── SHEET 6: ADL / IADL ───
+const IADL_Q=['การใช้โทรศัพท์ (0-2)','การเดินทาง (0-2)','การซื้อของ (0-2)','การหุงหา/อุ่นอาหาร (0-2)','การจัดการเรื่องเงิน (0-2)','การทำความสะอาดบ้าน (0-2)'];
+const ADL_Q=['รับประทานอาหาร (0-2)','การล้างหน้า หวีผม แปรงฟัน (0-1)','ลุกนั่งจากที่นอน/เตียง (0-3)','การใช้ห้องน้ำ (0-2)','การเคลื่อนที่ภายในบ้าน (0-3)','การสวมใส่เสื้อผ้า (0-2)','การขึ้นลงบันได (0-2)','การอาบน้ำ (0-1)','การกลั้นอุจจาระ (0-2)','การกลั้นปัสสาวะ (0-2)'];
+let _iadlData=[];
+
+function loadIndivADL(){
+  if(!_indivCustId)return;
+  window._get(window._ref(window._db,`indiv_adl/${_indivCustId}`)).then(snap=>{
+    _iadlData=snap.exists()?Object.values(snap.val()):[];
+    if(!_iadlData.length)_iadlData=[{date:'',iadl:Array(6).fill(''),adl:Array(10).fill('')}];renderIndivADL();
+  }).catch(()=>{_iadlData=[{date:'',iadl:Array(6).fill(''),adl:Array(10).fill('')}];renderIndivADL();});
+}
+function renderIndivADL(){
+  const el=document.getElementById('iadl-content');
+  if(!el)return;
+  if(!_indivCustId){el.innerHTML='<div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div>';return;}
+  const dates=_iadlData.map((r,i)=>`<th style="padding:6px;border:1px solid #ddd;min-width:110px;text-align:center">
+    <input type="date" value="${r.date||''}" onchange="updateADLDate(${i},this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px;width:105px">
+  </th>`).join('');
+  const iadlRows=IADL_Q.map((q,qi)=>`<tr style="background:${qi%2===0?'#fff':'#fafaf8'}">
+    <td style="padding:5px 8px;border:1px solid #eee;font-size:11px">${qi+1}. ${q}</td>
+    ${_iadlData.map((r,i)=>`<td style="padding:3px;border:1px solid #eee;text-align:center"><input type="number" min="0" max="2" value="${(r.iadl||[])[qi]||''}" oninput="updateIADLScore(${i},'iadl',${qi},this.value)" style="width:50px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px;text-align:center"></td>`).join('')}
+  </tr>`).join('');
+  const adlRows=ADL_Q.map((q,qi)=>`<tr style="background:${qi%2===0?'#fff':'#fafaf8'}">
+    <td style="padding:5px 8px;border:1px solid #eee;font-size:11px">${qi+1}. ${q}</td>
+    ${_iadlData.map((r,i)=>`<td style="padding:3px;border:1px solid #eee;text-align:center"><input type="number" min="0" max="3" value="${(r.adl||[])[qi]||''}" oninput="updateIADLScore(${i},'adl',${qi},this.value)" style="width:50px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px;text-align:center"></td>`).join('')}
+  </tr>`).join('');
+  const totRow=(type,label,max)=>`<tr style="font-weight:700;background:${type==='iadl'?'#e8f0fe':'#e8f5ee'}">
+    <td style="padding:5px 8px;border:1px solid #eee;font-size:11px">${label} (max ${max})</td>
+    ${_iadlData.map(r=>`<td style="padding:5px;border:1px solid #eee;text-align:center;font-size:13px">${(r[type]||[]).reduce((s,v)=>s+(parseInt(v)||0),0)}</td>`).join('')}
+  </tr>`;
+  const addBtn=_iadlData.length<4?`<button onclick="addADLCol()" style="padding:7px 14px;border:1px solid #1a5c9e;border-radius:6px;background:#e8f0fe;color:#1a5c9e;cursor:pointer;font-size:12px;font-family:inherit">+ เพิ่มวันที่ประเมิน</button>`:'';
+  el.innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;min-width:300px">
+    <thead><tr style="background:#e8f0fe"><th style="padding:6px 8px;border:1px solid #ddd;text-align:left;font-size:11px;min-width:220px">IADL</th>${dates}</tr></thead>
+    <tbody>${iadlRows}${totRow('iadl','รวม IADL',12)}</tbody>
+    <thead><tr style="background:#e8f5ee"><th style="padding:6px 8px;border:1px solid #ddd;text-align:left;font-size:11px">ADL / Barthel</th>${_iadlData.map(()=>'<th style="border:1px solid #ddd"></th>').join('')}</tr></thead>
+    <tbody>${adlRows}${totRow('adl','รวม ADL',20)}</tbody>
+  </table></div>
+  <div style="display:flex;gap:8px;margin-top:8px">${addBtn}
+    <button onclick="saveIndivADL()" style="padding:7px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600">💾 บันทึก</button>
+  </div>`;
+}
+function updateADLDate(i,val){if(!_iadlData[i])_iadlData[i]={};_iadlData[i].date=val;renderIndivADL();}window.updateADLDate=updateADLDate;
+function updateIADLScore(i,type,qi,val){
+  if(!_iadlData[i])_iadlData[i]={};if(!_iadlData[i][type])_iadlData[i][type]=[];
+  _iadlData[i][type][qi]=val;
+  // refresh totals only
+  document.querySelectorAll('#iadl-content table tbody:last-of-type tr:last-child td:not(:first-child)').forEach((td,j)=>{
+    if(_iadlData[j])td.textContent=(_iadlData[j].adl||[]).reduce((s,v)=>s+(parseInt(v)||0),0);
+  });
+  document.querySelectorAll('#iadl-content table tbody:first-of-type tr:last-child td:not(:first-child)').forEach((td,j)=>{
+    if(_iadlData[j])td.textContent=(_iadlData[j].iadl||[]).reduce((s,v)=>s+(parseInt(v)||0),0);
+  });
+}window.updateIADLScore=updateIADLScore;
+function addADLCol(){_iadlData.push({date:'',iadl:Array(6).fill(''),adl:Array(10).fill('')});renderIndivADL();}window.addADLCol=addADLCol;
+async function saveIndivADL(){
+  if(!_indivCustId)return;
+  const data=_iadlData.filter(r=>r.date||(r.iadl||[]).some(v=>v)||(r.adl||[]).some(v=>v));
+  try{await window._set(window._ref(window._db,`indiv_adl/${_indivCustId}`),data.length?data:null);showStatus('✓ บันทึก ADL/IADL แล้ว','ok');}
+  catch(e){showStatus('บันทึกไม่สำเร็จ: '+e.message,'err');}
+}
+window.saveIndivADL=saveIndivADL;
+
+// ─── SHEET 7: เตรียมไปนัด รพ ───
+const HOSP_PREP={
+  'ก่อนวัดนัด':['ประสานงานกับญาติ','วันที่ เวลา นัด','นัด รพ.','แผนก','ญาติพาไปเอง','รถพยาบาลและเจ้าหน้าที่','รถพยาบาล','เรียกแท็กซี่','ตรวจสอบการเตรียมก่อนตรวจตามใบนัด','เจาะเลือด','เอ็กซเรย์','ติดตามการรักษา','งดน้ำและอาหาร','อื่นๆ'],
+  'วันนัด':['เตรียมยาประจำตัว','เตรียมของใช้ส่วนตัว','เคสช่วยเหลือตัวเองได้ เช่น น้ำดื่ม นม ขนม','เคสช่วยเหลือตัวเองไม่ได้ เช่น แพมเพิส','กระดาษเปียก ถุงมือ ถุงขยะเล็ก','เคสอาหารสายยาง เช่น นม น้ำ อุปกรณ์ฟีด','ใบสรุปอาการ V/S DTX I/O','ใบนัด รพ','บัตรประชาชน/บัตรผู้พิการ','อื่นๆ'],
+  'กลับจากนัด':['สอบถามผลตรวจจากญาติหรือเจ้าหน้าที่','แจ้งผลการตรวจให้ญาติทราบ','ตรวจสอบยา ลงยาเพิ่มในใบรายการยา','ลงสรุปผลการไปนัด รพ. และนัดครั้งถัดไป','สรุปยอดค่าใช้จ่ายแจ้งญาติ','อื่นๆ']
+};
+let _ihospData=[];
+
+function loadIndivHosp(){
+  if(!_indivCustId)return;
+  window._get(window._ref(window._db,`indiv_hosp/${_indivCustId}`)).then(snap=>{
+    _ihospData=snap.exists()?Object.values(snap.val()):[];
+    if(!_ihospData.length)_ihospData=[{date:'',sections:{}}];renderIndivHosp();
+  }).catch(()=>{_ihospData=[{date:'',sections:{}}];renderIndivHosp();});
+}
+function renderIndivHosp(){
+  const el=document.getElementById('ihosp-content');
+  if(!el)return;
+  if(!_indivCustId){el.innerHTML='<div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div>';return;}
+  const dateCols=_ihospData.map((r,i)=>`<th style="padding:6px;border:1px solid #ddd;min-width:120px;text-align:center">
+    <div style="font-size:10px;color:#888;margin-bottom:2px">นัดที่ ${i+1}</div>
+    <input type="date" value="${r.date||''}" onchange="updateHospDate(${i},this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px;width:115px">
+  </th>`).join('');
+  let rows='';
+  Object.entries(HOSP_PREP).forEach(([section,items])=>{
+    rows+=`<tr><td colspan="${_ihospData.length+1}" style="padding:5px 8px;border:1px solid #ddd;background:#f5e8d0;font-size:11px;font-weight:700;color:#7a4f0d">${section}</td></tr>`;
+    items.forEach(item=>{
+      rows+=`<tr><td style="padding:5px 8px;border:1px solid #eee;font-size:11px">${item}</td>
+        ${_ihospData.map((r,i)=>{const chk=((r.sections||{})[section]||{})[item];return `<td style="padding:3px;border:1px solid #eee;text-align:center"><input type="checkbox" ${chk?'checked':''} onchange="updateHospItem(${i},'${section}','${item.replace(/'/g,"\\'")}',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:#1a6b4a"></td>`;}).join('')}
+      </tr>`;
+    });
+  });
+  const addBtn=_ihospData.length<7?`<button onclick="addHospCol()" style="padding:7px 14px;border:1px solid #7a4f0d;border-radius:6px;background:#f5e8d0;color:#7a4f0d;cursor:pointer;font-size:12px;font-family:inherit">+ เพิ่มนัดวันที่</button>`:'';
+  el.innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;min-width:300px">
+    <thead><tr style="background:#f0ede8"><th style="padding:6px 8px;border:1px solid #ddd;text-align:left;min-width:200px;font-size:11px">รายการ</th>${dateCols}</tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  <div style="display:flex;gap:8px;margin-top:8px">${addBtn}
+    <button onclick="saveIndivHosp()" style="padding:7px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600">💾 บันทึก</button>
+  </div>`;
+}
+function updateHospDate(i,val){if(!_ihospData[i])_ihospData[i]={};_ihospData[i].date=val;renderIndivHosp();}window.updateHospDate=updateHospDate;
+function updateHospItem(i,sec,item,val){
+  if(!_ihospData[i])_ihospData[i]={};
+  if(!_ihospData[i].sections)_ihospData[i].sections={};
+  if(!_ihospData[i].sections[sec])_ihospData[i].sections[sec]={};
+  _ihospData[i].sections[sec][item]=val;
+}window.updateHospItem=updateHospItem;
+function addHospCol(){_ihospData.push({date:'',sections:{}});renderIndivHosp();}window.addHospCol=addHospCol;
+async function saveIndivHosp(){
+  if(!_indivCustId)return;
+  const data=_ihospData.filter(r=>r.date||Object.values(r.sections||{}).some(s=>Object.values(s).some(v=>v)));
+  try{await window._set(window._ref(window._db,`indiv_hosp/${_indivCustId}`),data.length?data:null);showStatus('✓ บันทึกใบเตรียมนัดแล้ว','ok');}
+  catch(e){showStatus('บันทึกไม่สำเร็จ: '+e.message,'err');}
+}
+window.saveIndivHosp=saveIndivHosp;
+
+// ─── SHEET 8: สรุปผลนัด รพ. ───
+let _ihospsumData=[];
+
+function loadIndivHospSum(){
+  if(!_indivCustId)return;
+  window._get(window._ref(window._db,`indiv_hospsum/${_indivCustId}`)).then(snap=>{
+    _ihospsumData=snap.exists()?Object.values(snap.val()):[];
+    if(!_ihospsumData.length)_ihospsumData=[{}];renderIndivHospSum();
+  }).catch(()=>{_ihospsumData=[{}];renderIndivHospSum();});
+}
+function renderIndivHospSum(){
+  const el=document.getElementById('ihospsum-content');
+  if(!el)return;
+  if(!_indivCustId){el.innerHTML='<div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div>';return;}
+  const rows=_ihospsumData.map((r,i)=>{
+    const bg=i%2===0?'#fff':'#fafaf8';
+    const inp=(f,ph,w='100%')=>`<input type="text" value="${(r[f]||'').replace(/"/g,'&quot;')}" placeholder="${ph}" oninput="updateHospSum(${i},'${f}',this.value)" style="width:${w};padding:5px 7px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit">`;
+    return `<tr style="background:${bg}">
+      <td style="padding:3px;border:1px solid #eee"><input type="date" value="${r.date||''}" onchange="updateHospSum(${i},'date',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px;width:120px"></td>
+      <td style="padding:3px;border:1px solid #eee">${inp('hosp','ชื่อ รพ.','110px')}</td>
+      <td style="padding:3px;border:1px solid #eee">${inp('dept','แผนก','100px')}</td>
+      <td style="padding:3px;border:1px solid #eee"><textarea oninput="updateHospSum(${i},'result',this.value)" placeholder="สรุปผลการตรวจ" style="width:100%;min-width:150px;padding:5px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit;resize:vertical;min-height:40px">${r.result||''}</textarea></td>
+      <td style="padding:3px;border:1px solid #eee">${inp('next','นัดครั้งต่อไป','110px')}</td>
+      <td style="padding:3px;border:1px solid #eee">${inp('transport','การเดินทาง','90px')}</td>
+      <td style="padding:3px;border:1px solid #eee;text-align:center"><button onclick="removeHospSum(${i})" style="padding:2px 8px;border:1px solid #f5b8b0;border-radius:4px;background:#fdf0ee;color:#c0392b;cursor:pointer;font-size:11px">ลบ</button></td>
+    </tr>`;
+  }).join('');
+  el.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
+    <thead><tr style="background:#f0ede8">
+      <th style="padding:6px;border:1px solid #ddd;min-width:120px">วดป.</th>
+      <th style="padding:6px;border:1px solid #ddd;min-width:110px">นัด รพ.</th>
+      <th style="padding:6px;border:1px solid #ddd;min-width:100px">แผนก</th>
+      <th style="padding:6px;border:1px solid #ddd;min-width:160px">สรุปผลการตรวจ</th>
+      <th style="padding:6px;border:1px solid #ddd;min-width:110px">นัดครั้งต่อไป</th>
+      <th style="padding:6px;border:1px solid #ddd;min-width:90px">การเดินทาง</th>
+      <th style="padding:6px;border:1px solid #ddd"></th>
+    </tr></thead><tbody>${rows}</tbody>
+  </table></div>
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button onclick="addHospSumRow()" style="padding:7px 16px;border:1px solid #1a5c9e;border-radius:6px;background:#e8f0fe;color:#1a5c9e;cursor:pointer;font-size:12px;font-family:inherit">+ เพิ่มรายการนัด</button>
+    <button onclick="saveIndivHospSum()" style="padding:7px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600">💾 บันทึก</button>
+  </div>`;
+}
+function updateHospSum(i,f,val){if(!_ihospsumData[i])_ihospsumData[i]={};_ihospsumData[i][f]=val;}window.updateHospSum=updateHospSum;
+function removeHospSum(i){_ihospsumData.splice(i,1);if(!_ihospsumData.length)_ihospsumData=[{}];renderIndivHospSum();}window.removeHospSum=removeHospSum;
+function addHospSumRow(){_ihospsumData.push({});renderIndivHospSum();}window.addHospSumRow=addHospSumRow;
+async function saveIndivHospSum(){
+  if(!_indivCustId)return;
+  const data=_ihospsumData.filter(r=>r.date||r.hosp||r.result);
+  try{await window._set(window._ref(window._db,`indiv_hospsum/${_indivCustId}`),data.length?data:null);showStatus('✓ บันทึกสรุปผลนัดแล้ว','ok');}
+  catch(e){showStatus('บันทึกไม่สำเร็จ: '+e.message,'err');}
+}
+window.saveIndivHospSum=saveIndivHospSum;
 </script>
 
 <style>
@@ -1730,6 +2355,13 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .vsheet-panel{display:none}
 .vsheet-panel.active{display:block}
 .vbranch-btn.active{background:#f0ede8 !important;border-color:#bbb !important;font-weight:700 !important}
+/* sub-sheet tabs inside ลงบันทึกรายบุคคล */
+.isheet-btn{padding:7px 13px;border:1.5px solid #ddd;border-radius:20px;background:#fff;font-size:12px;font-family:inherit;cursor:pointer;color:#555;transition:all .15s;font-weight:500;white-space:nowrap}
+.isheet-btn.active{background:#2856b8;color:#fff;border-color:#2856b8;font-weight:600}
+.isheet-panel{display:none}
+.isheet-panel.active{display:block}
+.ibranch-btn{padding:7px 13px;border:1.5px solid #ddd;border-radius:20px;background:#fff;font-size:12px;font-family:inherit;cursor:pointer;color:#555;transition:all .15s;font-weight:500}
+.ibranch-btn.active{background:#2856b8;color:#fff;border-color:#2856b8;font-weight:600}
 /* status toggle buttons */
 .status-toggle-btn{width:100%;padding:13px 16px;border:1.5px solid #e0dbd2;border-radius:12px;cursor:pointer;font-size:14px;font-weight:500;font-family:inherit;text-align:left;transition:all .18s;background:#fff;color:#555;margin-bottom:10px;display:flex;align-items:center;gap:12px}
 .status-toggle-btn:last-child{margin-bottom:0}
@@ -1808,6 +2440,9 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
       </div>
       <div class="nav-item" id="nav-vital" onclick="setPage('vital')">
         <span class="nav-icon">📝</span><span>ลงบันทึกรวม</span>
+      </div>
+      <div class="nav-item" id="nav-indiv" onclick="setPage('indiv')">
+        <span class="nav-icon">👤</span><span>ลงบันทึกรายบุคคล</span>
       </div>
     </nav>
 
@@ -2152,6 +2787,71 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 
       </div><!-- end page-vital -->
 
+      <!-- ===== PAGE: ลงบันทึกรายบุคคล ===== -->
+      <div class="page-section" id="page-indiv">
+        <!-- Branch filter + patient selector -->
+        <div class="card" style="margin-bottom:10px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            <button class="ibranch-btn active" data-branch="" onclick="setIndivBranch('')">ทั้งหมด</button>
+            <button class="ibranch-btn" data-branch="สาขา 1" onclick="setIndivBranch('สาขา 1')">สาขา 1</button>
+            <button class="ibranch-btn" data-branch="สาขา 2" onclick="setIndivBranch('สาขา 2')">สาขา 2</button>
+            <button class="ibranch-btn" data-branch="สาขา 3" onclick="setIndivBranch('สาขา 3')">สาขา 3</button>
+          </div>
+          <select id="indiv-cust-sel" style="width:100%;padding:8px 12px;border:1px solid #e0dbd2;border-radius:8px;font-size:13px;font-family:inherit;outline:none">
+            <option value="">-- เลือกผู้ป่วย --</option>
+          </select>
+          <div id="indiv-banner" style="display:none;background:#f0f4fe;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:8px"></div>
+        </div>
+        <!-- Sub-sheet tabs -->
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
+          <button class="isheet-btn active" data-sheet="ivs"      onclick="setIndivSheet('ivs')">📊 VS รายบุคคล</button>
+          <button class="isheet-btn"        data-sheet="iio"      onclick="setIndivSheet('iio')">💧 IO/DTX/BMI</button>
+          <button class="isheet-btn"        data-sheet="icare"    onclick="setIndivSheet('icare')">✅ กิจกรรมการดูแล</button>
+          <button class="isheet-btn"        data-sheet="imedfam"  onclick="setIndivSheet('imedfam')">💊 รับยาจากญาติ</button>
+          <button class="isheet-btn"        data-sheet="imedrec"  onclick="setIndivSheet('imedrec')">📝 รายการบันทึกยา</button>
+          <button class="isheet-btn"        data-sheet="iadl"     onclick="setIndivSheet('iadl')">🧠 ADL/IADL</button>
+          <button class="isheet-btn"        data-sheet="ihosp"    onclick="setIndivSheet('ihosp')">🏥 เตรียมนัด รพ</button>
+          <button class="isheet-btn"        data-sheet="ihospsum" onclick="setIndivSheet('ihospsum')">📋 สรุปผลนัด รพ.</button>
+        </div>
+        <!-- PANEL 1: VS รายบุคคล -->
+        <div class="isheet-panel active card" id="ip-ivs">
+          <div style="font-size:12px;font-weight:600;color:#555;margin-bottom:8px">📊 บันทึกสัญญาณชีพรายบุคคล</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+            <input type="date" id="iv-date" style="padding:6px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px">
+            <div id="iv-time-tabs" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+          </div>
+          <div id="iv-form"><div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div></div>
+        </div>
+        <!-- PANEL 2: IO / DTX / BMI -->
+        <div class="isheet-panel card" id="ip-iio">
+          <div id="iio-content"><div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div></div>
+        </div>
+        <!-- PANEL 3: กิจกรรมการดูแล -->
+        <div class="isheet-panel card" id="ip-icare">
+          <div id="icare-content"><div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div></div>
+        </div>
+        <!-- PANEL 4: รับยาจากญาติ -->
+        <div class="isheet-panel card" id="ip-imedfam">
+          <div id="imedfam-content"><div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div></div>
+        </div>
+        <!-- PANEL 5: รายการบันทึกยา -->
+        <div class="isheet-panel card" id="ip-imedrec">
+          <div id="imedrec-content"><div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div></div>
+        </div>
+        <!-- PANEL 6: ADL / IADL -->
+        <div class="isheet-panel card" id="ip-iadl">
+          <div id="iadl-content"><div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div></div>
+        </div>
+        <!-- PANEL 7: เตรียมไปนัด รพ -->
+        <div class="isheet-panel card" id="ip-ihosp">
+          <div id="ihosp-content"><div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div></div>
+        </div>
+        <!-- PANEL 8: สรุปผลนัด รพ. -->
+        <div class="isheet-panel card" id="ip-ihospsum">
+          <div id="ihospsum-content"><div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div></div>
+        </div>
+      </div><!-- end page-indiv -->
+
       <div style="text-align:center;font-size:11px;color:#bbb;padding:6px 0 14px">
         DD Nursing Home · ระบบพนักงาน · ข้อมูลส่งให้แอดมินทันที
       </div>
@@ -2172,6 +2872,10 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
     <button class="bnav-item" id="bnav-vital" onclick="setPage('vital')">
       <span class="bnav-icon">📝</span>
       <span class="bnav-label">บันทึกรวม</span>
+    </button>
+    <button class="bnav-item" id="bnav-indiv" onclick="setPage('indiv')">
+      <span class="bnav-icon">👤</span>
+      <span class="bnav-label">รายบุคคล</span>
     </button>
   </nav>
 
