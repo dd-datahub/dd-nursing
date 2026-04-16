@@ -205,6 +205,12 @@ function loadData() {
       allCustomers = Object.values(snap.val()).filter(c => !c.discharged);
       allCustomers.sort((a,b) => a.name.localeCompare(b.name,"th"));
       renderCustList();
+      // refresh vital-signs sub-sheets if already initialized
+      renderVitalTable?.();
+      if (window._summaryInited)  renderCaseSummary?.();
+      if (window._registryInited) renderRegistry?.();
+      if (window._meddailyInited) renderMedDaily?.();
+      if (window._medcheckInited) renderMedCheckCustSelect?.();
     }
     buildMonthSelect();
     showStatus("พร้อมใช้งาน ✓", "ok");
@@ -1179,6 +1185,370 @@ async function saveVitalSigns() {
   }
 }
 window.saveVitalSigns = saveVitalSigns;
+
+// ============================================================
+//  SUB-SHEET MANAGEMENT — ลงบันทึกรวม
+// ============================================================
+let _activeVitalSheet = 'vs';
+
+function setVitalSheet(sheet) {
+  _activeVitalSheet = sheet;
+  document.querySelectorAll('.vsheet-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.sheet === sheet));
+  document.querySelectorAll('.vsheet-panel').forEach(p =>
+    p.classList.toggle('active', p.id === 'vp-' + sheet));
+  // lazy init each sheet on first visit
+  if (sheet==='summary'  && !window._summaryInited)  { window._summaryInited=true;  initCaseSummary(); }
+  if (sheet==='appt'     && !window._apptInited)     { window._apptInited=true;     initApptCalendar(); }
+  if (sheet==='registry' && !window._registryInited) { window._registryInited=true; initRegistry(); }
+  if (sheet==='medcheck' && !window._medcheckInited) { window._medcheckInited=true; initMedCheck(); }
+  if (sheet==='meddaily' && !window._meddailyInited) { window._meddailyInited=true; initMedDaily(); }
+}
+window.setVitalSheet = setVitalSheet;
+
+// ============================================================
+//  SHEET 2: ตารางสรุปเคส
+// ============================================================
+let _summaryMonth = '';
+let _summaryData  = {};
+
+function initCaseSummary() {
+  const d = document.getElementById('summary-month');
+  const now2 = new Date();
+  _summaryMonth = now2.getFullYear() + '-' + String(now2.getMonth()+1).padStart(2,'0');
+  if (d) { d.value = _summaryMonth; d.addEventListener('change', () => { _summaryMonth=d.value; loadCaseSummary(); }); }
+  loadCaseSummary();
+}
+
+function loadCaseSummary() {
+  if (!_summaryMonth) return;
+  const msg = document.getElementById('summary-status');
+  if (msg) { msg.textContent='กำลังโหลด...'; msg.style.color='#aaa'; }
+  window._get(window._ref(window._db, `case_summary/${_summaryMonth}`)).then(snap => {
+    _summaryData = snap.exists() ? snap.val() : {};
+    renderCaseSummary();
+    if (msg) { msg.textContent = snap.exists() ? '✓ โหลดแล้ว' : 'ยังไม่มีข้อมูล'; msg.style.color = snap.exists() ? '#1a6b4a' : '#bbb'; }
+  }).catch(e => { if (msg) { msg.textContent='โหลดไม่ได้: '+e.message; msg.style.color='#c0392b'; } renderCaseSummary(); });
+}
+
+function renderCaseSummary() {
+  const tbody = document.getElementById('summary-tbody');
+  if (!tbody) return;
+  const custs = (typeof allCustomers !== 'undefined') ? allCustomers : [];
+  if (!custs.length) { tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:20px;color:#bbb">ไม่มีข้อมูลผู้ป่วย</td></tr>'; return; }
+  const LEVELS = ['','ระดับ 1','ระดับ 2','ระดับ 3','ระดับ 4'];
+  tbody.innerHTML = custs.map((c,i) => {
+    const cid = (c.id||'').replace(/\//g,'_');
+    const v = _summaryData[cid] || {};
+    const bg = i%2===0 ? '#fff' : '#fafaf8';
+    const chk = (f) => `<input type="checkbox" ${v[f]?'checked':''} onchange="updateSummary('${cid}','${f}',this.checked)" style="width:16px;height:16px;cursor:pointer">`;
+    return `<tr style="background:${bg}">
+      <td style="padding:5px 5px;border:1px solid #eee;text-align:center;color:#888;font-size:11px">${i+1}</td>
+      <td style="padding:5px 8px;border:1px solid #eee;font-size:12px">${c.name||''}</td>
+      <td style="padding:3px;border:1px solid #eee;text-align:center">
+        <select onchange="updateSummary('${cid}','gender',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:2px 4px">
+          <option value="" ${!v.gender?'selected':''}>-</option>
+          <option value="ชาย" ${v.gender==='ชาย'?'selected':''}>ชาย</option>
+          <option value="หญิง" ${v.gender==='หญิง'?'selected':''}>หญิง</option>
+        </select></td>
+      <td style="padding:3px;border:1px solid #eee"><input type="number" min="0" max="120" value="${v.age||''}" oninput="updateSummary('${cid}','age',this.value)" style="width:42px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>
+      <td style="padding:3px;border:1px solid #eee"><input type="date" value="${v.admitDate||''}" onchange="updateSummary('${cid}','admitDate',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px"></td>
+      <td style="padding:3px;border:1px solid #eee"><input type="number" min="0" max="100" value="${v.adl||''}" oninput="updateSummary('${cid}','adl',this.value)" style="width:42px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>
+      <td style="padding:3px;border:1px solid #eee;text-align:center">
+        <select onchange="updateSummary('${cid}','level',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:2px 4px">
+          ${LEVELS.map(l => `<option value="${l}" ${v.level===l?'selected':''}>${l||'-'}</option>`).join('')}
+        </select></td>
+      <td style="padding:3px;border:1px solid #eee;text-align:center">${chk('feedTube')}</td>
+      <td style="padding:3px;border:1px solid #eee;text-align:center">${chk('trach')}</td>
+      <td style="padding:3px;border:1px solid #eee;text-align:center">${chk('wounds')}</td>
+      <td style="padding:3px;border:1px solid #eee;text-align:center">${chk('catheter')}</td>
+      <td style="padding:3px;border:1px solid #eee"><input type="text" value="${v.note||''}" oninput="updateSummary('${cid}','note',this.value)" style="width:100%;min-width:75px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>
+    </tr>`;
+  }).join('');
+}
+
+function updateSummary(cid,field,val) { if(!_summaryData[cid]) _summaryData[cid]={}; _summaryData[cid][field]=val; }
+window.updateSummary = updateSummary;
+
+async function saveCaseSummary() {
+  const btn=document.getElementById('summary-save-btn'), msg=document.getElementById('summary-status');
+  if (btn) { btn.disabled=true; btn.textContent='กำลังบันทึก...'; }
+  const user=window._currentUser, saveObj={};
+  Object.entries(_summaryData).forEach(([cid,v]) => {
+    if (Object.values(v).some(x=>x!==''&&x!==false&&x!=null)) saveObj[cid]={...v,savedBy:user?(user.displayName||user.email):'staff',savedAt:new Date().toISOString()};
+  });
+  try {
+    await window._set(window._ref(window._db,`case_summary/${_summaryMonth}`), Object.keys(saveObj).length?saveObj:null);
+    if (msg) { msg.textContent='✓ บันทึกแล้ว'; msg.style.color='#1a6b4a'; }
+    if (btn) { btn.textContent='✓ บันทึกแล้ว'; setTimeout(()=>{ btn.disabled=false; btn.textContent='💾 บันทึก'; },2500); }
+  } catch(e) {
+    if (msg) { msg.textContent='บันทึกไม่สำเร็จ: '+e.message; msg.style.color='#c0392b'; }
+    if (btn) { btn.disabled=false; btn.textContent='💾 บันทึก'; }
+  }
+}
+window.saveCaseSummary = saveCaseSummary;
+
+// ============================================================
+//  SHEET 3: ตารางนัด — ปฏิทิน
+// ============================================================
+const TH_MONTHS_CAL = ['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const TH_DAYS_CAL   = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์'];
+let _apptYear=new Date().getFullYear(), _apptMonth=new Date().getMonth()+1;
+let _apptData={};
+
+function initApptCalendar() { renderApptHeader(); loadAppointments(); }
+
+function renderApptHeader() {
+  const el=document.getElementById('appt-month-display');
+  if (el) el.textContent=`${TH_MONTHS_CAL[_apptMonth]} ${_apptYear+543}`;
+}
+
+function apptPrevMonth() { _apptMonth--; if(_apptMonth<1){_apptMonth=12;_apptYear--;} renderApptHeader(); loadAppointments(); }
+function apptNextMonth() { _apptMonth++; if(_apptMonth>12){_apptMonth=1;_apptYear++;} renderApptHeader(); loadAppointments(); }
+window.apptPrevMonth=apptPrevMonth; window.apptNextMonth=apptNextMonth;
+
+function loadAppointments() {
+  const ym=`${_apptYear}-${String(_apptMonth).padStart(2,'0')}`;
+  window._get(window._ref(window._db,`appointments/${ym}`)).then(snap=>{
+    _apptData=snap.exists()?snap.val():{};
+    renderCalendar();
+  }).catch(()=>{ _apptData={}; renderCalendar(); });
+}
+
+function renderCalendar() {
+  const el=document.getElementById('appt-calendar');
+  if (!el) return;
+  const firstDay=new Date(_apptYear,_apptMonth-1,1).getDay();
+  const daysInMonth=new Date(_apptYear,_apptMonth,0).getDate();
+  let html=`<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>`;
+  TH_DAYS_CAL.forEach(d=>{ html+=`<th style="padding:7px 3px;border:1px solid #ddd;background:#f0ede8;text-align:center;font-size:11px;min-width:48px">${d}</th>`; });
+  html+='</tr></thead><tbody><tr>';
+  let col=0;
+  for(let i=0;i<firstDay;i++){ html+='<td style="border:1px solid #eee;background:#fafaf8;min-height:64px"></td>'; col++; }
+  for(let day=1;day<=daysInMonth;day++){
+    const ds=`${_apptYear}-${String(_apptMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const text=(_apptData[ds]||{}).text||'';
+    const hasNote=!!text.trim();
+    html+=`<td style="padding:4px;border:1px solid #ddd;vertical-align:top;min-height:64px;cursor:pointer;background:${hasNote?'#e8f5ee':'#fff'}" onclick="openApptDay('${ds}')">
+      <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:2px">${day}</div>
+      <div style="font-size:10px;color:#1a6b4a;line-height:1.3;word-break:break-word">${text.replace(/\n/g,'<br>')}</div>
+    </td>`;
+    col++;
+    if(col%7===0&&day<daysInMonth) html+='</tr><tr>';
+  }
+  while(col%7!==0){ html+='<td style="border:1px solid #eee;background:#fafaf8"></td>'; col++; }
+  html+='</tr></tbody></table>';
+  el.innerHTML=html;
+}
+
+function openApptDay(ds) {
+  const existing=(_apptData[ds]||{}).text||'';
+  const newText=prompt(`บันทึกนัด/กิจกรรม วันที่ ${ds}\n(ลบข้อความทั้งหมดแล้ว OK เพื่อลบรายการ)`, existing);
+  if (newText===null) return;
+  saveApptDay(ds, newText);
+}
+window.openApptDay=openApptDay;
+
+async function saveApptDay(ds, text) {
+  const ym=`${_apptYear}-${String(_apptMonth).padStart(2,'0')}`;
+  const user=window._currentUser;
+  if (text.trim()) _apptData[ds]={text:text.trim(),by:user?(user.displayName||user.email):'staff',at:new Date().toISOString()};
+  else delete _apptData[ds];
+  try { await window._set(window._ref(window._db,`appointments/${ym}`),Object.keys(_apptData).length?_apptData:null); }
+  catch(e) { alert('บันทึกไม่สำเร็จ: '+e.message); }
+  renderCalendar();
+}
+
+// ============================================================
+//  SHEET 4: ทะเบียนผู้รับบริการ
+// ============================================================
+let _registryExtra={};
+
+function initRegistry() { loadRegistryExtra(); }
+
+function loadRegistryExtra() {
+  const msg=document.getElementById('registry-status');
+  if(msg){msg.textContent='กำลังโหลด...';msg.style.color='#aaa';}
+  window._get(window._ref(window._db,'registry_extra')).then(snap=>{
+    _registryExtra=snap.exists()?snap.val():{};
+    renderRegistry();
+    if(msg){msg.textContent='✓ โหลดแล้ว';msg.style.color='#1a6b4a';setTimeout(()=>msg.textContent='',2000);}
+  }).catch(e=>{ if(msg){msg.textContent='โหลดไม่ได้: '+e.message;msg.style.color='#c0392b';} renderRegistry(); });
+}
+
+function renderRegistry() {
+  const tbody=document.getElementById('registry-tbody');
+  if(!tbody) return;
+  const custs=(typeof allCustomers!=='undefined')?allCustomers:[];
+  if(!custs.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:#bbb">ไม่มีข้อมูลผู้ป่วย</td></tr>';return;}
+  tbody.innerHTML=custs.map((c,i)=>{
+    const cid=(c.id||'').replace(/\//g,'_');
+    const e=_registryExtra[cid]||{};
+    const bg=i%2===0?'#fff':'#fafaf8';
+    const inp=(f,ph,w,tp='text')=>`<input type="${tp}" value="${e[f]||''}" placeholder="${ph}" oninput="updateRegistry('${cid}','${f}',this.value)" style="width:${w};padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit">`;
+    const days=e.admitDate&&e.endDate?Math.max(0,Math.round((new Date(e.endDate)-new Date(e.admitDate))/(864e5)))+' วัน':'-';
+    return `<tr style="background:${bg}">
+      <td style="padding:5px 5px;border:1px solid #eee;text-align:center;color:#888;font-size:11px">${i+1}</td>
+      <td style="padding:5px 8px;border:1px solid #eee;font-size:12px">${c.name||''}</td>
+      <td style="padding:3px;border:1px solid #eee">${inp('generalId','เลขที่','78px')}</td>
+      <td style="padding:3px;border:1px solid #eee">${inp('address','ที่อยู่','115px')}</td>
+      <td style="padding:3px;border:1px solid #eee"><input type="date" value="${e.admitDate||''}" onchange="updateRegistryDate('${cid}','admitDate',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px"></td>
+      <td style="padding:3px;border:1px solid #eee"><input type="date" value="${e.endDate||''}" onchange="updateRegistryDate('${cid}','endDate',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px"></td>
+      <td style="padding:5px 8px;border:1px solid #eee;text-align:center;font-size:11px;color:#666">${days}</td>
+      <td style="padding:3px;border:1px solid #eee">${inp('phone','โทรศัพท์','100px','tel')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updateRegistry(cid,f,val){if(!_registryExtra[cid])_registryExtra[cid]={};_registryExtra[cid][f]=val;}
+function updateRegistryDate(cid,f,val){updateRegistry(cid,f,val);renderRegistry();}
+window.updateRegistry=updateRegistry; window.updateRegistryDate=updateRegistryDate;
+
+async function saveRegistry() {
+  const btn=document.getElementById('registry-save-btn'),msg=document.getElementById('registry-status');
+  if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
+  try {
+    await window._set(window._ref(window._db,'registry_extra'),Object.keys(_registryExtra).length?_registryExtra:null);
+    if(msg){msg.textContent='✓ บันทึกแล้ว';msg.style.color='#1a6b4a';}
+    if(btn){btn.textContent='✓ บันทึกแล้ว';setTimeout(()=>{btn.disabled=false;btn.textContent='💾 บันทึก';},2500);}
+  } catch(e){
+    if(msg){msg.textContent='บันทึกไม่สำเร็จ: '+e.message;msg.style.color='#c0392b';}
+    if(btn){btn.disabled=false;btn.textContent='💾 บันทึก';}
+  }
+}
+window.saveRegistry=saveRegistry;
+
+// ============================================================
+//  SHEET 5: ใบตรวจสอบยารายวัน
+// ============================================================
+const MED_TIMES=['ก่อนอาหารเช้า','หลังอาหารเช้า','ก่อนอาหารเที่ยง','หลังอาหารเที่ยง','ก่อนอาหารเย็น','หลังอาหารเย็น','ก่อนนอน','ยาฉีด'];
+let _medCheckDate='', _medCheckCust='', _medCheckData={};
+
+function initMedCheck() {
+  const dateEl=document.getElementById('medcheck-date');
+  _medCheckDate=new Date().toISOString().split('T')[0];
+  if(dateEl){dateEl.value=_medCheckDate;dateEl.addEventListener('change',()=>{_medCheckDate=dateEl.value;loadMedCheck();});}
+  renderMedCheckCustSelect();
+}
+
+function renderMedCheckCustSelect() {
+  const sel=document.getElementById('medcheck-cust-sel');
+  if(!sel) return;
+  const custs=(typeof allCustomers!=='undefined')?allCustomers:[];
+  sel.innerHTML='<option value="">-- เลือกผู้ป่วย --</option>'+custs.map(c=>`<option value="${(c.id||'').replace(/\//g,'_')}">${c.name}</option>`).join('');
+  sel.onchange=()=>{_medCheckCust=sel.value;loadMedCheck();};
+}
+
+function loadMedCheck() {
+  if(!_medCheckDate||!_medCheckCust){renderMedCheck();return;}
+  window._get(window._ref(window._db,`med_check/${_medCheckDate}/${_medCheckCust}`)).then(snap=>{
+    _medCheckData=snap.exists()?snap.val():{};renderMedCheck();
+  }).catch(()=>{_medCheckData={};renderMedCheck();});
+}
+
+function renderMedCheck() {
+  const tbody=document.getElementById('medcheck-tbody');
+  if(!tbody) return;
+  tbody.innerHTML=MED_TIMES.map((t,i)=>{
+    const bg=i%2===0?'#fff':'#fafaf8';
+    const tk=t.replace(/\s+/g,'_');
+    return `<tr style="background:${bg}">
+      <td style="padding:8px 12px;border:1px solid #eee;font-size:13px;font-weight:500;min-width:150px">${t}</td>
+      <td style="padding:6px;border:1px solid #eee">
+        <input type="text" value="${_medCheckData[tk]||''}" placeholder="ชื่อผู้ตรวจสอบ"
+          oninput="updateMedCheck('${tk}',this.value)"
+          style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;font-family:inherit;min-width:200px">
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function updateMedCheck(tk,val){_medCheckData[tk]=val;}
+window.updateMedCheck=updateMedCheck;
+
+async function saveMedCheck() {
+  if(!_medCheckDate||!_medCheckCust){alert('กรุณาเลือกวันที่และผู้ป่วยก่อน');return;}
+  const btn=document.getElementById('medcheck-save-btn');
+  if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
+  const saveObj={};
+  MED_TIMES.forEach(t=>{const k=t.replace(/\s+/g,'_');if(_medCheckData[k])saveObj[k]=_medCheckData[k];});
+  const user=window._currentUser;
+  try {
+    await window._set(window._ref(window._db,`med_check/${_medCheckDate}/${_medCheckCust}`),
+      Object.keys(saveObj).length?{...saveObj,savedBy:user?(user.displayName||user.email):'staff',savedAt:new Date().toISOString()}:null);
+    if(btn){btn.textContent='✓ บันทึกแล้ว';setTimeout(()=>{btn.disabled=false;btn.textContent='💾 บันทึก';},2500);}
+  } catch(e){alert('บันทึกไม่สำเร็จ: '+e.message);if(btn){btn.disabled=false;btn.textContent='💾 บันทึก';}}
+}
+window.saveMedCheck=saveMedCheck;
+
+// ============================================================
+//  SHEET 6: ใบตรวจสอบยาแต่ละวัน
+// ============================================================
+const MED_DAILY_COLS=[
+  {key:'bfr_morn',g:'ก่อนอาหาร'},{key:'bfr_noon',g:'ก่อนอาหาร'},{key:'bfr_eve',g:'ก่อนอาหาร'},
+  {key:'aft_morn',g:'หลังอาหาร'},{key:'aft_noon',g:'หลังอาหาร'},{key:'aft_eve',g:'หลังอาหาร'},
+  {key:'sleep',g:''},{key:'weekly',g:''},{key:'other',g:''}
+];
+let _medDailyDate='', _medDailyData={};
+
+function initMedDaily() {
+  const dateEl=document.getElementById('meddaily-date');
+  _medDailyDate=new Date().toISOString().split('T')[0];
+  if(dateEl){dateEl.value=_medDailyDate;dateEl.addEventListener('change',()=>{_medDailyDate=dateEl.value;loadMedDaily();});}
+  loadMedDaily();
+}
+
+function loadMedDaily() {
+  if(!_medDailyDate) return;
+  const msg=document.getElementById('meddaily-status');
+  if(msg){msg.textContent='กำลังโหลด...';msg.style.color='#aaa';}
+  window._get(window._ref(window._db,`med_daily/${_medDailyDate}`)).then(snap=>{
+    _medDailyData=snap.exists()?snap.val():{};renderMedDaily();
+    if(msg){msg.textContent=snap.exists()?'✓ โหลดแล้ว':'ยังไม่มีข้อมูล';msg.style.color=snap.exists()?'#1a6b4a':'#bbb';}
+  }).catch(()=>{_medDailyData={};renderMedDaily();});
+}
+
+function renderMedDaily() {
+  const tbody=document.getElementById('meddaily-tbody');
+  if(!tbody) return;
+  const custs=(typeof allCustomers!=='undefined')?allCustomers:[];
+  if(!custs.length){tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:20px;color:#bbb">ไม่มีข้อมูลผู้ป่วย</td></tr>';return;}
+  tbody.innerHTML=custs.map((c,i)=>{
+    const cid=(c.id||'').replace(/\//g,'_');
+    const v=_medDailyData[cid]||{};
+    const bg=i%2===0?'#fff':'#fafaf8';
+    const cells=MED_DAILY_COLS.map(col=>`<td style="padding:4px;border:1px solid #eee;text-align:center">
+      <input type="checkbox" ${v[col.key]?'checked':''} onchange="updateMedDaily('${cid}','${col.key}',this.checked)" style="width:16px;height:16px;cursor:pointer">
+    </td>`).join('');
+    return `<tr style="background:${bg}">
+      <td style="padding:5px 5px;border:1px solid #eee;text-align:center;color:#888;font-size:11px">${i+1}</td>
+      <td style="padding:5px 8px;border:1px solid #eee;font-size:12px">${c.name||''}</td>
+      ${cells}
+    </tr>`;
+  }).join('');
+}
+
+function updateMedDaily(cid,f,val){if(!_medDailyData[cid])_medDailyData[cid]={};_medDailyData[cid][f]=val;}
+window.updateMedDaily=updateMedDaily;
+
+async function saveMedDaily() {
+  if(!_medDailyDate) return;
+  const btn=document.getElementById('meddaily-save-btn'),msg=document.getElementById('meddaily-status');
+  if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
+  const user=window._currentUser,saveObj={};
+  Object.entries(_medDailyData).forEach(([cid,v])=>{
+    if(Object.values(v).some(x=>x))saveObj[cid]={...v,savedBy:user?(user.displayName||user.email):'staff',savedAt:new Date().toISOString()};
+  });
+  try {
+    await window._set(window._ref(window._db,`med_daily/${_medDailyDate}`),Object.keys(saveObj).length?saveObj:null);
+    if(msg){msg.textContent='✓ บันทึกแล้ว';msg.style.color='#1a6b4a';}
+    if(btn){btn.textContent='✓ บันทึกแล้ว';setTimeout(()=>{btn.disabled=false;btn.textContent='💾 บันทึก';},2500);}
+  } catch(e){
+    if(msg){msg.textContent='บันทึกไม่สำเร็จ: '+e.message;msg.style.color='#c0392b';}
+    if(btn){btn.disabled=false;btn.textContent='💾 บันทึก';}
+  }
+}
+window.saveMedDaily=saveMedDaily;
 </script>
 
 <style>
@@ -1332,6 +1702,11 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .vital-input{width:100%;padding:5px 4px;border:1px solid #ddd;border-radius:5px;font-size:12px;font-family:inherit;text-align:center;background:#fafafa}
 .vital-input:focus{outline:none;border-color:#1a6b4a;background:#fff}
 .vital-row:hover td{background:#f8fff8}
+/* sub-sheet tabs inside ลงบันทึกรวม */
+.vsheet-btn{padding:7px 13px;border:1.5px solid #ddd;border-radius:20px;background:#fff;font-size:12px;font-family:inherit;cursor:pointer;color:#555;transition:all .15s;font-weight:500;white-space:nowrap}
+.vsheet-btn.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a;font-weight:600}
+.vsheet-panel{display:none}
+.vsheet-panel.active{display:block}
 /* status toggle buttons */
 .status-toggle-btn{width:100%;padding:13px 16px;border:1.5px solid #e0dbd2;border-radius:12px;cursor:pointer;font-size:14px;font-weight:500;font-family:inherit;text-align:left;transition:all .18s;background:#fff;color:#555;margin-bottom:10px;display:flex;align-items:center;gap:12px}
 .status-toggle-btn:last-child{margin-bottom:0}
@@ -1528,50 +1903,217 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 
       </div><!-- end page-req -->
 
-      <!-- ===== PAGE: VITAL SIGNS ===== -->
+      <!-- ===== PAGE: ลงบันทึกรวม (6 sheets) ===== -->
       <div class="page-section" id="page-vital">
-        <div class="card" style="margin-bottom:12px">
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <div>
-              <label style="font-size:12px;color:#888;display:block;margin-bottom:3px">วันที่</label>
-              <input type="date" id="vital-date"
-                style="padding:7px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;color:#333" />
-            </div>
-            <div id="vital-status-msg" style="font-size:12px;color:#888;margin-top:18px"></div>
-          </div>
-          <!-- ช่วงเวลา tabs -->
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px" id="vital-time-tabs"></div>
+
+        <!-- Sub-sheet navigation -->
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">
+          <button class="vsheet-btn active" data-sheet="vs"       onclick="setVitalSheet('vs')">📊 สัญญาณชีพ</button>
+          <button class="vsheet-btn"        data-sheet="summary"  onclick="setVitalSheet('summary')">📋 สรุปเคส</button>
+          <button class="vsheet-btn"        data-sheet="appt"     onclick="setVitalSheet('appt')">📅 ตารางนัด</button>
+          <button class="vsheet-btn"        data-sheet="registry" onclick="setVitalSheet('registry')">📝 ทะเบียน</button>
+          <button class="vsheet-btn"        data-sheet="medcheck" onclick="setVitalSheet('medcheck')">💊 ยารายวัน</button>
+          <button class="vsheet-btn"        data-sheet="meddaily" onclick="setVitalSheet('meddaily')">🗒️ ยาแต่ละวัน</button>
         </div>
 
-        <!-- ตารางสัญญาณชีพ -->
-        <div class="card" style="padding:0;overflow:hidden">
-          <div style="padding:12px 14px;background:#f8f5f2;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-            <div style="font-weight:600;font-size:13px;color:#333">📋 แบบบันทึกสัญญาณชีพประจำวัน</div>
-            <button id="vital-save-btn" onclick="saveVitalSigns()"
-              style="padding:7px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">
-              💾 บันทึก
-            </button>
+        <!-- ===== vp-vs: สัญญาณชีพ ===== -->
+        <div id="vp-vs" class="vsheet-panel active">
+          <div class="card" style="margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div>
+                <label style="font-size:12px;color:#888;display:block;margin-bottom:3px">วันที่</label>
+                <input type="date" id="vital-date" style="padding:7px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;color:#333" />
+              </div>
+              <div id="vital-status-msg" style="font-size:12px;color:#888;margin-top:18px"></div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px" id="vital-time-tabs"></div>
           </div>
-          <div style="overflow-x:auto">
-            <table id="vital-table" style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
-              <thead>
-                <tr style="background:#f0ede8;text-align:center">
-                  <th style="padding:8px 6px;border:1px solid #ddd;min-width:40px">เตียง</th>
-                  <th style="padding:8px 6px;border:1px solid #ddd;min-width:120px;text-align:left">ชื่อ-สกุล</th>
-                  <th style="padding:8px 6px;border:1px solid #ddd;min-width:36px">T</th>
-                  <th style="padding:8px 6px;border:1px solid #ddd;min-width:36px">P</th>
-                  <th style="padding:8px 6px;border:1px solid #ddd;min-width:36px">R</th>
-                  <th style="padding:8px 6px;border:1px solid #ddd;min-width:70px">BP</th>
-                  <th style="padding:8px 6px;border:1px solid #ddd;min-width:80px">หมายเหตุ</th>
-                </tr>
-              </thead>
-              <tbody id="vital-tbody"></tbody>
-            </table>
-          </div>
-          <div id="vital-empty" style="text-align:center;padding:32px;color:#bbb;display:none">
-            ยังไม่มีรายชื่อผู้ป่วย — กรุณารอโหลดข้อมูล
+          <div class="card" style="padding:0;overflow:hidden">
+            <div style="padding:12px 14px;background:#f8f5f2;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+              <div style="font-weight:600;font-size:13px;color:#333">📋 บันทึกสัญญาณชีพประจำวัน</div>
+              <button id="vital-save-btn" onclick="saveVitalSigns()" style="padding:7px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
+                <thead>
+                  <tr style="background:#f0ede8;text-align:center">
+                    <th style="padding:8px 5px;border:1px solid #ddd;min-width:36px">ลำดับ</th>
+                    <th style="padding:8px 6px;border:1px solid #ddd;min-width:120px;text-align:left">ชื่อ-สกุล</th>
+                    <th style="padding:8px 5px;border:1px solid #ddd;min-width:46px">T (°C)</th>
+                    <th style="padding:8px 5px;border:1px solid #ddd;min-width:46px">P (/นาที)</th>
+                    <th style="padding:8px 5px;border:1px solid #ddd;min-width:46px">R (/นาที)</th>
+                    <th style="padding:8px 5px;border:1px solid #ddd;min-width:70px">BP</th>
+                    <th style="padding:8px 5px;border:1px solid #ddd;min-width:80px">หมายเหตุ</th>
+                  </tr>
+                </thead>
+                <tbody id="vital-tbody"></tbody>
+              </table>
+            </div>
+            <div id="vital-empty" style="text-align:center;padding:32px;color:#bbb;display:none">ยังไม่มีรายชื่อผู้ป่วย</div>
           </div>
         </div>
+
+        <!-- ===== vp-summary: ตารางสรุปเคส ===== -->
+        <div id="vp-summary" class="vsheet-panel">
+          <div class="card" style="margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div>
+                <label style="font-size:12px;color:#888;display:block;margin-bottom:3px">เดือน</label>
+                <input type="month" id="summary-month" style="padding:7px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px" />
+              </div>
+              <div id="summary-status" style="font-size:12px;color:#888;margin-top:18px"></div>
+            </div>
+          </div>
+          <div class="card" style="padding:0;overflow:hidden">
+            <div style="padding:12px 14px;background:#f8f5f2;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+              <div style="font-weight:600;font-size:13px;color:#333">📋 ตารางสรุปข้อมูลการดูแล</div>
+              <button id="summary-save-btn" onclick="saveCaseSummary()" style="padding:7px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:920px">
+                <thead>
+                  <tr style="background:#f0ede8;text-align:center">
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:36px">ลำดับ</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;min-width:120px;text-align:left">ชื่อ-นามสกุล</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:50px">เพศ</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:44px">อายุ</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:96px">วันที่แรกรับ</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:50px">ADL</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:80px">ระดับการดูแล</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:60px">สายอาหาร</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:60px">แผลเจาะคอ</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:60px">แผลกดทับ</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:60px">สายสวน</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:80px">หมายเหตุ</th>
+                  </tr>
+                </thead>
+                <tbody id="summary-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== vp-appt: ตารางนัด ===== -->
+        <div id="vp-appt" class="vsheet-panel">
+          <div class="card" style="margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <button onclick="apptPrevMonth()" style="padding:6px 14px;border:1px solid #ddd;border-radius:7px;background:#fff;cursor:pointer;font-size:15px">‹</button>
+              <div id="appt-month-display" style="font-size:15px;font-weight:600;color:#333;min-width:150px;text-align:center"></div>
+              <button onclick="apptNextMonth()" style="padding:6px 14px;border:1px solid #ddd;border-radius:7px;background:#fff;cursor:pointer;font-size:15px">›</button>
+              <span style="font-size:11px;color:#aaa">คลิกที่วันเพื่อเพิ่ม/แก้ไขนัด</span>
+            </div>
+          </div>
+          <div class="card" style="padding:10px">
+            <div id="appt-calendar"></div>
+          </div>
+        </div>
+
+        <!-- ===== vp-registry: ทะเบียนผู้รับบริการ ===== -->
+        <div id="vp-registry" class="vsheet-panel">
+          <div class="card" style="padding:0;overflow:hidden">
+            <div style="padding:12px 14px;background:#f8f5f2;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+              <div style="font-weight:600;font-size:13px;color:#333">📝 ทะเบียนผู้รับบริการ</div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span id="registry-status" style="font-size:12px;color:#aaa"></span>
+                <button id="registry-save-btn" onclick="saveRegistry()" style="padding:7px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
+              </div>
+            </div>
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:820px">
+                <thead>
+                  <tr style="background:#f0ede8;text-align:center">
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:36px">ลำดับ</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;min-width:130px;text-align:left">ชื่อ-สกุล</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:80px">เลขที่ทั่วไป</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:120px">ที่อยู่</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:100px">วันที่เข้ารับ</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:100px">วันที่สิ้นสุด</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:70px">จำนวนวัน</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:110px">เบอร์โทรฉุกเฉิน</th>
+                  </tr>
+                </thead>
+                <tbody id="registry-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== vp-medcheck: ใบตรวจสอบยารายวัน ===== -->
+        <div id="vp-medcheck" class="vsheet-panel">
+          <div class="card" style="margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div>
+                <label style="font-size:12px;color:#888;display:block;margin-bottom:3px">วันที่</label>
+                <input type="date" id="medcheck-date" style="padding:7px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px" />
+              </div>
+              <div>
+                <label style="font-size:12px;color:#888;display:block;margin-bottom:3px">ผู้ป่วย</label>
+                <select id="medcheck-cust-sel" style="padding:7px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;min-width:180px">
+                  <option value="">-- เลือกผู้ป่วย --</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="padding:0;overflow:hidden">
+            <div style="padding:12px 14px;background:#f8f5f2;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between">
+              <div style="font-weight:600;font-size:13px;color:#333">💊 ใบตรวจเช็คก่อนแจกยา</div>
+              <button id="medcheck-save-btn" onclick="saveMedCheck()" style="padding:7px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr style="background:#f0ede8">
+                  <th style="padding:8px 12px;border:1px solid #ddd;text-align:left;min-width:150px">เวลาให้ยา</th>
+                  <th style="padding:8px 12px;border:1px solid #ddd;text-align:left">ชื่อผู้ตรวจสอบ</th>
+                </tr>
+              </thead>
+              <tbody id="medcheck-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ===== vp-meddaily: ใบตรวจสอบยาแต่ละวัน ===== -->
+        <div id="vp-meddaily" class="vsheet-panel">
+          <div class="card" style="margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div>
+                <label style="font-size:12px;color:#888;display:block;margin-bottom:3px">วันที่</label>
+                <input type="date" id="meddaily-date" style="padding:7px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px" />
+              </div>
+              <div id="meddaily-status" style="font-size:12px;color:#888;margin-top:18px"></div>
+            </div>
+          </div>
+          <div class="card" style="padding:0;overflow:hidden">
+            <div style="padding:12px 14px;background:#f8f5f2;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between">
+              <div style="font-weight:600;font-size:13px;color:#333">🗒️ ใบตรวจสอบยาแต่ละวัน</div>
+              <button id="meddaily-save-btn" onclick="saveMedDaily()" style="padding:7px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:720px">
+                <thead>
+                  <tr style="background:#f0ede8;text-align:center">
+                    <th rowspan="2" style="padding:6px 4px;border:1px solid #ddd;min-width:36px">ลำดับ</th>
+                    <th rowspan="2" style="padding:6px 8px;border:1px solid #ddd;min-width:120px;text-align:left">ชื่อ</th>
+                    <th colspan="3" style="padding:6px 4px;border:1px solid #ddd">ก่อนอาหาร</th>
+                    <th colspan="3" style="padding:6px 4px;border:1px solid #ddd">หลังอาหาร</th>
+                    <th rowspan="2" style="padding:6px 4px;border:1px solid #ddd;min-width:55px">ก่อนนอน</th>
+                    <th rowspan="2" style="padding:6px 4px;border:1px solid #ddd;min-width:70px">ยารายสัปดาห์</th>
+                    <th rowspan="2" style="padding:6px 4px;border:1px solid #ddd;min-width:50px">อื่นๆ</th>
+                  </tr>
+                  <tr style="background:#f0ede8;text-align:center">
+                    <th style="padding:5px 4px;border:1px solid #ddd;min-width:40px">เช้า</th>
+                    <th style="padding:5px 4px;border:1px solid #ddd;min-width:40px">เที่ยง</th>
+                    <th style="padding:5px 4px;border:1px solid #ddd;min-width:40px">เย็น</th>
+                    <th style="padding:5px 4px;border:1px solid #ddd;min-width:40px">เช้า</th>
+                    <th style="padding:5px 4px;border:1px solid #ddd;min-width:40px">เที่ยง</th>
+                    <th style="padding:5px 4px;border:1px solid #ddd;min-width:40px">เย็น</th>
+                  </tr>
+                </thead>
+                <tbody id="meddaily-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
       </div><!-- end page-vital -->
 
       <div style="text-align:center;font-size:11px;color:#bbb;padding:6px 0 14px">
