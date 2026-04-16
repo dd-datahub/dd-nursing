@@ -78,7 +78,7 @@ onAuthStateChanged(auth, async user => {
       allowedSnap = await get(ref(db, `allowed_uids/${user.uid}`));
     } catch(e) {
       console.warn("Cannot read allowed_uids:", e);
-      await signOut(auth);
+      // ไม่ signOut — เพื่อไม่ให้กระทบ tab อื่นที่ใช้ account เดียวกัน
       _showStaffMessage(`⚠️ ไม่สามารถตรวจสอบสิทธิ์ได้<br><span style="font-size:11px;color:#aaa">กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่</span>`, 'error');
       return;
     }
@@ -86,6 +86,9 @@ onAuthStateChanged(auth, async user => {
     if (allowedSnap.exists()) {
       // ✅ UID ได้รับอนุมัติแล้ว
       _grantStaffAccess(user);
+
+      // ถ้าเคยส่งคำขอไว้แล้ว ลบออกเมื่ออนุมัติแล้ว
+      try { await set(ref(db, `uid_requests/${user.uid}`), null); } catch(_) {}
       return;
     }
 
@@ -99,14 +102,19 @@ onAuthStateChanged(auth, async user => {
       });
     } catch(e) { console.warn("Cannot write uid_requests:", e); }
 
-    // Sign out และแสดงข้อความรออนุมัติ
-    await signOut(auth);
+    // แสดงข้อความ "รออนุมัติ" โดยไม่ signOut
+    // (การ signOut จะกระทบ tab อื่นที่ใช้ account เดียวกัน)
     _showStaffMessage(
       `⏳ <b>${user.displayName || user.email}</b><br>` +
       `คำขอเข้าใช้งานถูกส่งไปยังผู้ดูแลระบบแล้ว<br>` +
       `<span style="font-size:11px;color:#aaa">กรุณารอการอนุมัติและลองเข้าสู่ระบบใหม่อีกครั้ง</span>`,
       'pending'
     );
+
+    // รอ approval แบบ realtime — ถ้า admin อนุมัติ จะเข้าระบบอัตโนมัติ
+    onValue(ref(db, `allowed_uids/${user.uid}`), snap => {
+      if (snap.exists()) _grantStaffAccess(user);
+    });
   } else {
     window._currentUser = null;
     window._staffReady  = false;
