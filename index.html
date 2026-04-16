@@ -4817,8 +4817,19 @@ async function approveUid(uid) {
       email: r.email, displayName: r.displayName || '', photoURL: r.photoURL || '', approvedAt: now
     });
     await set(ref(db, `uid_requests/${uid}`), null);  // ลบออกจาก pending
+    // อัพเดท local cache ทันที เผื่อ realtime listener ช้า
+    if (window._uidRequests) delete window._uidRequests[uid];
+    if (!window._allowedUids) window._allowedUids = {};
+    window._allowedUids[uid] = { email: r.email, displayName: r.displayName || '', photoURL: r.photoURL || '', approvedAt: now };
+    renderPermissions();
     showPermMsg(`✅ อนุมัติ ${r.email} เรียบร้อย`, true);
-  } catch(e) { showPermMsg('เกิดข้อผิดพลาด: ' + e.message, false); }
+  } catch(e) {
+    if (e.code === 'PERMISSION_DENIED' || e.message?.includes('PERMISSION_DENIED')) {
+      showPermMsg('ไม่มีสิทธิ์ — กรุณาอัพเดท Firebase Rules ก่อน', false);
+    } else {
+      showPermMsg('เกิดข้อผิดพลาด: ' + e.message, false);
+    }
+  }
 }
 
 async function rejectUid(uid) {
@@ -4827,8 +4838,17 @@ async function rejectUid(uid) {
   if (!confirm(`ปฏิเสธคำขอของ ${r.email}?`)) return;
   try {
     await set(ref(db, `uid_requests/${uid}`), null);
+    // ลบออกจาก local cache ด้วย เผื่อ realtime listener ช้า
+    if (window._uidRequests) delete window._uidRequests[uid];
+    renderPermissions();
     showPermMsg(`ปฏิเสธ ${r.email} แล้ว`, true);
-  } catch(e) { showPermMsg('เกิดข้อผิดพลาด: ' + e.message, false); }
+  } catch(e) {
+    if (e.code === 'PERMISSION_DENIED' || e.message?.includes('PERMISSION_DENIED')) {
+      showPermMsg('ไม่มีสิทธิ์ลบข้อมูล — กรุณาอัพเดท Firebase Rules ก่อน', false);
+    } else {
+      showPermMsg('เกิดข้อผิดพลาด: ' + e.message, false);
+    }
+  }
 }
 
 async function revokeUid(uid) {
