@@ -931,7 +931,7 @@ function setPage(page) {
   const pageEl = document.getElementById('page-' + page);
   if (pageEl) pageEl.classList.add('active');
   // update topbar title
-  const titles = {dashboard:'รายชื่อเคส', req:'บันทึกเบิกของ'};
+  const titles = {dashboard:'รายชื่อเคส', req:'บันทึกเบิกของ', vital:'ลงบันทึกรวม'};
   const tb = document.getElementById('topbar-title');
   if (tb) tb.textContent = titles[page] || page;
   // sync bottom nav
@@ -1037,7 +1037,148 @@ function selectFromDashboard(id) {
 
 window.addEventListener("firebaseReady", function() {
   loadData();
+  initVitalSigns();
 });
+
+// ============================================================
+//  VITAL SIGNS — ลงบันทึกรวม (สัญญาณชีพ)
+// ============================================================
+const VITAL_TIMES = ['06:00','10:00','14:00','18:00','22:00','02:00'];
+let _vitalDate    = '';   // YYYY-MM-DD
+let _vitalTime    = '06:00';
+let _vitalData    = {};   // { custId: {T,P,R,BP,note} } — กรอกในหน้าจอปัจจุบัน
+let _vitalSaved   = {};   // snapshot จาก Firebase ของวัน+เวลานั้น
+
+function initVitalSigns() {
+  // ตั้งวันที่เริ่มต้น = วันนี้
+  const d = document.getElementById('vital-date');
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm   = String(today.getMonth()+1).padStart(2,'0');
+  const dd   = String(today.getDate()).padStart(2,'0');
+  _vitalDate = `${yyyy}-${mm}-${dd}`;
+  if (d) {
+    d.value = _vitalDate;
+    d.addEventListener('change', () => { _vitalDate = d.value; loadVitalFromFirebase(); });
+  }
+  renderVitalTimeTabs();
+  loadVitalFromFirebase();
+}
+
+function renderVitalTimeTabs() {
+  const el = document.getElementById('vital-time-tabs');
+  if (!el) return;
+  el.innerHTML = VITAL_TIMES.map(t =>
+    `<button class="vital-time-btn ${t===_vitalTime?'active':''}"
+      onclick="setVitalTime('${t}')">${t} น.</button>`
+  ).join('');
+}
+
+function setVitalTime(t) {
+  _vitalTime = t;
+  renderVitalTimeTabs();
+  loadVitalFromFirebase();
+}
+window.setVitalTime = setVitalTime;
+
+function loadVitalFromFirebase() {
+  if (!_vitalDate) return;
+  const path = `vital_signs/${_vitalDate}/${_vitalTime.replace(':','')}`;
+  const msg  = document.getElementById('vital-status-msg');
+  if (msg) { msg.textContent = 'กำลังโหลด...'; msg.style.color='#aaa'; }
+
+  window._get(window._ref(window._db, path)).then(snap => {
+    _vitalSaved = snap.exists() ? snap.val() : {};
+    _vitalData  = {};
+    // pre-fill จาก Firebase
+    Object.entries(_vitalSaved).forEach(([cid, v]) => {
+      _vitalData[cid] = { T: v.T||'', P: v.P||'', R: v.R||'', BP: v.BP||'', note: v.note||'' };
+    });
+    renderVitalTable();
+    if (msg) { msg.textContent = snap.exists() ? '✓ โหลดข้อมูลแล้ว' : 'ยังไม่มีข้อมูล'; msg.style.color = snap.exists() ? '#1a6b4a' : '#bbb'; }
+  }).catch(e => {
+    if (msg) { msg.textContent = 'โหลดไม่ได้: '+e.message; msg.style.color='#c0392b'; }
+    renderVitalTable();
+  });
+}
+
+function renderVitalTable() {
+  const tbody = document.getElementById('vital-tbody');
+  const empty = document.getElementById('vital-empty');
+  if (!tbody) return;
+
+  const customers = (typeof allCustomers !== 'undefined') ? allCustomers : [];
+  if (customers.length === 0) {
+    tbody.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  tbody.innerHTML = customers.map((c, idx) => {
+    const cid = (c.id||'').replace(/\//g,'_');
+    const v   = _vitalData[cid] || {};
+    const bg  = idx % 2 === 0 ? '#fff' : '#fafaf8';
+    return `<tr class="vital-row" style="background:${bg}">
+      <td style="padding:5px 6px;border:1px solid #eee;text-align:center;color:#888;font-size:11px">${idx+1}</td>
+      <td style="padding:5px 8px;border:1px solid #eee;font-size:12px">${c.name||''}</td>
+      <td style="padding:4px;border:1px solid #eee">
+        <input class="vital-input" type="number" step="0.1" min="34" max="42" placeholder="°C"
+          value="${v.T||''}" oninput="updateVital('${cid}','T',this.value)" /></td>
+      <td style="padding:4px;border:1px solid #eee">
+        <input class="vital-input" type="number" min="20" max="250" placeholder="ครั้ง/นาที"
+          value="${v.P||''}" oninput="updateVital('${cid}','P',this.value)" /></td>
+      <td style="padding:4px;border:1px solid #eee">
+        <input class="vital-input" type="number" min="5" max="60" placeholder="ครั้ง/นาที"
+          value="${v.R||''}" oninput="updateVital('${cid}','R',this.value)" /></td>
+      <td style="padding:4px;border:1px solid #eee">
+        <input class="vital-input" type="text" placeholder="120/80"
+          value="${v.BP||''}" oninput="updateVital('${cid}','BP',this.value)" style="min-width:60px"/></td>
+      <td style="padding:4px;border:1px solid #eee">
+        <input class="vital-input" type="text" placeholder="-"
+          value="${v.note||''}" oninput="updateVital('${cid}','note',this.value)" style="min-width:70px;text-align:left"/></td>
+    </tr>`;
+  }).join('');
+}
+
+function updateVital(cid, field, val) {
+  if (!_vitalData[cid]) _vitalData[cid] = { T:'', P:'', R:'', BP:'', note:'' };
+  _vitalData[cid][field] = val;
+}
+window.updateVital = updateVital;
+
+async function saveVitalSigns() {
+  if (!_vitalDate || !_vitalTime) return;
+  const btn = document.getElementById('vital-save-btn');
+  const msg = document.getElementById('vital-status-msg');
+  if (btn) { btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; }
+  if (msg) { msg.textContent = 'กำลังบันทึก...'; msg.style.color = '#aaa'; }
+
+  const path = `vital_signs/${_vitalDate}/${_vitalTime.replace(':','')}`;
+  const user = window._currentUser;
+  const saveObj = {};
+
+  // บันทึกเฉพาะแถวที่มีข้อมูลอย่างน้อย 1 ช่อง
+  Object.entries(_vitalData).forEach(([cid, v]) => {
+    if (v.T || v.P || v.R || v.BP || v.note) {
+      saveObj[cid] = {
+        T: v.T || '', P: v.P || '', R: v.R || '', BP: v.BP || '', note: v.note || '',
+        savedBy: user ? (user.displayName || user.email) : 'staff',
+        savedAt: new Date().toISOString()
+      };
+    }
+  });
+
+  try {
+    await window._set(window._ref(window._db, path), Object.keys(saveObj).length > 0 ? saveObj : null);
+    if (msg) { msg.textContent = `✓ บันทึกแล้ว (${Object.keys(saveObj).length} ราย)`; msg.style.color = '#1a6b4a'; }
+    if (btn) { btn.textContent = '✓ บันทึกแล้ว'; setTimeout(() => { btn.disabled=false; btn.textContent='💾 บันทึก'; }, 2500); }
+  } catch(e) {
+    if (msg) { msg.textContent = 'บันทึกไม่สำเร็จ: '+e.message; msg.style.color='#c0392b'; }
+    if (btn) { btn.disabled=false; btn.textContent='💾 บันทึก'; }
+  }
+}
+window.saveVitalSigns = saveVitalSigns;
 </script>
 
 <style>
@@ -1185,6 +1326,12 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .dash-search:focus{border-color:#1a6b4a}
 .page-section{display:none}
 .page-section.active{display:block}
+/* vital signs */
+.vital-time-btn{padding:6px 13px;border:1.5px solid #ccc;border-radius:20px;background:#fff;font-size:12px;font-family:inherit;cursor:pointer;color:#555;transition:all .15s;font-weight:500}
+.vital-time-btn.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a;font-weight:600}
+.vital-input{width:100%;padding:5px 4px;border:1px solid #ddd;border-radius:5px;font-size:12px;font-family:inherit;text-align:center;background:#fafafa}
+.vital-input:focus{outline:none;border-color:#1a6b4a;background:#fff}
+.vital-row:hover td{background:#f8fff8}
 /* status toggle buttons */
 .status-toggle-btn{width:100%;padding:13px 16px;border:1.5px solid #e0dbd2;border-radius:12px;cursor:pointer;font-size:14px;font-weight:500;font-family:inherit;text-align:left;transition:all .18s;background:#fff;color:#555;margin-bottom:10px;display:flex;align-items:center;gap:12px}
 .status-toggle-btn:last-child{margin-bottom:0}
@@ -1260,6 +1407,9 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
       </div>
       <div class="nav-item" id="nav-req" onclick="setPage('req')">
         <span class="nav-icon">📦</span><span>บันทึกเบิกของ</span>
+      </div>
+      <div class="nav-item" id="nav-vital" onclick="setPage('vital')">
+        <span class="nav-icon">📝</span><span>ลงบันทึกรวม</span>
       </div>
     </nav>
 
@@ -1378,6 +1528,52 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 
       </div><!-- end page-req -->
 
+      <!-- ===== PAGE: VITAL SIGNS ===== -->
+      <div class="page-section" id="page-vital">
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div>
+              <label style="font-size:12px;color:#888;display:block;margin-bottom:3px">วันที่</label>
+              <input type="date" id="vital-date"
+                style="padding:7px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;color:#333" />
+            </div>
+            <div id="vital-status-msg" style="font-size:12px;color:#888;margin-top:18px"></div>
+          </div>
+          <!-- ช่วงเวลา tabs -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px" id="vital-time-tabs"></div>
+        </div>
+
+        <!-- ตารางสัญญาณชีพ -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="padding:12px 14px;background:#f8f5f2;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+            <div style="font-weight:600;font-size:13px;color:#333">📋 แบบบันทึกสัญญาณชีพประจำวัน</div>
+            <button id="vital-save-btn" onclick="saveVitalSigns()"
+              style="padding:7px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">
+              💾 บันทึก
+            </button>
+          </div>
+          <div style="overflow-x:auto">
+            <table id="vital-table" style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
+              <thead>
+                <tr style="background:#f0ede8;text-align:center">
+                  <th style="padding:8px 6px;border:1px solid #ddd;min-width:40px">เตียง</th>
+                  <th style="padding:8px 6px;border:1px solid #ddd;min-width:120px;text-align:left">ชื่อ-สกุล</th>
+                  <th style="padding:8px 6px;border:1px solid #ddd;min-width:36px">T</th>
+                  <th style="padding:8px 6px;border:1px solid #ddd;min-width:36px">P</th>
+                  <th style="padding:8px 6px;border:1px solid #ddd;min-width:36px">R</th>
+                  <th style="padding:8px 6px;border:1px solid #ddd;min-width:70px">BP</th>
+                  <th style="padding:8px 6px;border:1px solid #ddd;min-width:80px">หมายเหตุ</th>
+                </tr>
+              </thead>
+              <tbody id="vital-tbody"></tbody>
+            </table>
+          </div>
+          <div id="vital-empty" style="text-align:center;padding:32px;color:#bbb;display:none">
+            ยังไม่มีรายชื่อผู้ป่วย — กรุณารอโหลดข้อมูล
+          </div>
+        </div>
+      </div><!-- end page-vital -->
+
       <div style="text-align:center;font-size:11px;color:#bbb;padding:6px 0 14px">
         DD Nursing Home · ระบบพนักงาน · ข้อมูลส่งให้แอดมินทันที
       </div>
@@ -1394,6 +1590,10 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
     <button class="bnav-item" id="bnav-req" onclick="setPage('req')">
       <span class="bnav-icon">📦</span>
       <span class="bnav-label">บันทึกเบิก</span>
+    </button>
+    <button class="bnav-item" id="bnav-vital" onclick="setPage('vital')">
+      <span class="bnav-icon">📝</span>
+      <span class="bnav-label">บันทึกรวม</span>
     </button>
   </nav>
 
