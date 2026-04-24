@@ -18,7 +18,7 @@
 // top-level await supported in module scripts
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 const firebaseConfig = {
   apiKey: "AIzaSyDdt1rc23hxWNQFXDhp1we4rfN-lW0wh60",
   authDomain: "dd-data-88eb0.firebaseapp.com",
@@ -35,11 +35,11 @@ window._ref     = ref;
 window._set     = set;
 window._get     = get;
 window._onValue = onValue;
-// ===== GOOGLE AUTH (session per-tab — แยกอิสระจาก index.html) =====
+// ===== GOOGLE AUTH (local persistence — รองรับ iOS Safari & Android) =====
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
-// ใช้ sessionStorage แทน localStorage → login/logout ไม่กระทบ tab อื่น
-await setPersistence(auth, browserSessionPersistence);
+// ใช้ localStorage แทน sessionStorage → ป้องกัน ITP error บน iOS/Android
+await setPersistence(auth, browserLocalPersistence);
 window._auth = auth;
 window._googleSignIn = () => signInWithPopup(auth, googleProvider);
 window._signOut = () => signOut(auth);
