@@ -1643,7 +1643,7 @@ function loadActiveIndivSheet() {
 }
 
 // ─── SHEET 1: VS รายบุคคล ───
-const INDIV_VS_TIMES = ['06:00','18:00'];
+const INDIV_VS_PRESETS = ['06:00','10:00','14:00','18:00','22:00','02:00'];
 let _ivDate = new Date().toISOString().split('T')[0];
 let _ivTime = '06:00';
 let _ivData = {};
@@ -1651,17 +1651,42 @@ let _ivData = {};
 function initIndivVS() {
   const d = document.getElementById('iv-date');
   if (d) { d.value = _ivDate; d.addEventListener('change', () => { _ivDate = d.value; loadIndivVS(); }); }
-  renderIVTimeTabs();
+  renderIVTimeControl();
 }
 window.initIndivVS = initIndivVS;
 
-function renderIVTimeTabs() {
+function renderIVTimeControl() {
   const el = document.getElementById('iv-time-tabs');
   if (!el) return;
-  el.innerHTML = INDIV_VS_TIMES.map(t =>
-    `<button class="vital-time-btn ${t===_ivTime?'active':''}" onclick="setIVTime('${t}')">${t} น.</button>`).join('');
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:5px;background:#f5f3ef;border:1px solid #e0dbd2;border-radius:8px;padding:4px 8px">
+        <span style="font-size:11px;color:#888;white-space:nowrap">เวลา:</span>
+        <input type="time" id="iv-time-input" value="${_ivTime}"
+          onchange="setIVTime(this.value)"
+          style="border:none;background:transparent;font-size:14px;font-family:inherit;font-weight:600;color:#1a6b4a;outline:none;cursor:pointer;min-width:80px">
+        <span style="font-size:11px;color:#888">น.</span>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        ${INDIV_VS_PRESETS.map(t =>
+          `<button class="vital-time-btn ${t===_ivTime?'active':''}" onclick="setIVTime('${t}')">${t}</button>`
+        ).join('')}
+      </div>
+    </div>`;
 }
-function setIVTime(t) { _ivTime = t; renderIVTimeTabs(); loadIndivVS(); }
+function setIVTime(t) {
+  if (!t) return;
+  // normalize HH:MM
+  if (t.length === 5) _ivTime = t;
+  else _ivTime = t.slice(0,5);
+  // update input value
+  const inp = document.getElementById('iv-time-input');
+  if (inp) inp.value = _ivTime;
+  // update preset button highlights
+  document.querySelectorAll('#iv-time-tabs .vital-time-btn').forEach(b =>
+    b.classList.toggle('active', b.textContent.trim() === _ivTime));
+  loadIndivVS();
+}
 window.setIVTime = setIVTime;
 
 function loadIndivVS() {
@@ -2824,8 +2849,8 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
           <div style="font-size:12px;font-weight:600;color:#555;margin-bottom:8px">📊 บันทึกสัญญาณชีพรายบุคคล</div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
             <input type="date" id="iv-date" style="padding:6px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px">
-            <div id="iv-time-tabs" style="display:flex;gap:5px;flex-wrap:wrap"></div>
           </div>
+          <div id="iv-time-tabs" style="margin-bottom:10px"></div>
           <div id="iv-form"><div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div></div>
         </div>
         <!-- PANEL 2: IO / DTX / BMI -->
