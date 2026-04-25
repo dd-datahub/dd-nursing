@@ -5306,16 +5306,18 @@ function _schedPickerHTML() {
 
   [0,1].forEach(i => {
     const sl = _pkSlots[i];
+    const needBranch = sl.shift === 'ช' || sl.shift === 'ด';
     html += `<div class="pk-row">
       <div class="pk-label">กะที่ ${i+1} ${i===1?'<span style="font-size:10px;color:#aaa">(ไม่บังคับ)</span>':''}</div>
       <div class="pk-btns" style="margin-bottom:5px">
         ${SCHED_SHIFT_CODES.map(s=>`<button class="pk-shift-btn${sl.shift===s?' active':''}" data-s="${s}" data-slot="${i}" onclick="schedPickerSetShift(${i},'${s}')">${s}<span style="font-size:9px;font-weight:400;display:block;line-height:1">${SCHED_LABELS[s]}</span></button>`).join('')}
         <button class="pk-shift-btn${sl.shift===''?' active':''}" data-s="" data-slot="${i}" onclick="schedPickerSetShift(${i},'')" style="color:#aaa">✕</button>
       </div>
+      ${needBranch ? `
       <div class="pk-label">สาขา</div>
       <div class="pk-btns">
         ${SCHED_BRANCHES.map(b=>`<button class="pk-branch-btn${sl.branch===b?' active':''}" data-b="${b}" data-slot="${i}" onclick="schedPickerSetBranch(${i},'${b}')">สข.${b}</button>`).join('')}
-      </div>
+      </div>` : ''}
     </div>`;
   });
 
@@ -5329,7 +5331,8 @@ function _schedPickerHTML() {
 
 function schedPickerSetShift(slotIdx, shift) {
   _pkSlots[slotIdx].shift = shift;
-  if (!shift) _pkSlots[slotIdx].branch = '';
+  // ล้าง branch ถ้าเป็นหยุด/ลา หรือไม่มีกะ
+  if (!shift || shift === 'ห' || shift === 'ล') _pkSlots[slotIdx].branch = '';
   // Re-render picker content
   const pk = document.getElementById('sched-picker');
   if (pk) pk.innerHTML = _schedPickerHTML();
@@ -5341,9 +5344,10 @@ function schedPickerSetBranch(slotIdx, branch) {
 }
 
 async function schedPickerSave() {
-  // Validate: if shift selected, branch must be set
+  // Validate: เช้า/ดึก ต้องเลือกสาขา, หยุด/ลา ไม่ต้องเลือก
   for (let i=0; i<2; i++) {
-    if (_pkSlots[i].shift && !_pkSlots[i].branch) {
+    const s = _pkSlots[i].shift;
+    if ((s === 'ช' || s === 'ด') && !_pkSlots[i].branch) {
       alert(`กะที่ ${i+1}: กรุณาเลือกสาขาด้วย`);
       return;
     }
