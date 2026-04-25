@@ -133,15 +133,36 @@ input, select, textarea, button { font-family: inherit; font-size: 14px; }
 .sched-table th.sched-name-col { position:sticky; left:0; z-index:3; background:#f0f2f5; min-width:110px; text-align:left; padding-left:10px; }
 .sched-table td { border:1px solid #e8eaed; text-align:center; padding:0; }
 .sched-table td.sched-name-td { position:sticky; left:0; background:#fafbfc; z-index:1; font-size:12px; font-weight:500; color:#333; padding:6px 10px; text-align:left; white-space:nowrap; border-right:2px solid #d0d4da; }
-.sched-cell { width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; font-weight:700; border-radius:0; transition:filter .1s; user-select:none; }
-.sched-cell:hover { filter:brightness(.9); }
-.sched-cell[data-v=""] { background:#f9f9f9; color:#ccc; }
-.sched-cell[data-v="ช"] { background:#dbeafe; color:#1d4ed8; }
-.sched-cell[data-v="บ"] { background:#fef3c7; color:#b45309; }
-.sched-cell[data-v="ด"] { background:#ede9fe; color:#6d28d9; }
-.sched-cell[data-v="ห"] { background:#f1f5f9; color:#64748b; }
-.sched-cell[data-v="ล"] { background:#fce7f3; color:#be185d; }
-.sched-cell[data-v="ว"] { background:#d1fae5; color:#065f46; }
+.sched-cell { width:44px; min-height:46px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; border-radius:0; transition:background .1s; user-select:none; padding:2px 1px; background:#fafafa; }
+.sched-cell:hover { background:#eef2ff; }
+.sched-cell.sched-empty { background:#f9f9f9; }
+.sched-chip { display:inline-flex; align-items:center; justify-content:center; border-radius:4px; font-size:11px; font-weight:700; padding:1px 4px; line-height:1.4; white-space:nowrap; }
+.sched-chip-ช { background:#dbeafe; color:#1d4ed8; }
+.sched-chip-บ { background:#fef3c7; color:#b45309; }
+.sched-chip-ด { background:#ede9fe; color:#6d28d9; }
+.sched-chip-ห { background:#f1f5f9; color:#64748b; }
+.sched-chip-ล { background:#fce7f3; color:#be185d; }
+.sched-chip-ว { background:#d1fae5; color:#065f46; }
+/* Picker popup */
+#sched-picker { position:fixed; z-index:9999; background:#fff; border:1px solid #d0d4da; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.18); padding:14px 16px; min-width:230px; display:none; }
+#sched-picker .pk-title { font-size:12px; font-weight:700; color:#333; margin-bottom:10px; }
+.pk-row { margin-bottom:10px; }
+.pk-label { font-size:11px; color:#888; margin-bottom:4px; }
+.pk-btns { display:flex; gap:4px; flex-wrap:wrap; }
+.pk-shift-btn { padding:4px 8px; border:1.5px solid #e0e0e0; border-radius:6px; cursor:pointer; font-size:12px; font-weight:700; background:#fff; transition:all .12s; }
+.pk-shift-btn.active { border-color:transparent; }
+.pk-shift-btn[data-s="ช"].active { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
+.pk-shift-btn[data-s="บ"].active { background:#fef3c7; color:#b45309; border-color:#fcd34d; }
+.pk-shift-btn[data-s="ด"].active { background:#ede9fe; color:#6d28d9; border-color:#c4b5fd; }
+.pk-shift-btn[data-s="ห"].active { background:#f1f5f9; color:#64748b; border-color:#cbd5e1; }
+.pk-shift-btn[data-s="ล"].active { background:#fce7f3; color:#be185d; border-color:#f9a8d4; }
+.pk-shift-btn[data-s="ว"].active { background:#d1fae5; color:#065f46; border-color:#6ee7b7; }
+.pk-branch-btn { width:30px; height:30px; border:1.5px solid #e0e0e0; border-radius:6px; cursor:pointer; font-size:13px; font-weight:700; background:#fff; display:flex; align-items:center; justify-content:center; transition:all .12s; }
+.pk-branch-btn.active { background:#1a6b4a; color:#fff; border-color:#1a6b4a; }
+.pk-footer { display:flex; gap:8px; margin-top:12px; }
+.pk-save-btn { flex:1; padding:7px; background:#1a6b4a; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; font-family:inherit; }
+.pk-clear-btn { padding:7px 12px; background:#fff5f5; color:#c0392b; border:1px solid #fcc; border-radius:8px; cursor:pointer; font-size:12px; font-family:inherit; }
+.pk-cancel-btn { padding:7px 12px; background:#f5f5f5; color:#666; border:1px solid #e0e0e0; border-radius:8px; cursor:pointer; font-size:12px; font-family:inherit; }
 .sched-legend { display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:12px; }
 .sched-leg-item { display:flex; align-items:center; gap:4px; }
 .sched-leg-dot { width:20px; height:20px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; }
@@ -1224,7 +1245,7 @@ onAuthStateChanged(auth, async user => {
             <div class="sched-leg-item"><div class="sched-leg-dot" style="background:#f1f5f9;color:#64748b">ห</div> หยุด</div>
             <div class="sched-leg-item"><div class="sched-leg-dot" style="background:#fce7f3;color:#be185d">ล</div> ลา</div>
             <div class="sched-leg-item"><div class="sched-leg-dot" style="background:#d1fae5;color:#065f46">ว</div> ว.หยุด</div>
-            <span style="font-size:11px;color:#aaa;margin-left:6px">คลิกที่ช่องเพื่อเปลี่ยนเวร</span>
+            <span style="font-size:11px;color:#aaa;margin-left:6px">ตัวเลขหลังกะ = สาขา (เช่น ช1 = เช้าสาขา 1) • คลิกช่องเพื่อเลือกกะ</span>
           </div>
         </div>
 
@@ -4977,14 +4998,41 @@ function goPage(id) {
 }
 
 // ========== ตารางเวร (SCHEDULE) ==========
-const SCHED_SHIFTS   = ['','ช','บ','ด','ห','ล','ว'];
-const SCHED_LABELS   = {ช:'เช้า',บ:'บ่าย',ด:'ดึก',ห:'หยุด',ล:'ลา',ว:'ว.หยุด'};
-let _schedYM         = '';   // 'YYYY-MM'
-let _schedData       = {};   // { nurseId: { d1:'ช', d2:'บ', ... } }
-let _schedNurses     = {};   // { nurseId: { name:'...' } }
-let _schedListener   = null;
+// Value format: "ช1" | "ช1/ด2" | "" (shift code + branch 1-3, up to 2 per day)
+const SCHED_SHIFT_CODES = ['ช','บ','ด','ห','ล','ว'];
+const SCHED_LABELS      = {ช:'เช้า',บ:'บ่าย',ด:'ดึก',ห:'หยุด',ล:'ลา',ว:'ว.หยุด'};
+const SCHED_BRANCHES    = ['1','2','3'];
+let _schedYM            = '';
+let _schedData          = {};
+let _schedNurses        = {};
+let _schedListener      = null;
 let _schedNurseListener = null;
+// Picker state
+let _pkNid = '', _pkDay = '', _pkPrevVal = '';
+let _pkSlots = [{shift:'',branch:''},{shift:'',branch:''}];
 
+// ---- helpers ----
+function schedParseVal(v) {
+  // "ช1/ด2" → [{shift:'ช',branch:'1'},{shift:'ด',branch:'2'}]
+  if (!v) return [{shift:'',branch:''},{shift:'',branch:''}];
+  const parts = String(v).split('/').slice(0,2);
+  const slots = parts.map(p => ({ shift: p[0]||'', branch: p.slice(1)||'' }));
+  while (slots.length < 2) slots.push({shift:'',branch:''});
+  return slots;
+}
+function schedFormatVal(slots) {
+  // [{shift:'ช',branch:'1'},{shift:'ด',branch:'2'}] → "ช1/ด2"
+  const parts = slots.filter(s => s.shift).map(s => s.shift + (s.branch||''));
+  return parts.join('/');
+}
+function schedRenderChips(v) {
+  if (!v) return '<span style="color:#ccc;font-size:11px">—</span>';
+  return schedParseVal(v).filter(s=>s.shift).map(s =>
+    `<span class="sched-chip sched-chip-${s.shift}">${s.shift}${s.branch}</span>`
+  ).join('');
+}
+
+// ---- init ----
 function schedGetYM() {
   if (!_schedYM) {
     const now = new Date();
@@ -4992,15 +5040,11 @@ function schedGetYM() {
   }
   return _schedYM;
 }
-
 function renderSchedulePage() {
   _schedAttachListeners();
   _schedRenderTable();
 }
-
 function _schedAttachListeners() {
-  const ym = schedGetYM();
-  // Nurses list listener (persistent across months)
   if (!_schedNurseListener) {
     const nursesRef = window._ref(window._db, 'schedule_nurses');
     _schedNurseListener = window._onValue(nursesRef, snap => {
@@ -5009,15 +5053,10 @@ function _schedAttachListeners() {
       _schedRenderNurseList();
     });
   }
-  // Data listener for current month
-  _schedSubscribeMonth(ym);
+  _schedSubscribeMonth(schedGetYM());
 }
-
 function _schedSubscribeMonth(ym) {
-  if (_schedListener) {
-    // Detach previous (firebase onValue returns unsubscribe fn)
-    if (typeof _schedListener === 'function') _schedListener();
-  }
+  if (typeof _schedListener === 'function') _schedListener();
   const dataRef = window._ref(window._db, `schedule/${ym}`);
   _schedListener = window._onValue(dataRef, snap => {
     _schedData = snap.val() || {};
@@ -5025,16 +5064,14 @@ function _schedSubscribeMonth(ym) {
     _schedRenderSummary();
   });
 }
-
 function schedChangeMonth(delta) {
-  const [y, m] = schedGetYM().split('-').map(Number);
-  const d = new Date(y, m - 1 + delta, 1);
+  const [y,m] = schedGetYM().split('-').map(Number);
+  const d = new Date(y, m-1+delta, 1);
   _schedYM = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   _schedData = {};
   _schedRenderTable();
   _schedSubscribeMonth(_schedYM);
 }
-
 function schedGoToday() {
   const now = new Date();
   _schedYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -5042,123 +5079,192 @@ function schedGoToday() {
   _schedRenderTable();
   _schedSubscribeMonth(_schedYM);
 }
-
 function _schedDaysInMonth(ym) {
-  const [y, m] = ym.split('-').map(Number);
+  const [y,m] = ym.split('-').map(Number);
   return new Date(y, m, 0).getDate();
 }
-
 function _schedDayOfWeek(ym, day) {
-  const [y, m] = ym.split('-').map(Number);
-  return new Date(y, m-1, day).getDay(); // 0=Sun,6=Sat
+  const [y,m] = ym.split('-').map(Number);
+  return new Date(y, m-1, day).getDay();
 }
-
 const THAI_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 const THAI_DOW    = ['อา','จ','อ','พ','พฤ','ศ','ส'];
 
+// ---- render table ----
 function _schedRenderTable() {
   const ym = schedGetYM();
-  const [y, m] = ym.split('-').map(Number);
+  const [y,m] = ym.split('-').map(Number);
   const days = _schedDaysInMonth(ym);
-  const nurses = Object.entries(_schedNurses).sort((a,b) => (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th'));
-
-  // Label
+  const nurses = Object.entries(_schedNurses).sort((a,b)=>(a[1].order||99)-(b[1].order||99)||a[1].name.localeCompare(b[1].name,'th'));
   const labelEl = document.getElementById('sched-month-label');
   if (labelEl) labelEl.textContent = `${THAI_MONTHS[m-1]} ${y+543}`;
-
-  // Build header
   const thead = document.getElementById('sched-thead');
   const tbody = document.getElementById('sched-tbody');
   if (!thead || !tbody) return;
 
+  // Header
   let hRow = `<tr><th class="sched-name-col">ชื่อ</th>`;
   for (let d=1; d<=days; d++) {
     const dow = _schedDayOfWeek(ym, d);
-    const isSun = dow === 0;
-    const isSat = dow === 6;
-    const cls = (isSun || isSat) ? ' sched-sunday-h' : '';
-    hRow += `<th class="${cls}" style="min-width:32px">${d}<br><span style="font-weight:400;font-size:9px">${THAI_DOW[dow]}</span></th>`;
+    const cls = (dow===0||dow===6) ? ' sched-sunday-h' : '';
+    hRow += `<th class="${cls}" style="min-width:44px">${d}<br><span style="font-weight:400;font-size:9px">${THAI_DOW[dow]}</span></th>`;
   }
-  hRow += `<th style="background:#f0f2f5;min-width:60px">รวม</th></tr>`;
+  hRow += `<th style="background:#f0f2f5;min-width:70px">รวม</th></tr>`;
   thead.innerHTML = hRow;
 
-  // Build rows
+  // Rows
   let rows = '';
   if (nurses.length === 0) {
     rows = `<tr><td colspan="${days+2}" style="text-align:center;color:#aaa;padding:20px;font-size:13px">ยังไม่มีรายชื่อ — กรอกชื่อพยาบาลด้านล่าง</td></tr>`;
   } else {
     const today = new Date();
-    const isThisMonth = today.getFullYear() === y && today.getMonth()+1 === m;
+    const isThisMonth = today.getFullYear()===y && today.getMonth()+1===m;
     nurses.forEach(([nid, nurse]) => {
-      const nurseData = _schedData[nid] || {};
-      let countMap = {ช:0,บ:0,ด:0,ห:0,ล:0,ว:0};
+      const nd = _schedData[nid] || {};
+      const countMap = {ช:0,บ:0,ด:0,ห:0,ล:0,ว:0};
       let cells = '';
       for (let d=1; d<=days; d++) {
         const dow = _schedDayOfWeek(ym, d);
-        const isSun = dow === 0;
-        const isSat = dow === 6;
-        const isToday = isThisMonth && d === today.getDate();
-        const val = nurseData[`d${d}`] || '';
-        if (val) countMap[val] = (countMap[val]||0) + 1;
-        const todayStyle = isToday ? 'outline:2px solid #1a6b4a;outline-offset:-2px;' : '';
-        const bgStyle = (isSun||isSat) && !val ? 'background:#fff8f8;' : '';
-        cells += `<td style="${bgStyle}"><div class="sched-cell" data-v="${val}" data-nid="${nid}" data-day="${d}" onclick="schedCycleCell(this)" style="${todayStyle}">${val}</div></td>`;
+        const isWeekend = dow===0||dow===6;
+        const isToday = isThisMonth && d===today.getDate();
+        const val = nd[`d${d}`] || '';
+        // count each shift code in val
+        schedParseVal(val).forEach(s => { if(s.shift && countMap[s.shift]!==undefined) countMap[s.shift]++; });
+        const todayStyle = isToday ? 'outline:2px solid #1a6b4a;outline-offset:-2px;border-radius:4px;' : '';
+        const wkStyle = isWeekend && !val ? 'background:#fff5f5;' : '';
+        cells += `<td style="${wkStyle}"><div class="sched-cell${!val?' sched-empty':''}" data-v="${val}" data-nid="${nid}" data-day="${d}" onclick="schedOpenPicker(this)" style="${todayStyle}">${schedRenderChips(val)}</div></td>`;
       }
-      const summary = Object.entries(countMap).filter(([,v])=>v>0).map(([k,v])=>`<span style="font-size:10px;color:#555">${k}=${v}</span>`).join(' ');
-      rows += `<tr><td class="sched-name-td">${nurse.name}</td>${cells}<td style="font-size:11px;color:#666;padding:2px 6px;white-space:nowrap;text-align:left;vertical-align:middle">${summary}</td></tr>`;
+      const summary = Object.entries(countMap).filter(([,v])=>v>0).map(([k,v])=>`<span style="font-size:10px;color:#555">${k}<b>${v}</b></span>`).join(' ');
+      rows += `<tr><td class="sched-name-td">${nurse.name}</td>${cells}<td style="font-size:11px;color:#666;padding:2px 8px;white-space:nowrap;vertical-align:middle">${summary}</td></tr>`;
     });
   }
   tbody.innerHTML = rows;
   _schedRenderSummary();
 }
 
-function schedCycleCell(el) {
-  const nid  = el.dataset.nid;
-  const day  = el.dataset.day;
-  const cur  = el.dataset.v || '';
-  const idx  = SCHED_SHIFTS.indexOf(cur);
-  const next = SCHED_SHIFTS[(idx + 1) % SCHED_SHIFTS.length];
-  // Optimistic UI
-  el.dataset.v = next;
-  el.textContent = next;
-  // Save to Firebase
-  const ym  = schedGetYM();
-  const path = `schedule/${ym}/${nid}/d${day}`;
-  window._set(window._ref(window._db, path), next || null).catch(e => {
-    console.error('sched save error', e);
-    el.dataset.v = cur;
-    el.textContent = cur;
+// ---- picker ----
+function schedOpenPicker(el) {
+  _pkNid = el.dataset.nid;
+  _pkDay = el.dataset.day;
+  _pkPrevVal = el.dataset.v || '';
+  _pkSlots = schedParseVal(_pkPrevVal);
+
+  let pk = document.getElementById('sched-picker');
+  if (!pk) {
+    pk = document.createElement('div');
+    pk.id = 'sched-picker';
+    document.body.appendChild(pk);
+    document.addEventListener('click', e => {
+      if (!document.getElementById('sched-picker')?.contains(e.target) && !e.target.closest('.sched-cell')) schedClosePicker();
+    }, true);
+  }
+
+  pk.innerHTML = _schedPickerHTML();
+  pk.style.display = 'block';
+
+  // Position near clicked cell
+  const rect = el.getBoundingClientRect();
+  let top = rect.bottom + window.scrollY + 4;
+  let left = rect.left + window.scrollX;
+  pk.style.top = top + 'px';
+  pk.style.left = left + 'px';
+  // Adjust if off-screen
+  requestAnimationFrame(() => {
+    const pw = pk.offsetWidth, ph = pk.offsetHeight;
+    if (left + pw > window.innerWidth - 8) pk.style.left = (window.innerWidth - pw - 8) + 'px';
+    if (top + ph > window.scrollY + window.innerHeight - 8) pk.style.top = (rect.top + window.scrollY - ph - 4) + 'px';
   });
 }
 
+function _schedPickerHTML() {
+  const nurses = Object.entries(_schedNurses);
+  const nurseName = (nurses.find(([id])=>id===_pkNid)||[,''])[1]?.name || '';
+  const ym = schedGetYM();
+  const [y,m] = ym.split('-').map(Number);
+
+  let html = `<div class="pk-title">📅 วันที่ ${_pkDay} ${THAI_MONTHS[m-1]} ${y+543}<br><span style="color:#888;font-weight:400">${nurseName}</span></div>`;
+
+  [0,1].forEach(i => {
+    const sl = _pkSlots[i];
+    html += `<div class="pk-row">
+      <div class="pk-label">กะที่ ${i+1} ${i===1?'<span style="font-size:10px;color:#aaa">(ไม่บังคับ)</span>':''}</div>
+      <div class="pk-btns" style="margin-bottom:5px">
+        ${SCHED_SHIFT_CODES.map(s=>`<button class="pk-shift-btn${sl.shift===s?' active':''}" data-s="${s}" data-slot="${i}" onclick="schedPickerSetShift(${i},'${s}')">${s}<span style="font-size:9px;font-weight:400;display:block;line-height:1">${SCHED_LABELS[s]}</span></button>`).join('')}
+        <button class="pk-shift-btn${sl.shift===''?' active':''}" data-s="" data-slot="${i}" onclick="schedPickerSetShift(${i},'')" style="color:#aaa">✕</button>
+      </div>
+      <div class="pk-label">สาขา</div>
+      <div class="pk-btns">
+        ${SCHED_BRANCHES.map(b=>`<button class="pk-branch-btn${sl.branch===b?' active':''}" data-b="${b}" data-slot="${i}" onclick="schedPickerSetBranch(${i},'${b}')">สข.${b}</button>`).join('')}
+      </div>
+    </div>`;
+  });
+
+  html += `<div class="pk-footer">
+    <button class="pk-save-btn" onclick="schedPickerSave()">บันทึก</button>
+    <button class="pk-clear-btn" onclick="schedPickerClear()">ล้างวันนี้</button>
+    <button class="pk-cancel-btn" onclick="schedClosePicker()">ยกเลิก</button>
+  </div>`;
+  return html;
+}
+
+function schedPickerSetShift(slotIdx, shift) {
+  _pkSlots[slotIdx].shift = shift;
+  if (!shift) _pkSlots[slotIdx].branch = '';
+  // Re-render picker content
+  const pk = document.getElementById('sched-picker');
+  if (pk) pk.innerHTML = _schedPickerHTML();
+}
+function schedPickerSetBranch(slotIdx, branch) {
+  _pkSlots[slotIdx].branch = branch;
+  const pk = document.getElementById('sched-picker');
+  if (pk) pk.innerHTML = _schedPickerHTML();
+}
+
+async function schedPickerSave() {
+  // Validate: if shift selected, branch must be set
+  for (let i=0; i<2; i++) {
+    if (_pkSlots[i].shift && !_pkSlots[i].branch) {
+      alert(`กะที่ ${i+1}: กรุณาเลือกสาขาด้วย`);
+      return;
+    }
+  }
+  const val = schedFormatVal(_pkSlots);
+  const ym = schedGetYM();
+  const path = `schedule/${ym}/${_pkNid}/d${_pkDay}`;
+  await window._set(window._ref(window._db, path), val || null);
+  schedClosePicker();
+}
+
+async function schedPickerClear() {
+  const ym = schedGetYM();
+  const path = `schedule/${ym}/${_pkNid}/d${_pkDay}`;
+  await window._set(window._ref(window._db, path), null);
+  schedClosePicker();
+}
+
+function schedClosePicker() {
+  const pk = document.getElementById('sched-picker');
+  if (pk) pk.style.display = 'none';
+}
+
+// ---- summary ----
 function _schedRenderSummary() {
   const el = document.getElementById('sched-summary-content');
   if (!el) return;
-  const nurses = Object.entries(_schedNurses);
-  if (nurses.length === 0) { el.innerHTML = '<span style="color:#aaa">ยังไม่มีรายชื่อ</span>'; return; }
-
-  // Count per shift across all nurses
+  if (Object.keys(_schedNurses).length === 0) { el.innerHTML = '<span style="color:#aaa">ยังไม่มีรายชื่อ</span>'; return; }
   const total = {ช:0,บ:0,ด:0,ห:0,ล:0,ว:0};
+  // count individual shifts (each slot counted separately)
   Object.values(_schedData).forEach(nd => {
-    Object.values(nd||{}).forEach(v => { if (total[v]!==undefined) total[v]++; });
+    Object.values(nd||{}).forEach(v => {
+      schedParseVal(v).forEach(s => { if(s.shift && total[s.shift]!==undefined) total[s.shift]++; });
+    });
   });
-
-  // Count by day: how many morning/afternoon/night per day
-  const ym = schedGetYM();
-  const days = _schedDaysInMonth(ym);
-  let minEach = {ช:999,บ:999,ด:999}, maxEach = {ช:0,บ:0,ด:0};
-  for (let d=1; d<=days; d++) {
-    let cnt={ช:0,บ:0,ด:0};
-    Object.values(_schedData).forEach(nd => { const v=(nd||{})[`d${d}`]; if(cnt[v]!==undefined) cnt[v]++; });
-    ['ช','บ','ด'].forEach(s => { minEach[s]=Math.min(minEach[s],cnt[s]); maxEach[s]=Math.max(maxEach[s],cnt[s]); });
-  }
-
   const colors = {ช:'#1d4ed8',บ:'#b45309',ด:'#6d28d9',ห:'#64748b',ล:'#be185d',ว:'#065f46'};
-  const bgs = {ช:'#dbeafe',บ:'#fef3c7',ด:'#ede9fe',ห:'#f1f5f9',ล:'#fce7f3',ว:'#d1fae5'};
+  const bgs    = {ช:'#dbeafe',บ:'#fef3c7',ด:'#ede9fe',ห:'#f1f5f9',ล:'#fce7f3',ว:'#d1fae5'};
   let html = `<div class="sched-summary">`;
   Object.entries(total).forEach(([s,n]) => {
-    html += `<div class="sched-sum-item" style="background:${bgs[s]};border-color:${colors[s]}20">
-      <div style="font-size:10px;color:${colors[s]};font-weight:600">${SCHED_LABELS[s]||s}</div>
+    html += `<div class="sched-sum-item" style="background:${bgs[s]}">
+      <div style="font-size:10px;color:${colors[s]};font-weight:600">${SCHED_LABELS[s]}</div>
       <div class="sched-sum-val" style="color:${colors[s]}">${n}</div>
       <div style="font-size:10px;color:#999">ครั้ง</div>
     </div>`;
@@ -5167,33 +5273,31 @@ function _schedRenderSummary() {
   el.innerHTML = html;
 }
 
+// ---- nurse management ----
 function _schedRenderNurseList() {
   const el = document.getElementById('sched-nurse-list');
   if (!el) return;
-  const nurses = Object.entries(_schedNurses).sort((a,b) => (a[1].order||99)-(b[1].order||99) || a[1].name.localeCompare(b[1].name,'th'));
-  if (nurses.length === 0) {
-    el.innerHTML = '<div style="color:#aaa;font-size:13px;text-align:center;padding:8px">ยังไม่มีรายชื่อ</div>';
-    return;
-  }
+  const nurses = Object.entries(_schedNurses).sort((a,b)=>(a[1].order||99)-(b[1].order||99)||a[1].name.localeCompare(b[1].name,'th'));
+  if (nurses.length === 0) { el.innerHTML = '<div style="color:#aaa;font-size:13px;text-align:center;padding:8px">ยังไม่มีรายชื่อ</div>'; return; }
   el.innerHTML = nurses.map(([nid, nurse], i) => `
     <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0">
       <span style="font-size:12px;color:#888;width:20px;text-align:right">${i+1}.</span>
       <span style="flex:1;font-size:13px">${nurse.name}</span>
-      <button onclick="schedMoveNurse('${nid}',-1)" style="padding:2px 7px;border:1px solid #e0e0e0;border-radius:5px;cursor:pointer;background:#fff;font-size:12px" title="ขึ้น">↑</button>
-      <button onclick="schedMoveNurse('${nid}',1)"  style="padding:2px 7px;border:1px solid #e0e0e0;border-radius:5px;cursor:pointer;background:#fff;font-size:12px" title="ลง">↓</button>
+      <button onclick="schedMoveNurse('${nid}',-1)" style="padding:2px 7px;border:1px solid #e0e0e0;border-radius:5px;cursor:pointer;background:#fff;font-size:12px">↑</button>
+      <button onclick="schedMoveNurse('${nid}',1)"  style="padding:2px 7px;border:1px solid #e0e0e0;border-radius:5px;cursor:pointer;background:#fff;font-size:12px">↓</button>
       <button onclick="schedRemoveNurse('${nid}','${nurse.name.replace(/'/g,"\\'")}')" style="padding:2px 8px;border:1px solid #fcc;border-radius:5px;cursor:pointer;background:#fff5f5;color:#c0392b;font-size:12px">ลบ</button>
     </div>`).join('');
 }
 
 async function schedAddNurse() {
-  const inp  = document.getElementById('sched-nurse-input');
-  const msg  = document.getElementById('sched-nurse-msg');
-  const name = (inp?.value || '').trim();
+  const inp = document.getElementById('sched-nurse-input');
+  const msg = document.getElementById('sched-nurse-msg');
+  const name = (inp?.value||'').trim();
   if (!name) { if(msg) msg.textContent='กรุณากรอกชื่อ'; return; }
-  const nid  = 'n_' + Date.now();
+  const nid = 'n_' + Date.now();
   const order = Object.keys(_schedNurses).length;
   try {
-    await window._set(window._ref(window._db, `schedule_nurses/${nid}`), { name, order });
+    await window._set(window._ref(window._db, `schedule_nurses/${nid}`), {name, order});
     if (inp) inp.value = '';
     if (msg) { msg.style.color='#1a6b4a'; msg.textContent=`เพิ่ม "${name}" แล้ว`; setTimeout(()=>msg.textContent='',2000); }
   } catch(e) {
@@ -5202,40 +5306,40 @@ async function schedAddNurse() {
 }
 
 async function schedRemoveNurse(nid, name) {
-  if (!confirm(`ลบ "${name}" ออกจากรายชื่อ?\n(ข้อมูลตารางเวรของบุคคลนี้จะยังคงอยู่)`)) return;
+  if (!confirm(`ลบ "${name}" ออกจากรายชื่อ?`)) return;
   await window._set(window._ref(window._db, `schedule_nurses/${nid}`), null);
 }
 
 async function schedMoveNurse(nid, dir) {
   const nurses = Object.entries(_schedNurses).sort((a,b)=>(a[1].order||99)-(b[1].order||99)||a[1].name.localeCompare(b[1].name,'th'));
   const idx = nurses.findIndex(([id])=>id===nid);
-  const swapIdx = idx + dir;
-  if (swapIdx < 0 || swapIdx >= nurses.length) return;
-  const updates = {};
-  updates[`schedule_nurses/${nurses[idx][0]}/order`]    = swapIdx;
-  updates[`schedule_nurses/${nurses[swapIdx][0]}/order`] = idx;
-  // Use set for each
+  const si = idx + dir;
+  if (si<0||si>=nurses.length) return;
   await Promise.all([
-    window._set(window._ref(window._db, `schedule_nurses/${nurses[idx][0]}/order`), swapIdx),
-    window._set(window._ref(window._db, `schedule_nurses/${nurses[swapIdx][0]}/order`), idx),
+    window._set(window._ref(window._db, `schedule_nurses/${nurses[idx][0]}/order`), si),
+    window._set(window._ref(window._db, `schedule_nurses/${nurses[si][0]}/order`), idx),
   ]);
 }
 
+// ---- export ----
 function schedExportSummary() {
   const ym = schedGetYM();
   const [y,m] = ym.split('-').map(Number);
   const nurses = Object.entries(_schedNurses).sort((a,b)=>(a[1].order||99)-(b[1].order||99)||a[1].name.localeCompare(b[1].name,'th'));
   const days = _schedDaysInMonth(ym);
   let rows = [`ตารางเวร ${THAI_MONTHS[m-1]} ${y+543}\n`];
-  // Header
-  rows.push(['ชื่อ', ...Array.from({length:days},(_,i)=>i+1), 'รวมช', 'รวมบ', 'รวมด', 'รวมห', 'รวมล', 'รวมว'].join('\t'));
+  rows.push(['ชื่อ',...Array.from({length:days},(_,i)=>i+1),'รวมเช้า','รวมบ่าย','รวมดึก','รวมหยุด','รวมลา','รวมว.หยุด'].join('\t'));
   nurses.forEach(([nid,nurse]) => {
-    const nd = _schedData[nid] || {};
+    const nd = _schedData[nid]||{};
     const cnt = {ช:0,บ:0,ด:0,ห:0,ล:0,ว:0};
-    const cells = Array.from({length:days},(_,i)=>{ const v=(nd[`d${i+1}`]||''); if(cnt[v]!==undefined)cnt[v]++; return v; });
-    rows.push([nurse.name, ...cells, cnt.ช,cnt.บ,cnt.ด,cnt.ห,cnt.ล,cnt.ว].join('\t'));
+    const cells = Array.from({length:days},(_,i)=>{
+      const v = nd[`d${i+1}`]||'';
+      schedParseVal(v).forEach(s=>{ if(s.shift&&cnt[s.shift]!==undefined) cnt[s.shift]++; });
+      return v;
+    });
+    rows.push([nurse.name,...cells,cnt.ช,cnt.บ,cnt.ด,cnt.ห,cnt.ล,cnt.ว].join('\t'));
   });
-  const blob = new Blob(['﻿'+rows.join('\n')], {type:'text/tab-separated-values;charset=utf-8'});
+  const blob = new Blob(['﻿'+rows.join('\n')],{type:'text/tab-separated-values;charset=utf-8'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `ตารางเวร_${ym}.tsv`;
