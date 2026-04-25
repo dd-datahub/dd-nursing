@@ -2420,6 +2420,17 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .month-tab-btn:hover{border-color:#1a6b4a;color:#1a6b4a}
 .month-tab-btn.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a}
 </style>
+<script>
+// ล้าง Service Worker cache — บังคับโหลดไฟล์ใหม่จาก server ทุกครั้ง
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.unregister());
+  });
+  if ('caches' in window) {
+    caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+  }
+}
+</script>
 </head>
 <body>
 <style>
