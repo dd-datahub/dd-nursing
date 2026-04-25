@@ -1279,11 +1279,9 @@ if ('serviceWorker' in navigator) {
           <div class="sched-legend">
             <span style="font-size:12px;color:#888;margin-right:4px">สัญลักษณ์:</span>
             <div class="sched-leg-item"><div class="sched-leg-dot" style="background:#dbeafe;color:#1d4ed8">ช</div> เช้า</div>
-            <div class="sched-leg-item"><div class="sched-leg-dot" style="background:#fef3c7;color:#b45309">บ</div> บ่าย</div>
             <div class="sched-leg-item"><div class="sched-leg-dot" style="background:#ede9fe;color:#6d28d9">ด</div> ดึก</div>
             <div class="sched-leg-item"><div class="sched-leg-dot" style="background:#f1f5f9;color:#64748b">ห</div> หยุด</div>
             <div class="sched-leg-item"><div class="sched-leg-dot" style="background:#fce7f3;color:#be185d">ล</div> ลา</div>
-            <div class="sched-leg-item"><div class="sched-leg-dot" style="background:#d1fae5;color:#065f46">ว</div> ว.หยุด</div>
             <span style="font-size:11px;color:#aaa;margin-left:6px">ตัวเลขหลังกะ = สาขา (เช่น ช1 = เช้าสาขา 1) • คลิกช่องเพื่อเลือกกะ</span>
           </div>
         </div>
@@ -5104,8 +5102,8 @@ function goPage(id) {
 
 // ========== ตารางเวร (SCHEDULE) ==========
 // Value format: "ช1" | "ช1/ด2" | "" (shift code + branch 1-3, up to 2 per day)
-const SCHED_SHIFT_CODES = ['ช','บ','ด','ห','ล','ว'];
-const SCHED_LABELS      = {ช:'เช้า',บ:'บ่าย',ด:'ดึก',ห:'หยุด',ล:'ลา',ว:'ว.หยุด'};
+const SCHED_SHIFT_CODES = ['ช','ด','ห','ล'];
+const SCHED_LABELS      = {ช:'เช้า',ด:'ดึก',ห:'หยุด',ล:'ลา'};
 const SCHED_BRANCHES    = ['1','2','3'];
 let _schedYM            = '';
 let _schedData          = {};
@@ -5228,7 +5226,7 @@ function _schedRenderTable() {
     const isThisMonth = today.getFullYear()===y && today.getMonth()+1===m;
     nurses.forEach(([nid, nurse]) => {
       const nd = _schedData[nid] || {};
-      const countMap = {ช:0,บ:0,ด:0,ห:0,ล:0,ว:0};
+      const countMap = {ช:0,ด:0,ห:0,ล:0};
       let workDays = 0;   // วันที่มีเวรทำงาน (ช/บ/ด ≥1)
       let otNight  = 0;   // วันที่มีทั้งเวรเช้า(ช)และดึก(ด)ในวันเดียว
       let cells = '';
@@ -5374,15 +5372,15 @@ function _schedRenderSummary() {
   const el = document.getElementById('sched-summary-content');
   if (!el) return;
   if (Object.keys(_schedNurses).length === 0) { el.innerHTML = '<span style="color:#aaa">ยังไม่มีรายชื่อ</span>'; return; }
-  const total = {ช:0,บ:0,ด:0,ห:0,ล:0,ว:0};
+  const total = {ช:0,ด:0,ห:0,ล:0};
   // count individual shifts (each slot counted separately)
   Object.values(_schedData).forEach(nd => {
     Object.values(nd||{}).forEach(v => {
       schedParseVal(v).forEach(s => { if(s.shift && total[s.shift]!==undefined) total[s.shift]++; });
     });
   });
-  const colors = {ช:'#1d4ed8',บ:'#b45309',ด:'#6d28d9',ห:'#64748b',ล:'#be185d',ว:'#065f46'};
-  const bgs    = {ช:'#dbeafe',บ:'#fef3c7',ด:'#ede9fe',ห:'#f1f5f9',ล:'#fce7f3',ว:'#d1fae5'};
+  const colors = {ช:'#1d4ed8',ด:'#6d28d9',ห:'#64748b',ล:'#be185d'};
+  const bgs    = {ช:'#dbeafe',ด:'#ede9fe',ห:'#f1f5f9',ล:'#fce7f3'};
   let html = `<div class="sched-summary">`;
   Object.entries(total).forEach(([s,n]) => {
     html += `<div class="sched-sum-item" style="background:${bgs[s]}">
@@ -5450,21 +5448,21 @@ function schedExportSummary() {
   const nurses = Object.entries(_schedNurses).sort((a,b)=>(a[1].order||99)-(b[1].order||99)||a[1].name.localeCompare(b[1].name,'th'));
   const days = _schedDaysInMonth(ym);
   let rows = [`ตารางเวร ${THAI_MONTHS[m-1]} ${y+543}\n`];
-  rows.push(['ชื่อ',...Array.from({length:days},(_,i)=>i+1),'วันทำงาน','OTดึก','รวมเช้า','รวมบ่าย','รวมดึก','รวมหยุด','รวมลา','รวมว.หยุด'].join('\t'));
+  rows.push(['ชื่อ',...Array.from({length:days},(_,i)=>i+1),'วันทำงาน','OTดึก','รวมเช้า','รวมดึก','รวมหยุด','รวมลา'].join('\t'));
   nurses.forEach(([nid,nurse]) => {
     const nd = _schedData[nid]||{};
-    const cnt = {ช:0,บ:0,ด:0,ห:0,ล:0,ว:0};
+    const cnt = {ช:0,ด:0,ห:0,ล:0};
     let workDays = 0, otNight = 0;
     const cells = Array.from({length:days},(_,i)=>{
       const v = nd[`d${i+1}`]||'';
       const slots = schedParseVal(v);
       const shiftsToday = slots.filter(s=>s.shift).map(s=>s.shift);
       shiftsToday.forEach(sh=>{ if(cnt[sh]!==undefined) cnt[sh]++; });
-      if (shiftsToday.some(sh=>['ช','บ','ด'].includes(sh))) workDays++;
+      if (shiftsToday.some(sh=>['ช','ด'].includes(sh))) workDays++;
       if (shiftsToday.includes('ช') && shiftsToday.includes('ด')) otNight++;
       return v;
     });
-    rows.push([nurse.name,...cells,workDays,otNight,cnt.ช,cnt.บ,cnt.ด,cnt.ห,cnt.ล,cnt.ว].join('\t'));
+    rows.push([nurse.name,...cells,workDays,otNight,cnt.ช,cnt.ด,cnt.ห,cnt.ล].join('\t'));
   });
   const blob = new Blob(['﻿'+rows.join('\n')],{type:'text/tab-separated-values;charset=utf-8'});
   const a = document.createElement('a');
