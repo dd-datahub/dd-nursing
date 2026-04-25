@@ -5197,6 +5197,14 @@ function schedSaveOtTarget(value) {
     (value === '' || value === null) ? null : Number(value));
   _schedRenderTable();
 }
+function schedSaveOtNight(nid, value) {
+  const ym = schedGetYM();
+  const parsed = (value === '' || value === null) ? null : Number(value);
+  // Update local cache immediately (avoid re-render wiping the input)
+  if (!_schedData[nid]) _schedData[nid] = {};
+  _schedData[nid]._ot_night = parsed;
+  window._set(window._ref(window._db, `schedule/${ym}/${nid}/_ot_night`), parsed);
+}
 function schedChangeMonth(delta) {
   const [y,m] = schedGetYM().split('-').map(Number);
   const d = new Date(y, m-1+delta, 1);
@@ -5291,7 +5299,6 @@ function _schedRenderTable() {
       const nd = _schedData[nid] || {};
       const countMap = {ช:0,ด:0,ห:0,ล:0};
       let workDays = 0;
-      let otNight  = 0;
       let offDays  = 0;
       let cells = '';
       for (let d=1; d<=days; d++) {
@@ -5304,7 +5311,6 @@ function _schedRenderTable() {
         shiftsToday.forEach(sh => { if(countMap[sh]!==undefined) countMap[sh]++; });
         const hasWork = shiftsToday.some(sh => ['ช','ด'].includes(sh));
         if (hasWork) workDays++;
-        if (shiftsToday.includes('ช') && shiftsToday.includes('ด')) otNight++;
         if (shiftsToday.includes('ห') || shiftsToday.includes('ล')) offDays++;
         const todayStyle = isToday ? 'outline:2px solid #1a6b4a;outline-offset:-2px;border-radius:4px;' : '';
         const wkStyle = isWeekend && !val ? 'background:#fff5f5;' : '';
@@ -5312,8 +5318,16 @@ function _schedRenderTable() {
       }
       const summary = Object.entries(countMap).filter(([,v])=>v>0).map(([k,v])=>`<span style="font-size:10px;color:#555">${k}<b>${v}</b></span>`).join(' ');
       const wdCell = `<td style="text-align:center;font-size:14px;font-weight:700;color:#1a6b4a;background:#f0faf5;border-left:2px solid #b0d8c0;vertical-align:middle">${workDays}</td>`;
-      const otStyle = otNight > 0 ? 'color:#6d28d9;background:#f5f3ff;font-weight:700;' : 'color:#ccc;';
-      const otCell  = `<td style="text-align:center;font-size:14px;${otStyle}vertical-align:middle">${otNight > 0 ? otNight : '—'}</td>`;
+      // OTดึก — admin enters per nurse
+      const otNightVal = nd._ot_night != null ? nd._ot_night : '';
+      const otCell = `<td style="background:#f5f3ff;padding:2px 4px;vertical-align:middle;text-align:center">
+        <input type="number" min="0" max="99" value="${otNightVal}" placeholder="—"
+          data-nid="${nid}"
+          style="width:44px;padding:3px 4px;border:1px solid #c4b5fd;border-radius:6px;font-size:13px;font-weight:700;color:#6d28d9;text-align:center;font-family:inherit;background:#fff;outline:none"
+          oninput="schedSaveOtNight('${nid}',this.value)"
+          onfocus="this.select()"
+        >
+      </td>`;
       let otHolCell;
       if (_schedOtTarget === null || _schedOtTarget === '') {
         otHolCell = `<td style="text-align:center;font-size:12px;color:#ccc;vertical-align:middle">—</td>`;
@@ -5558,20 +5572,20 @@ function schedExportSummary() {
   nurses.forEach(([nid,nurse]) => {
     const nd = _schedData[nid]||{};
     const cnt = {ช:0,ด:0,ห:0,ล:0};
-    let workDays = 0, otNight = 0, offDays = 0;
+    let workDays = 0, offDays = 0;
     const cells = Array.from({length:days},(_,i)=>{
       const v = nd[`d${i+1}`]||'';
       const slots = schedParseVal(v);
       const shiftsToday = slots.filter(s=>s.shift).map(s=>s.shift);
       shiftsToday.forEach(sh=>{ if(cnt[sh]!==undefined) cnt[sh]++; });
       if (shiftsToday.some(sh=>['ช','ด'].includes(sh))) workDays++;
-      if (shiftsToday.includes('ช') && shiftsToday.includes('ด')) otNight++;
       if (shiftsToday.includes('ห') || shiftsToday.includes('ล')) offDays++;
       return v;
     });
+    const otNightExport = nd._ot_night != null ? nd._ot_night : '';
     const otHolVal = hasOtTarget ? [Number(_schedOtTarget) - offDays] : [];
     const branchLabel = nurse.branch ? `สข.${nurse.branch}` : '';
-    rows.push([branchLabel, nurse.name,...cells,workDays,otNight,...otHolVal,cnt.ช,cnt.ด,cnt.ห,cnt.ล].join('\t'));
+    rows.push([branchLabel, nurse.name,...cells,workDays,otNightExport,...otHolVal,cnt.ช,cnt.ด,cnt.ห,cnt.ล].join('\t'));
   });
   const blob = new Blob(['﻿'+rows.join('\n')],{type:'text/tab-separated-values;charset=utf-8'});
   const a = document.createElement('a');
