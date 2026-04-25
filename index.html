@@ -1272,13 +1272,7 @@ if ('serviceWorker' in navigator) {
             <span class="sched-month-label" id="sched-month-label">—</span>
             <button class="sched-month-btn" onclick="schedChangeMonth(1)">▶</button>
             <button class="sched-month-btn" onclick="schedGoToday()" style="margin-left:4px">เดือนนี้</button>
-            <div style="display:flex;align-items:center;gap:6px;margin-left:auto;background:#fffbf0;border:1px solid #fde68a;border-radius:8px;padding:4px 10px">
-              <span style="font-size:12px;color:#92400e;white-space:nowrap">🏖️ วันหยุด/เดือน:</span>
-              <input type="number" id="sched-ot-target" min="0" max="31" value="" placeholder="—"
-                style="width:52px;padding:4px 6px;border:1px solid #fcd34d;border-radius:6px;font-size:13px;font-weight:700;text-align:center;font-family:inherit;background:#fff;color:#92400e"
-                oninput="schedSaveOtTarget(this.value)">
-            </div>
-            <button class="sched-month-btn" onclick="schedExportSummary()">📊 สรุปเวร</button>
+            <button class="sched-month-btn" onclick="schedExportSummary()" style="margin-left:auto">📊 สรุปเวร</button>
           </div>
 
           <!-- Legend -->
@@ -5121,8 +5115,6 @@ let _schedData          = {};
 let _schedNurses        = {};
 let _schedListener      = null;
 let _schedNurseListener = null;
-let _schedOtTarget      = null;   // ตัวเลขวันหยุด/เดือน ที่แอดมินกรอก (null = ยังไม่ได้กรอก)
-let _schedOtListener    = null;
 // Picker state
 let _pkNid = '', _pkDay = '', _pkPrevVal = '';
 let _pkSlots = [{shift:'',branch:''},{shift:'',branch:''}];
@@ -5173,46 +5165,26 @@ function _schedAttachListeners() {
 }
 function _schedSubscribeMonth(ym) {
   if (typeof _schedListener === 'function') _schedListener();
-  if (typeof _schedOtListener === 'function') _schedOtListener();
   const dataRef = window._ref(window._db, `schedule/${ym}`);
   _schedListener = window._onValue(dataRef, snap => {
-    const data = snap.val() || {};
-    // Extract OT target stored alongside nurse data
-    if ('_ot_target' in data) {
-      _schedOtTarget = data._ot_target;
-      delete data._ot_target;
-    }
-    _schedData = data;
-    // Sync input field
-    const inp = document.getElementById('sched-ot-target');
-    if (inp) inp.value = (_schedOtTarget !== null && _schedOtTarget !== undefined) ? _schedOtTarget : '';
+    _schedData = snap.val() || {};
     _schedRenderTable();
     _schedRenderSummary();
   });
 }
-function schedSaveOtTarget(value) {
-  _schedOtTarget = (value === '' || value === null) ? null : Number(value);
-  const ym = schedGetYM();
-  window._set(window._ref(window._db, `schedule/${ym}/_ot_target`),
-    (value === '' || value === null) ? null : Number(value));
-  _schedRenderTable();
-}
-function schedSaveOtNight(nid, value) {
+function schedSaveOtHoliday(nid, value) {
   const ym = schedGetYM();
   const parsed = (value === '' || value === null) ? null : Number(value);
-  // Update local cache immediately (avoid re-render wiping the input)
+  // Update local cache immediately so input isn't wiped on re-render
   if (!_schedData[nid]) _schedData[nid] = {};
-  _schedData[nid]._ot_night = parsed;
-  window._set(window._ref(window._db, `schedule/${ym}/${nid}/_ot_night`), parsed);
+  _schedData[nid]._ot_holiday = parsed;
+  window._set(window._ref(window._db, `schedule/${ym}/${nid}/_ot_holiday`), parsed);
 }
 function schedChangeMonth(delta) {
   const [y,m] = schedGetYM().split('-').map(Number);
   const d = new Date(y, m-1+delta, 1);
   _schedYM = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   _schedData = {};
-  _schedOtTarget = null;
-  const inp = document.getElementById('sched-ot-target');
-  if (inp) inp.value = '';
   _schedRenderTable();
   _schedSubscribeMonth(_schedYM);
 }
@@ -5220,9 +5192,6 @@ function schedGoToday() {
   const now = new Date();
   _schedYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   _schedData = {};
-  _schedOtTarget = null;
-  const inp = document.getElementById('sched-ot-target');
-  if (inp) inp.value = '';
   _schedRenderTable();
   _schedSubscribeMonth(_schedYM);
 }
@@ -5299,7 +5268,7 @@ function _schedRenderTable() {
       const nd = _schedData[nid] || {};
       const countMap = {ช:0,ด:0,ห:0,ล:0};
       let workDays = 0;
-      let offDays  = 0;
+      let otNight  = 0;
       let cells = '';
       for (let d=1; d<=days; d++) {
         const dow = _schedDayOfWeek(ym, d);
@@ -5311,31 +5280,25 @@ function _schedRenderTable() {
         shiftsToday.forEach(sh => { if(countMap[sh]!==undefined) countMap[sh]++; });
         const hasWork = shiftsToday.some(sh => ['ช','ด'].includes(sh));
         if (hasWork) workDays++;
-        if (shiftsToday.includes('ห') || shiftsToday.includes('ล')) offDays++;
+        if (shiftsToday.includes('ช') && shiftsToday.includes('ด')) otNight++;
         const todayStyle = isToday ? 'outline:2px solid #1a6b4a;outline-offset:-2px;border-radius:4px;' : '';
         const wkStyle = isWeekend && !val ? 'background:#fff5f5;' : '';
         cells += `<td style="${wkStyle}"><div class="sched-cell${!val?' sched-empty':''}" data-v="${val}" data-nid="${nid}" data-day="${d}" onclick="schedOpenPicker(this)" style="${todayStyle}">${schedRenderChips(val)}</div></td>`;
       }
       const summary = Object.entries(countMap).filter(([,v])=>v>0).map(([k,v])=>`<span style="font-size:10px;color:#555">${k}<b>${v}</b></span>`).join(' ');
       const wdCell = `<td style="text-align:center;font-size:14px;font-weight:700;color:#1a6b4a;background:#f0faf5;border-left:2px solid #b0d8c0;vertical-align:middle">${workDays}</td>`;
-      // OTดึก — admin enters per nurse
-      const otNightVal = nd._ot_night != null ? nd._ot_night : '';
-      const otCell = `<td style="background:#f5f3ff;padding:2px 4px;vertical-align:middle;text-align:center">
-        <input type="number" min="0" max="99" value="${otNightVal}" placeholder="—"
-          data-nid="${nid}"
-          style="width:44px;padding:3px 4px;border:1px solid #c4b5fd;border-radius:6px;font-size:13px;font-weight:700;color:#6d28d9;text-align:center;font-family:inherit;background:#fff;outline:none"
-          oninput="schedSaveOtNight('${nid}',this.value)"
+      // OTดึก — auto-calculated
+      const otStyle = otNight > 0 ? 'color:#6d28d9;background:#f5f3ff;font-weight:700;' : 'color:#ccc;';
+      const otCell  = `<td style="text-align:center;font-size:14px;${otStyle}vertical-align:middle">${otNight > 0 ? otNight : '—'}</td>`;
+      // OTวันหยุด — admin enters per nurse
+      const otHolVal = nd._ot_holiday != null ? nd._ot_holiday : '';
+      const otHolCell = `<td style="background:#fffbf0;padding:2px 4px;vertical-align:middle;text-align:center">
+        <input type="number" min="0" max="99" value="${otHolVal}" placeholder="—"
+          style="width:44px;padding:3px 4px;border:1px solid #fcd34d;border-radius:6px;font-size:13px;font-weight:700;color:#92400e;text-align:center;font-family:inherit;background:#fff;outline:none"
+          oninput="schedSaveOtHoliday('${nid}',this.value)"
           onfocus="this.select()"
         >
       </td>`;
-      let otHolCell;
-      if (_schedOtTarget === null || _schedOtTarget === '') {
-        otHolCell = `<td style="text-align:center;font-size:12px;color:#ccc;vertical-align:middle">—</td>`;
-      } else {
-        const otHol = Number(_schedOtTarget) - offDays;
-        const otHolStyle = otHol > 0 ? 'color:#92400e;background:#fffbf0;font-weight:700;' : otHol < 0 ? 'color:#c0392b;background:#fff5f5;font-weight:700;' : 'color:#aaa;';
-        otHolCell = `<td style="text-align:center;font-size:14px;${otHolStyle}vertical-align:middle">${otHol > 0 ? '+'+otHol : otHol === 0 ? '0' : otHol}</td>`;
-      }
       // Name cell with branch pill
       const pillStyle = PILL[nb]||PILL[''];
       const rowBg = BG[nb]||'#fff';
@@ -5567,25 +5530,23 @@ function schedExportSummary() {
   });
   const days = _schedDaysInMonth(ym);
   let rows = [`ตารางเวร ${THAI_MONTHS[m-1]} ${y+543}\n`];
-  const hasOtTarget = _schedOtTarget !== null && _schedOtTarget !== undefined && _schedOtTarget !== '';
-  rows.push(['สาขา','ชื่อ',...Array.from({length:days},(_,i)=>i+1),'วันทำงาน','OTดึก',...(hasOtTarget?['OTวันหยุด']:[]),'รวมเช้า','รวมดึก','รวมหยุด','รวมลา'].join('\t'));
+  rows.push(['สาขา','ชื่อ',...Array.from({length:days},(_,i)=>i+1),'วันทำงาน','OTดึก','OTวันหยุด','รวมเช้า','รวมดึก','รวมหยุด','รวมลา'].join('\t'));
   nurses.forEach(([nid,nurse]) => {
     const nd = _schedData[nid]||{};
     const cnt = {ช:0,ด:0,ห:0,ล:0};
-    let workDays = 0, offDays = 0;
+    let workDays = 0, otNight = 0;
     const cells = Array.from({length:days},(_,i)=>{
       const v = nd[`d${i+1}`]||'';
       const slots = schedParseVal(v);
       const shiftsToday = slots.filter(s=>s.shift).map(s=>s.shift);
       shiftsToday.forEach(sh=>{ if(cnt[sh]!==undefined) cnt[sh]++; });
       if (shiftsToday.some(sh=>['ช','ด'].includes(sh))) workDays++;
-      if (shiftsToday.includes('ห') || shiftsToday.includes('ล')) offDays++;
+      if (shiftsToday.includes('ช') && shiftsToday.includes('ด')) otNight++;
       return v;
     });
-    const otNightExport = nd._ot_night != null ? nd._ot_night : '';
-    const otHolVal = hasOtTarget ? [Number(_schedOtTarget) - offDays] : [];
+    const otHolExport = nd._ot_holiday != null ? nd._ot_holiday : '';
     const branchLabel = nurse.branch ? `สข.${nurse.branch}` : '';
-    rows.push([branchLabel, nurse.name,...cells,workDays,otNightExport,...otHolVal,cnt.ช,cnt.ด,cnt.ห,cnt.ล].join('\t'));
+    rows.push([branchLabel, nurse.name,...cells,workDays,otNight,otHolExport,cnt.ช,cnt.ด,cnt.ห,cnt.ล].join('\t'));
   });
   const blob = new Blob(['﻿'+rows.join('\n')],{type:'text/tab-separated-values;charset=utf-8'});
   const a = document.createElement('a');
