@@ -482,9 +482,10 @@ async function fbLoad() {
       }
     }
     if (d.customers_extra) {
-      // Merge extra customer data (edits) back
-      Object.entries(d.customers_extra).forEach(([id, extra]) => {
-        const c = customers.find(x=>x.id===id);
+      // Merge extra customer data (legacy edits) — restore safe key to original id format
+      Object.entries(d.customers_extra).forEach(([safeId, extra]) => {
+        const origId = safeId.replace(/^(DD\d+)_(\d+)/, '$1/$2');
+        const c = customers.find(x => x.id === origId || x.id === safeId);
         if (c) Object.assign(c, extra);
       });
     }
@@ -578,11 +579,25 @@ function listenAllData() {
     if (snap.exists()) Object.assign(CAT_META, snap.val());
   });
 
-  // customers_extra — sync การแก้ไขข้อมูลลูกค้าแบบ realtime
+  // customers — sync เพิ่ม/แก้ไข/ลบลูกค้าแบบ realtime
+  onValue(ref(db, "customers"), snap => {
+    if (snap.exists()) {
+      const fbCusts = Object.values(snap.val()).map(c => ({...c, _dupName: false}));
+      const fbIds = new Set(fbCusts.map(c => c.id).filter(Boolean));
+      const rawOnly = RAW.filter(r => !fbIds.has(r.id));
+      customers = [...fbCusts, ...rawOnly.map(r => ({...r, _dupName: false}))];
+    }
+    updateDashboard?.();
+    renderTable?.();
+  });
+
+  // customers_extra — sync การแก้ไขข้อมูลลูกค้าแบบ realtime (legacy — new edits use customers node)
   onValue(ref(db, "customers_extra"), snap => {
     if (snap.exists()) {
-      Object.entries(snap.val()).forEach(([id, extra]) => {
-        const c = customers.find(x => x.id === id);
+      Object.entries(snap.val()).forEach(([safeId, extra]) => {
+        // Restore safe key back to original id format (DD1_03 → DD1/03)
+        const origId = safeId.replace(/^(DD\d+)_(\d+)/, '$1/$2');
+        const c = customers.find(x => x.id === origId || x.id === safeId);
         if (c) Object.assign(c, extra);
       });
     }
@@ -2422,10 +2437,10 @@ function filteredCustomers() {
   else if(fee==='high') data = data.filter(c=>c.fee>=17000);
   if(status) data = data.filter(c=>getPayStatus(c.id,currentMonth)===status);
   if(searchQuery) data = data.filter(c=>
-    c.name.toLowerCase().includes(searchQuery)||
-    c.id.toLowerCase().includes(searchQuery)||
-    c.phone.toLowerCase().includes(searchQuery)||
-    c.address.toLowerCase().includes(searchQuery)
+    (c.name||'').toLowerCase().includes(searchQuery)||
+    (c.id||'').toLowerCase().includes(searchQuery)||
+    (c.phone||'').toLowerCase().includes(searchQuery)||
+    (c.address||'').toLowerCase().includes(searchQuery)
   );
   return data;
 }
@@ -2449,7 +2464,7 @@ function renderTable() {
       <td class="td-name">${c.name}${c._dupName?'<span class="dup-warn">ซ้ำ</span>':''}${inactive?'<span class="inactive-tag">ออกแล้ว</span>':''}</td>
       <td class="td-branch">${branchTag(c.branch)}</td>
       <td class="td-fee">฿${fmt(c.fee)}</td>
-      <td style="font-size:12px;color:var(--text2)">${c.bank.replace('ธนาคาร','')}</td>
+      <td style="font-size:12px;color:var(--text2)">${(c.bank||'').replace('ธนาคาร','')}</td>
       <td style="font-size:12px;color:var(--text3)">${c.due_date}</td>
       <td>${inactive ? '<span class="status-badge status-inactive">คืนเคส</span>' : statusBadge(getPayStatus(c.id,currentMonth))}</td>
       <td style="white-space:nowrap">
@@ -2769,9 +2784,12 @@ function saveEditCustomer() {
 
     // --- Firebase rename ---
     if (window._fbSave) {
-      // customers_extra
-      window._fbSave('customers_extra/' + newSafe, c);
+      // customers — save new key, null old key
+      window._fbSave('customers/' + newSafe, c);
+      window._fbSave('customers/' + oldSafe, null);
+      // customers_extra — clean up old extra key if exists
       window._fbSave('customers_extra/' + oldSafe, null);
+      window._fbSave('customers_extra/' + newSafe, null);
       // payments — re-save whole object with safe keys
       const sp = {};
       Object.entries(payments).forEach(([k,v]) => { sp[k.replace(/\//g,'_')] = v; });
@@ -2790,9 +2808,12 @@ function saveEditCustomer() {
       });
     }
   } else {
-    // Only fields changed — save extra data
+    // Only fields changed — save directly to customers node (persistent across refresh)
     if (window._fbSave) {
-      window._fbSave('customers_extra/' + oldId.replace(/\//g,'_'), c);
+      const safeId = oldId.replace(/\//g,'_');
+      window._fbSave('customers/' + safeId, c);
+      // Also clear any stale customers_extra entry for this customer
+      window._fbSave('customers_extra/' + safeId, null);
     }
   }
 
@@ -2881,15 +2902,19 @@ function saveCustomer(){
     _dupName: false
   };
   if(!c.id||!c.name){ alert('กรุณากรอกรหัสและชื่อลูกค้า'); return; }
+  if(customers.find(x => x.id === c.id)){ alert(`รหัส "${c.id}" มีอยู่แล้วในระบบ`); return; }
+
   customers.push(c);
   closeModal('add-modal');
-  renderTable();
-  updateDashboard();
   document.querySelectorAll('#add-modal input,#add-modal textarea').forEach(el=>el.value='');
+
+  try { renderTable(); } catch(e) { console.warn('renderTable error:', e); }
+  try { updateDashboard(); } catch(e) { console.warn('updateDashboard error:', e); }
+
+  // Save only this new customer to Firebase (atomic — no risk of overwriting other entries)
   if (window._fbSave) {
-    const obj = {};
-    customers.forEach(x => { obj[x.id.replace(/\//g,'_')] = x; });
-    window._fbSave('customers', obj);
+    const safeId = c.id.replace(/\//g,'_');
+    window._fbSave('customers/' + safeId, c);
   }
 }
 
