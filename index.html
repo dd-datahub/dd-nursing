@@ -1512,10 +1512,12 @@ if ('serviceWorker' in navigator) {
     </div>
     <div class="modal-body">
       <div class="form-section">ข้อมูลส่วนตัว</div>
+      <input type="hidden" id="edit-id-original">
       <div class="form-row">
         <div class="form-group">
           <label>รหัสลูกค้า</label>
-          <input type="text" id="edit-id" readonly style="background:var(--surface2);color:var(--text3)">
+          <input type="text" id="edit-id" placeholder="เช่น DD1/01">
+          <div style="font-size:11px;color:var(--warning);margin-top:3px">⚠️ หากเปลี่ยนรหัส ระบบจะย้ายข้อมูลทั้งหมดให้อัตโนมัติ</div>
         </div>
         <div class="form-group">
           <label>สาขา</label>
@@ -2700,7 +2702,8 @@ function openEditModal(id) {
   const c = customers.find(x => x.id === id);
   if (!c) return;
   closeModal('detail-modal');
-  document.getElementById('edit-id').value       = c.id;
+  document.getElementById('edit-id-original').value = c.id;
+  document.getElementById('edit-id').value           = c.id;
   document.getElementById('edit-name').value     = c.name;
   document.getElementById('edit-branch').value   = c.branch;
   document.getElementById('edit-address').value  = c.address;
@@ -2713,29 +2716,91 @@ function openEditModal(id) {
   document.getElementById('edit-modal').classList.add('open');
 }
 
+function _renameObjKeys(obj, oldPrefix, newPrefix) {
+  Object.keys(obj).filter(k => k.startsWith(oldPrefix)).forEach(k => {
+    obj[newPrefix + k.slice(oldPrefix.length)] = obj[k];
+    delete obj[k];
+  });
+}
+
 function saveEditCustomer() {
-  const id = document.getElementById('edit-id').value;
-  const c  = customers.find(x => x.id === id);
+  const newId = document.getElementById('edit-id').value.trim();
+  const oldId = document.getElementById('edit-id-original').value;
+  const c = customers.find(x => x.id === oldId);
   if (!c) return;
-  c.name        = document.getElementById('edit-name').value.trim();
-  c.branch      = document.getElementById('edit-branch').value;
-  c.address     = document.getElementById('edit-address').value.trim();
-  c.phone       = document.getElementById('edit-phone').value.trim();
-  c.fee         = parseFloat(document.getElementById('edit-fee').value) || c.fee;
-  c.bank        = document.getElementById('edit-bank').value;
-  c.account_no  = document.getElementById('edit-accno').value.trim();
-  c.account_name= document.getElementById('edit-accname').value.trim();
-  c.due_date    = document.getElementById('edit-due').value.trim();
+
+  if (!newId) { alert('กรุณากรอกรหัสลูกค้า'); return; }
+  if (newId !== oldId && customers.find(x => x.id === newId)) {
+    alert(`รหัส "${newId}" มีอยู่แล้วในระบบ กรุณาใช้รหัสอื่น`);
+    return;
+  }
+
+  // Update fields
+  c.name         = document.getElementById('edit-name').value.trim();
+  c.branch       = document.getElementById('edit-branch').value;
+  c.address      = document.getElementById('edit-address').value.trim();
+  c.phone        = document.getElementById('edit-phone').value.trim();
+  c.fee          = parseFloat(document.getElementById('edit-fee').value) || c.fee;
+  c.bank         = document.getElementById('edit-bank').value;
+  c.account_no   = document.getElementById('edit-accno').value.trim();
+  c.account_name = document.getElementById('edit-accname').value.trim();
+  c.due_date     = document.getElementById('edit-due').value.trim();
+
+  if (newId !== oldId) {
+    // --- Rename in local data ---
+    c.id = newId;
+    const oldSafe = oldId.replace(/\//g,'_');
+    const newSafe = newId.replace(/\//g,'_');
+
+    // payments local key: "${id}_${month}"
+    _renameObjKeys(payments, oldId + '_', newId + '_');
+    // invoiced local key: "${safeId}_${month}"
+    _renameObjKeys(invoiced, oldSafe + '_', newSafe + '_');
+    // requisitions — track old keys first, then rename
+    const oldReqPrefix = oldSafe + '_';
+    const oldReqKeys = Object.keys(requisitions).filter(k => k.startsWith(oldReqPrefix));
+    _renameObjKeys(requisitions, oldReqPrefix, newSafe + '_');
+    // discharged
+    if (discharged[oldId] !== undefined) {
+      discharged[newId] = discharged[oldId];
+      delete discharged[oldId];
+    }
+    if (typeof currentCustomer !== 'undefined' && currentCustomer === oldId) currentCustomer = newId;
+
+    // --- Firebase rename ---
+    if (window._fbSave) {
+      // customers_extra
+      window._fbSave('customers_extra/' + newSafe, c);
+      window._fbSave('customers_extra/' + oldSafe, null);
+      // payments — re-save whole object with safe keys
+      const sp = {};
+      Object.entries(payments).forEach(([k,v]) => { sp[k.replace(/\//g,'_')] = v; });
+      window._fbSave('payments', sp);
+      // invoiced — re-save whole object
+      window._fbSave('invoiced', invoiced);
+      // discharged — re-save whole object
+      const sd = {};
+      Object.entries(discharged).forEach(([k,v]) => { sd[k.replace(/\//g,'_')] = v; });
+      window._fbSave('discharged', sd);
+      // requisitions — save new keys, null old keys
+      oldReqKeys.forEach(oldKey => {
+        const newKey = newSafe + '_' + oldKey.slice(oldReqPrefix.length);
+        window._fbSave('requisitions/' + newKey, requisitions[newKey] ?? null);
+        window._fbSave('requisitions/' + oldKey, null);
+      });
+    }
+  } else {
+    // Only fields changed — save extra data
+    if (window._fbSave) {
+      window._fbSave('customers_extra/' + oldId.replace(/\//g,'_'), c);
+    }
+  }
+
   closeModal('edit-modal');
   renderTable();
   renderBilling();
   updateDashboard();
-  openDetail(id);
-  if (window._fbSave) {
-    const safeId = id.replace(/\//g,'_');
-    const cust = customers.find(x=>x.id===id);
-    if (cust) window._fbSave('customers_extra/' + safeId, cust);
-  }
+  openDetail(newId);
 }
 
 // PAY MODAL
