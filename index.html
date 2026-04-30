@@ -35,6 +35,7 @@
   --b1: #1a5c9e; --b1l: #deeaf8;
   --b2: #1a6b4a; --b2l: #ddf0e8;
   --b3: #7a4f0d; --b3l: #f5e8d0;
+  --b4: #7c3aed; --b4l: #ede9fe;
   --paid: #1a6b4a; --paid-bg: #e8f5ee;
   --unpaid: #c0392b; --unpaid-bg: #fdf0ee;
   --partial: #b8620a; --partial-bg: #fef6ed;
@@ -235,6 +236,7 @@ td { padding: 10px 12px; font-size: 13px; vertical-align: middle; }
 .b1-tag { background: var(--b1l); color: var(--b1); }
 .b2-tag { background: var(--b2l); color: var(--b2); }
 .b3-tag { background: var(--b3l); color: var(--b3); }
+.b4-tag { background: var(--b4l); color: var(--b4); }
 .status-badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; white-space: nowrap; }
 .status-paid { background: var(--paid-bg); color: var(--paid); }
 .status-unpaid { background: var(--unpaid-bg); color: var(--unpaid); }
@@ -786,13 +788,23 @@ if ('serviceWorker' in navigator) {
       <!-- Month strip — horizontal scroll -->
       <div id="dash-month-btns" style="display:flex;gap:6px;margin-bottom:16px"></div>
 
+      <!-- Dashboard branch filter -->
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--text2);font-weight:500">📊 ดู:</span>
+        <button class="month-tab active" id="dbf-all"   onclick="setDashBranch('')">ทั้งหมด</button>
+        <button class="month-tab"        id="dbf-b1"    onclick="setDashBranch('สาขา 1')">สาขา 1</button>
+        <button class="month-tab"        id="dbf-b2"    onclick="setDashBranch('สาขา 2')">สาขา 2</button>
+        <button class="month-tab"        id="dbf-b3"    onclick="setDashBranch('สาขา 3')">สาขา 3</button>
+        <button class="month-tab"        id="dbf-b4"    onclick="setDashBranch('สาขาอุดร')" style="color:var(--b4);border-color:var(--b4)">🏙️ สาขาอุดร</button>
+      </div>
+
       <!-- Stat cards -->
       <div class="stats-row">
         <div class="stat-card blue">
           <div class="stat-icon">👥</div>
           <div class="stat-value" id="s-total">0</div>
           <div class="stat-label">ลูกค้าทั้งหมด</div>
-          <div class="stat-sub">3 สาขา</div>
+          <div class="stat-sub" id="s-branch-sub">4 สาขา</div>
         </div>
         <div class="stat-card green">
           <div class="stat-icon">💰</div>
@@ -857,6 +869,7 @@ if ('serviceWorker' in navigator) {
         <button class="month-tab"        id="rbf-b1"   onclick="setReminderBranch('สาขา 1')">สาขา 1</button>
         <button class="month-tab"        id="rbf-b2"   onclick="setReminderBranch('สาขา 2')">สาขา 2</button>
         <button class="month-tab"        id="rbf-b3"   onclick="setReminderBranch('สาขา 3')">สาขา 3</button>
+        <button class="month-tab"        id="rbf-b4"   onclick="setReminderBranch('สาขาอุดร')" style="color:var(--b4)">🏙️ อุดร</button>
       </div>
       <div id="billing-reminders"></div>
 
@@ -872,7 +885,7 @@ if ('serviceWorker' in navigator) {
         <div class="filter-row">
           <select id="f-branch" onchange="renderTable()">
             <option value="">ทุกสาขา</option>
-            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option>
+            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
           </select>
           <select id="f-bank" onchange="renderTable()">
             <option value="">ทุกธนาคาร</option>
@@ -919,7 +932,7 @@ if ('serviceWorker' in navigator) {
         <div class="filter-row">
           <select id="df-branch" onchange="renderDischarged()">
             <option value="">ทุกสาขา</option>
-            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option>
+            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
           </select>
           <input type="text" id="df-search" placeholder="ค้นหาชื่อ / รหัส..." oninput="renderDischarged()" style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;color:var(--text);background:var(--surface);outline:none;width:200px">
         </div>
@@ -1020,7 +1033,7 @@ if ('serviceWorker' in navigator) {
         <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
           <select id="rsum-month" onchange="renderReqSummary()" style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;outline:none;background:var(--surface);color:var(--text)"></select>
           <select id="rsum-branch" onchange="renderReqSummary()" style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;outline:none;background:var(--surface);color:var(--text)">
-            <option value="">ทุกสาขา</option><option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option>
+            <option value="">ทุกสาขา</option><option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
           </select>
           <!-- customer name search -->
           <div style="position:relative;flex:1;min-width:180px;max-width:280px">
@@ -1125,7 +1138,7 @@ if ('serviceWorker' in navigator) {
         <div class="filter-row">
           <select id="bf-branch" onchange="renderBilling()">
             <option value="">ทุกสาขา</option>
-            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option>
+            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
           </select>
           <select id="bf-status" onchange="renderBilling()">
             <option value="">ทุกสถานะ</option>
@@ -1163,7 +1176,7 @@ if ('serviceWorker' in navigator) {
           </select>
           <select id="hist-f-branch" onchange="renderHistory()" style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px">
             <option value="">🏥 ทุกสาขา</option>
-            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option>
+            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
           </select>
           <button class="btn btn-sm" onclick="document.getElementById('hist-f-month').value='';document.getElementById('hist-f-branch').value='';renderHistory()" style="font-size:12px">✕ ล้าง</button>
           <div style="flex:1"></div>
@@ -1196,7 +1209,7 @@ if ('serviceWorker' in navigator) {
       <!-- Filter bar -->
       <div class="filter-row" style="margin-bottom:12px;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border)">
         <select id="rf-branch" onchange="renderRefundList()" style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px">
-          <option value="">ทุกสาขา</option><option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option>
+          <option value="">ทุกสาขา</option><option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
         </select>
         <input type="text" id="rf-search" placeholder="ค้นหาชื่อ / รหัส..." oninput="renderRefundList()"
           style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;width:200px">
@@ -1412,7 +1425,7 @@ if ('serviceWorker' in navigator) {
       <div class="form-section">ข้อมูลส่วนตัว</div>
       <div class="form-row">
         <div class="form-group"><label>รหัสลูกค้า</label><input type="text" id="add-id" placeholder="DD1/48"></div>
-        <div class="form-group"><label>สาขา</label><select id="add-branch"><option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option></select></div>
+        <div class="form-group"><label>สาขา</label><select id="add-branch"><option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option></select></div>
       </div>
       <div class="form-group"><label>ชื่อลูกค้า</label><input type="text" id="add-name" placeholder="คุณ ชื่อ นามสกุล"></div>
       <div class="form-group"><label>ที่อยู่</label><textarea id="add-address" rows="2"></textarea></div>
@@ -1537,7 +1550,7 @@ if ('serviceWorker' in navigator) {
         <div class="form-group">
           <label>สาขา</label>
           <select id="edit-branch">
-            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option>
+            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
           </select>
         </div>
       </div>
@@ -2064,12 +2077,24 @@ let _reminderBranch = '';
 function setReminderBranch(branch) {
   _reminderBranch = branch;
   // Update active tab
-  ['','สาขา 1','สาขา 2','สาขา 3'].forEach((b, i) => {
-    const ids = ['rbf-all','rbf-b1','rbf-b2','rbf-b3'];
+  ['','สาขา 1','สาขา 2','สาขา 3','สาขาอุดร'].forEach((b, i) => {
+    const ids = ['rbf-all','rbf-b1','rbf-b2','rbf-b3','rbf-b4'];
     const el  = document.getElementById(ids[i]);
     if (el) el.classList.toggle('active', b === branch);
   });
   buildBillingReminders();
+}
+
+let _dashBranch = '';
+
+function setDashBranch(branch) {
+  _dashBranch = branch;
+  ['','สาขา 1','สาขา 2','สาขา 3','สาขาอุดร'].forEach((b, i) => {
+    const ids = ['dbf-all','dbf-b1','dbf-b2','dbf-b3','dbf-b4'];
+    const el  = document.getElementById(ids[i]);
+    if (el) el.classList.toggle('active', b === branch);
+  });
+  updateDashboard();
 }
 
 function getBillRun(dueDay) {
@@ -2339,8 +2364,9 @@ const now = new Date();
 
 function fmt(n) { return n.toLocaleString('th-TH'); }
 function branchTag(b) {
-  if(b==='สาขา 1') return '<span class="b1-tag">สาขา 1</span>';
-  if(b==='สาขา 2') return '<span class="b2-tag">สาขา 2</span>';
+  if(b==='สาขา 1')   return '<span class="b1-tag">สาขา 1</span>';
+  if(b==='สาขา 2')   return '<span class="b2-tag">สาขา 2</span>';
+  if(b==='สาขาอุดร') return '<span class="b4-tag">สาขาอุดร</span>';
   return '<span class="b3-tag">สาขา 3</span>';
 }
 function payKey(id, month) { return `${id}_${month}`; }
@@ -3169,7 +3195,8 @@ function _revenueFromHistory(months) {
 
 let chart1, chart2;
 function updateDashboard(){
-  const activeCusts = customers.filter(c=>!isInactive(c.id));
+  const allActiveCusts = customers.filter(c=>!isInactive(c.id));
+  const activeCusts = _dashBranch ? allActiveCusts.filter(c=>c.branch===_dashBranch) : allActiveCusts;
   const total       = activeCusts.length;
   const dcCount     = Object.keys(discharged).length;
 
@@ -3178,8 +3205,13 @@ function updateDashboard(){
   const [vy,vm]   = viewMonth.split('-').map(Number);
   const yThai     = vy+543;
 
-  // รายได้จากประวัติชำระ
-  const revenue = _revenueFromHistory(viewMonths.length?viewMonths:[viewMonth]);
+  // รายได้จากประวัติชำระ (กรองตามสาขาถ้าเลือก)
+  const _activeIds = new Set(activeCusts.map(c=>c.id));
+  const revenue = payHistory.filter(p=>{
+    if(_dashBranch && !_activeIds.has(p.id)) return false;
+    const mths = viewMonths.length?viewMonths:[viewMonth];
+    return mths.some(m=>{const[yy,mm]=m.split('-').map(Number);return p.month===`${_THAI_M[mm]} ${yy+543}`;});
+  }).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
 
   // สถิติ billing
   let paidN=0,partialN=0,unpaidN=0,paidRev=0;
@@ -3200,6 +3232,7 @@ function updateDashboard(){
 
   const revLabel = _dashView==='year' ? `รายได้รวมปี ${yThai}` : `รายได้ ${_THAI_M[vm]} ${yThai}`;
   document.getElementById('s-total').textContent=total;
+  document.getElementById('s-branch-sub').textContent=_dashBranch||'4 สาขา';
   document.getElementById('s-revenue').textContent=fmt(revenue);
   document.getElementById('s-revenue-label').textContent=revLabel;
   document.getElementById('s-paid').textContent=paidN;
@@ -3225,17 +3258,33 @@ function updateDashboard(){
       return cust?.branch===branch && viewMonths.some(mo=>{const[yy,mm]=mo.split('-').map(Number);return p.month===`${_THAI_M[mm]} ${yy+543}`;});
     }).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
   }
-  const b1r=revByBranch('สาขา 1'),b2r=revByBranch('สาขา 2'),b3r=revByBranch('สาขา 3');
+  const _branchColor={'สาขา 1':'#1a5c9e','สาขา 2':'#1a6b4a','สาขา 3':'#7a4f0d','สาขาอุดร':'#7c3aed'};
+  const _branchColorLight={'สาขา 1':'rgba(26,92,158,0.3)','สาขา 2':'rgba(26,107,74,0.3)','สาขา 3':'rgba(122,79,13,0.3)','สาขาอุดร':'rgba(124,58,237,0.3)'};
   if(chart1)chart1.destroy();
-  chart1=new Chart(document.getElementById('dchart1'),{
-    type:'bar',
-    data:{labels:['สาขา 1','สาขา 2','สาขา 3'],datasets:[{data:[b1r,b2r,b3r],backgroundColor:['#1a5c9e','#1a6b4a','#7a4f0d'],borderRadius:6,borderSkipped:false}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#999'}},y:{grid:{color:'rgba(128,128,128,0.1)'},ticks:{color:'#999',callback:v=>'฿'+(v/1000).toFixed(0)+'K'}}}}
-  });
+  if(_dashBranch) {
+    // Single branch view — show monthly breakdown for that branch
+    const allM12=_getYearMonths(_dashYear);
+    const bc=_branchColor[_dashBranch]||'#1a6b4a', bcl=_branchColorLight[_dashBranch]||'rgba(26,107,74,0.3)';
+    const branchMonthRevs=allM12.map(mo=>{const[yy,mm]=mo.split('-').map(Number);const lbl=`${_THAI_M[mm]} ${yy+543}`;return payHistory.filter(p=>{const cust=customers.find(x=>x.id===p.id);return cust?.branch===_dashBranch && p.month===lbl;}).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);});
+    chart1=new Chart(document.getElementById('dchart1'),{
+      type:'bar',
+      data:{labels:allM12.map(mo=>`${_THAI_M[parseInt(mo.split('-')[1])]}`),datasets:[{data:branchMonthRevs,backgroundColor:allM12.map(mo=>mo===currentMonth?bc:bcl),borderRadius:4,borderSkipped:false}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#999',font:{size:10}}},y:{grid:{color:'rgba(128,128,128,0.1)'},ticks:{color:'#999',callback:v=>'฿'+(v/1000).toFixed(0)+'K'}}}}
+    });
+    document.getElementById('dchart1-title').textContent=`รายได้${_dashBranch} รายเดือน`;
+  } else {
+    const b1r=revByBranch('สาขา 1'),b2r=revByBranch('สาขา 2'),b3r=revByBranch('สาขา 3'),b4r=revByBranch('สาขาอุดร');
+    chart1=new Chart(document.getElementById('dchart1'),{
+      type:'bar',
+      data:{labels:['สาขา 1','สาขา 2','สาขา 3','สาขาอุดร'],datasets:[{data:[b1r,b2r,b3r,b4r],backgroundColor:['#1a5c9e','#1a6b4a','#7a4f0d','#7c3aed'],borderRadius:6,borderSkipped:false}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#999'}},y:{grid:{color:'rgba(128,128,128,0.1)'},ticks:{color:'#999',callback:v=>'฿'+(v/1000).toFixed(0)+'K'}}}}
+    });
+    document.getElementById('dchart1-title').textContent='รายได้ต่อสาขา';
+  }
 
-  // Chart 2: รายได้รายเดือนทั้งปี
+  // Chart 2: รายได้รายเดือนทั้งปี (กรองตามสาขา)
   const allM=_getYearMonths(_dashYear);
-  const monthRevs=allM.map(mo=>{const[yy,mm]=mo.split('-').map(Number);const lbl=`${_THAI_M[mm]} ${yy+543}`;return payHistory.filter(p=>p.month===lbl).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);});
+  const monthRevs=allM.map(mo=>{const[yy,mm]=mo.split('-').map(Number);const lbl=`${_THAI_M[mm]} ${yy+543}`;return payHistory.filter(p=>{if(_dashBranch && !_activeIds.has(p.id)) return false;return p.month===lbl;}).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);});
   if(chart2)chart2.destroy();
   chart2=new Chart(document.getElementById('dchart2'),{
     type:'bar',
