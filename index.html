@@ -615,15 +615,27 @@ function listenAllData() {
     if (ap === "page-billing") renderBilling?.();
   });
 
-  // uid_requests — พนักงานรออนุมัติ (realtime)
+  // uid_requests — พนักงาน (staff.html) รออนุมัติ (realtime)
   onValue(ref(db, "uid_requests"), snap => {
     window._uidRequests = snap.exists() ? snap.val() : {};
     if (document.querySelector(".page.active")?.id === "page-permissions") renderPermissions?.();
   });
 
-  // allowed_uids — พนักงานที่อนุมัติแล้ว (realtime)
+  // allowed_uids — พนักงาน (staff.html) ที่อนุมัติแล้ว (realtime)
   onValue(ref(db, "allowed_uids"), snap => {
     window._allowedUids = snap.exists() ? snap.val() : {};
+    if (document.querySelector(".page.active")?.id === "page-permissions") renderPermissions?.();
+  });
+
+  // uid_requests_ud — พนักงาน staffud (สาขาอุดร) รออนุมัติ (realtime)
+  onValue(ref(db, "uid_requests_ud"), snap => {
+    window._uidRequestsUd = snap.exists() ? snap.val() : {};
+    if (document.querySelector(".page.active")?.id === "page-permissions") renderPermissions?.();
+  });
+
+  // allowed_uids_ud — พนักงาน staffud (สาขาอุดร) ที่อนุมัติแล้ว (realtime)
+  onValue(ref(db, "allowed_uids_ud"), snap => {
+    window._allowedUidsUd = snap.exists() ? snap.val() : {};
     if (document.querySelector(".page.active")?.id === "page-permissions") renderPermissions?.();
   });
 }
@@ -744,7 +756,7 @@ if ('serviceWorker' in navigator) {
     <div class="nav-item" onclick="goPage('history')" title="ประวัติการชำระ"><span class="nav-icon">📋</span><span class="nav-text"> ประวัติการชำระ</span></div>
     <div class="nav-item" onclick="goPage('refund')" title="คืนเงินลูกค้า"><span class="nav-icon">↩️</span><span class="nav-text"> คืนเงินลูกค้า</span></div>
     <div class="nav-item" onclick="goPage('issues')" title="ปัญหาข้อมูล"><span class="nav-icon">⚠️</span><span class="nav-text"> ปัญหาข้อมูล</span><span class="nav-badge" style="background:var(--text3)">0</span></div>
-    <div class="nav-item" onclick="goPage('permissions')" title="จัดการสิทธิ์"><span class="nav-icon">🔑</span><span class="nav-text"> จัดการสิทธิ์</span></div>
+    <div class="nav-item" onclick="goPage('permissions')" title="จัดการสิทธิ์"><span class="nav-icon">🔑</span><span class="nav-text"> จัดการสิทธิ์</span><span id="perm-nav-badge" style="display:none;background:#e67e22;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 6px;margin-left:4px"></span></div>
     <div class="nav-item" onclick="goPage('schedule')" title="ตารางเวร"><span class="nav-icon">📅</span><span class="nav-text"> ตารางเวร</span></div>
   </nav>
   <div class="sidebar-footer" style="display:flex;flex-direction:column;gap:6px;padding:10px 14px;border-top:1px solid var(--border)">
@@ -1250,42 +1262,87 @@ if ('serviceWorker' in navigator) {
 
     <!-- ===== PAGE: จัดการสิทธิ์ ===== -->
     <div class="page" id="page-permissions">
-      <div style="max-width:620px;margin:0 auto;display:flex;flex-direction:column;gap:14px">
+      <div style="max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
 
-        <!-- รออนุมัติ -->
-        <div style="background:#fff;border-radius:12px;padding:20px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08)">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-            <span style="font-size:16px">⏳</span>
-            <h3 style="font-size:14px;font-weight:700;color:#1a1916;flex:1">รออนุมัติ</h3>
-            <span id="perm-pending-count" style="background:#e67e22;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:2px 8px">0</span>
+        <!-- ===== แท็บเลือกสาขา ===== -->
+        <div style="display:flex;gap:8px">
+          <button id="permtab-staff" class="month-tab active" onclick="setPermTab('staff')"
+            style="flex:1;padding:9px 0;font-size:13px;font-weight:600">🏥 Staff (ทุกสาขา)</button>
+          <button id="permtab-staffud" class="month-tab" onclick="setPermTab('staffud')"
+            style="flex:1;padding:9px 0;font-size:13px;font-weight:600;color:var(--b4);border-color:var(--b4)">🏙️ Staff สาขาอุดร</button>
+        </div>
+
+        <!-- ===== ส่วน STAFF (ทุกสาขา) ===== -->
+        <div id="permsec-staff">
+
+          <!-- รออนุมัติ — staff -->
+          <div style="background:#fff;border-radius:12px;padding:20px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+              <span style="font-size:16px">⏳</span>
+              <h3 style="font-size:14px;font-weight:700;color:#1a1916;flex:1">รออนุมัติ</h3>
+              <span id="perm-pending-count" style="background:#e67e22;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:2px 8px">0</span>
+            </div>
+            <div id="perm-pending-list">
+              <div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ไม่มีคำขอเข้าใช้งานที่รอการอนุมัติ</div>
+            </div>
           </div>
-          <div id="perm-pending-list">
-            <div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ไม่มีคำขอเข้าใช้งานที่รอการอนุมัติ</div>
+
+          <!-- อนุมัติแล้ว — staff -->
+          <div style="background:#fff;border-radius:12px;padding:20px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+              <span style="font-size:16px">✅</span>
+              <h3 style="font-size:14px;font-weight:700;color:#1a1916;flex:1">พนักงานที่อนุมัติแล้ว</h3>
+              <span id="perm-approved-count" style="background:#1a6b4a;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:2px 8px">0</span>
+            </div>
+            <div id="perm-approved-list">
+              <div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ยังไม่มีพนักงาน</div>
+            </div>
+          </div>
+
+          <div style="background:#e8f5ee;border:1px solid #b0d8c0;border-radius:10px;padding:14px 16px;font-size:12px;color:#1a4a30;line-height:1.7">
+            🔑 <b>วิธีให้สิทธิ์พนักงาน (staff.html):</b><br>
+            1. แจ้งพนักงานให้เปิด <b>staff.html</b> แล้ว Login ด้วย Google<br>
+            2. ระบบจะส่งคำขอมาขึ้นที่ "รออนุมัติ" ด้านบนโดยอัตโนมัติ<br>
+            3. กด <b>อนุมัติ</b> — พนักงานจะเข้าระบบได้ทันที
           </div>
         </div>
 
-        <!-- พนักงานที่อนุมัติแล้ว -->
-        <div style="background:#fff;border-radius:12px;padding:20px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08)">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-            <span style="font-size:16px">✅</span>
-            <h3 style="font-size:14px;font-weight:700;color:#1a1916;flex:1">พนักงานที่อนุมัติแล้ว</h3>
-            <span id="perm-approved-count" style="background:#1a6b4a;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:2px 8px">0</span>
+        <!-- ===== ส่วน STAFFUD (สาขาอุดร) ===== -->
+        <div id="permsec-staffud" style="display:none">
+
+          <!-- รออนุมัติ — staffud -->
+          <div style="background:#fff;border-radius:12px;padding:20px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:14px;border-top:3px solid var(--b4)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+              <span style="font-size:16px">⏳</span>
+              <h3 style="font-size:14px;font-weight:700;color:var(--b4);flex:1">รออนุมัติ — สาขาอุดร</h3>
+              <span id="perm-ud-pending-count" style="background:#e67e22;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:2px 8px">0</span>
+            </div>
+            <div id="perm-ud-pending-list">
+              <div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ไม่มีคำขอเข้าใช้งานที่รอการอนุมัติ</div>
+            </div>
           </div>
-          <div id="perm-approved-list">
-            <div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ยังไม่มีพนักงาน</div>
+
+          <!-- อนุมัติแล้ว — staffud -->
+          <div style="background:#fff;border-radius:12px;padding:20px 22px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:14px;border-top:3px solid var(--b4)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+              <span style="font-size:16px">✅</span>
+              <h3 style="font-size:14px;font-weight:700;color:var(--b4);flex:1">พนักงานสาขาอุดรที่อนุมัติแล้ว</h3>
+              <span id="perm-ud-approved-count" style="background:var(--b4);color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:2px 8px">0</span>
+            </div>
+            <div id="perm-ud-approved-list">
+              <div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ยังไม่มีพนักงาน</div>
+            </div>
+          </div>
+
+          <div style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:10px;padding:14px 16px;font-size:12px;color:#4c1d95;line-height:1.7">
+            🏙️ <b>วิธีให้สิทธิ์พนักงานสาขาอุดร (staffud.html):</b><br>
+            1. แจ้งพนักงานให้เปิด <b>staffud.html</b> แล้ว Login ด้วย Google<br>
+            2. ระบบจะส่งคำขอมาขึ้นที่ "รออนุมัติ — สาขาอุดร" ด้านบนโดยอัตโนมัติ<br>
+            3. กด <b>อนุมัติ</b> — พนักงานจะเข้าระบบได้ทันที
           </div>
         </div>
 
         <div id="perm-msg" style="font-size:12px;display:none;padding:10px 14px;border-radius:8px"></div>
-
-        <!-- คำอธิบาย flow -->
-        <div style="background:#e8f5ee;border:1px solid #b0d8c0;border-radius:10px;padding:14px 16px;font-size:12px;color:#1a4a30;line-height:1.7">
-          🔑 <b>วิธีให้สิทธิ์พนักงาน:</b><br>
-          1. แจ้งพนักงานให้เปิด staff.html แล้ว Login ด้วย Google<br>
-          2. ระบบจะส่งคำขอมาขึ้นที่ "รออนุมัติ" ด้านบนโดยอัตโนมัติ<br>
-          3. กด <b>อนุมัติ</b> — พนักงานจะเข้าระบบได้ทันที<br>
-          4. ต้องการยกเลิกสิทธิ์ → กด <b>ลบ</b> ในรายการที่อนุมัติแล้ว
-        </div>
       </div>
     </div>
 
@@ -5098,61 +5155,99 @@ window.onload = function() { setTimeout(function() { window.print(); }, 600); };
 
 // ========== PERMISSIONS MANAGEMENT ==========
 
-function renderPermissions() {
-  const requests  = window._uidRequests  || {};
-  const approved  = window._allowedUids  || {};
-  const reqList   = Object.entries(requests);
-  const appList   = Object.entries(approved);
+// แท็บ permissions — staff / staffud
+let _permTab = 'staff';
+function setPermTab(tab) {
+  _permTab = tab;
+  document.getElementById('permtab-staff').classList.toggle('active', tab === 'staff');
+  document.getElementById('permtab-staffud').classList.toggle('active', tab === 'staffud');
+  document.getElementById('permsec-staff').style.display   = tab === 'staff'   ? '' : 'none';
+  document.getElementById('permsec-staffud').style.display = tab === 'staffud' ? '' : 'none';
+}
 
-  // pending count badge
+// helper — render pending card
+function _permPendingCard(uid, r, approveFn, rejectFn) {
+  return `
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #fde8c8;border-radius:8px;margin-bottom:6px;background:#fffbf5">
+    ${r.photoURL ? `<img src="${r.photoURL}" style="width:34px;height:34px;border-radius:50%;flex-shrink:0">` : '<div style="width:34px;height:34px;border-radius:50%;background:#fde8c8;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>'}
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:600;color:#1a1916;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.displayName || '(ไม่ระบุชื่อ)'}</div>
+      <div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.email}</div>
+      <div style="font-size:10px;color:#aaa">ขอเข้าเมื่อ ${r.requestedAt ? new Date(r.requestedAt).toLocaleDateString('th-TH') : '-'}</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button onclick="${approveFn}('${uid}')"
+        style="padding:6px 12px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">อนุมัติ</button>
+      <button onclick="${rejectFn}('${uid}')"
+        style="padding:6px 10px;background:#fff5f5;color:#c0392b;border:1px solid #f5c6cb;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">ปฏิเสธ</button>
+    </div>
+  </div>`;
+}
+
+// helper — render approved card
+function _permApprovedCard(uid, u, revokeFn, accentColor) {
+  const borderCol = accentColor || '#e0f0e8';
+  const bgCol     = accentColor ? '#f5f0ff' : '#f5fbf7';
+  return `
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid ${borderCol};border-radius:8px;margin-bottom:6px;background:${bgCol}">
+    ${u.photoURL ? `<img src="${u.photoURL}" style="width:34px;height:34px;border-radius:50%;flex-shrink:0">` : `<div style="width:34px;height:34px;border-radius:50%;background:${borderCol};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>`}
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:600;color:#1a1916;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.displayName || '(ไม่ระบุชื่อ)'}</div>
+      <div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.email}</div>
+      <div style="font-size:10px;color:#aaa">อนุมัติเมื่อ ${u.approvedAt || '-'}</div>
+    </div>
+    <button onclick="${revokeFn}('${uid}')"
+      style="padding:6px 10px;background:#fff5f5;color:#c0392b;border:1px solid #f5c6cb;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0">ลบสิทธิ์</button>
+  </div>`;
+}
+
+function renderPermissions() {
+  // ===== STAFF (ทุกสาขา) =====
+  const requests = window._uidRequests || {};
+  const approved = window._allowedUids || {};
+  const reqList  = Object.entries(requests);
+  const appList  = Object.entries(approved);
+
   const countEl = document.getElementById('perm-pending-count');
   if (countEl) countEl.textContent = reqList.length;
   const appCountEl = document.getElementById('perm-approved-count');
   if (appCountEl) appCountEl.textContent = appList.length;
 
-  // pending list
   const pendingEl = document.getElementById('perm-pending-list');
-  if (pendingEl) {
-    if (reqList.length === 0) {
-      pendingEl.innerHTML = '<div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ไม่มีคำขอรออนุมัติ</div>';
-    } else {
-      pendingEl.innerHTML = reqList.map(([uid, r]) => `
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #fde8c8;border-radius:8px;margin-bottom:6px;background:#fffbf5">
-          ${r.photoURL ? `<img src="${r.photoURL}" style="width:34px;height:34px;border-radius:50%;flex-shrink:0">` : '<div style="width:34px;height:34px;border-radius:50%;background:#fde8c8;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>'}
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:600;color:#1a1916;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.displayName || '(ไม่ระบุชื่อ)'}</div>
-            <div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.email}</div>
-            <div style="font-size:10px;color:#aaa">ขอเข้าเมื่อ ${r.requestedAt ? new Date(r.requestedAt).toLocaleDateString('th-TH') : '-'}</div>
-          </div>
-          <div style="display:flex;gap:6px;flex-shrink:0">
-            <button onclick="approveUid('${uid}')"
-              style="padding:6px 12px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">อนุมัติ</button>
-            <button onclick="rejectUid('${uid}')"
-              style="padding:6px 10px;background:#fff5f5;color:#c0392b;border:1px solid #f5c6cb;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">ปฏิเสธ</button>
-          </div>
-        </div>`).join('');
-    }
-  }
+  if (pendingEl) pendingEl.innerHTML = reqList.length === 0
+    ? '<div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ไม่มีคำขอรออนุมัติ</div>'
+    : reqList.map(([uid, r]) => _permPendingCard(uid, r, 'approveUid', 'rejectUid')).join('');
 
-  // approved list
   const approvedEl = document.getElementById('perm-approved-list');
-  if (approvedEl) {
-    if (appList.length === 0) {
-      approvedEl.innerHTML = '<div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ยังไม่มีพนักงานที่อนุมัติ</div>';
-    } else {
-      approvedEl.innerHTML = appList.map(([uid, u]) => `
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e0f0e8;border-radius:8px;margin-bottom:6px;background:#f5fbf7">
-          ${u.photoURL ? `<img src="${u.photoURL}" style="width:34px;height:34px;border-radius:50%;flex-shrink:0">` : '<div style="width:34px;height:34px;border-radius:50%;background:#e0f0e8;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>'}
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:600;color:#1a1916;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.displayName || '(ไม่ระบุชื่อ)'}</div>
-            <div style="font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.email}</div>
-            <div style="font-size:10px;color:#aaa">อนุมัติเมื่อ ${u.approvedAt || '-'}</div>
-          </div>
-          <button onclick="revokeUid('${uid}')"
-            style="padding:6px 10px;background:#fff5f5;color:#c0392b;border:1px solid #f5c6cb;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0">ลบสิทธิ์</button>
-        </div>`).join('');
-    }
-  }
+  if (approvedEl) approvedEl.innerHTML = appList.length === 0
+    ? '<div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ยังไม่มีพนักงาน</div>'
+    : appList.map(([uid, u]) => _permApprovedCard(uid, u, 'revokeUid', null)).join('');
+
+  // ===== STAFFUD (สาขาอุดร) =====
+  const requestsUd = window._uidRequestsUd || {};
+  const approvedUd = window._allowedUidsUd || {};
+  const reqUdList  = Object.entries(requestsUd);
+  const appUdList  = Object.entries(approvedUd);
+
+  const udPendingCount = document.getElementById('perm-ud-pending-count');
+  if (udPendingCount) udPendingCount.textContent = reqUdList.length;
+  const udApprovedCount = document.getElementById('perm-ud-approved-count');
+  if (udApprovedCount) udApprovedCount.textContent = appUdList.length;
+
+  const udPendingEl = document.getElementById('perm-ud-pending-list');
+  if (udPendingEl) udPendingEl.innerHTML = reqUdList.length === 0
+    ? '<div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ไม่มีคำขอรออนุมัติ</div>'
+    : reqUdList.map(([uid, r]) => _permPendingCard(uid, r, 'approveUidUd', 'rejectUidUd')).join('');
+
+  const udApprovedEl = document.getElementById('perm-ud-approved-list');
+  if (udApprovedEl) udApprovedEl.innerHTML = appUdList.length === 0
+    ? '<div style="color:#aaa;font-size:13px;text-align:center;padding:12px">ยังไม่มีพนักงาน</div>'
+    : appUdList.map(([uid, u]) => _permApprovedCard(uid, u, 'revokeUidUd', '#c4b5fd')).join('');
+
+  // badge สัญญาณแจ้งเตือนที่ nav icon (รวมทั้ง 2 กลุ่ม)
+  const totalPending = reqList.length + reqUdList.length;
+  const navBadge = document.getElementById('perm-nav-badge');
+  if (navBadge) { navBadge.textContent = totalPending; navBadge.style.display = totalPending > 0 ? 'inline' : 'none'; }
 }
 
 function showPermMsg(msg, ok) {
@@ -5166,6 +5261,7 @@ function showPermMsg(msg, ok) {
   setTimeout(() => { el.style.display = 'none'; }, 4000);
 }
 
+// ===== STAFF approve/reject/revoke =====
 async function approveUid(uid) {
   const r = (window._uidRequests || {})[uid];
   if (!r) return;
@@ -5174,19 +5270,14 @@ async function approveUid(uid) {
     await window._set(window._ref(window._db, `allowed_uids/${uid}`), {
       email: r.email, displayName: r.displayName || '', photoURL: r.photoURL || '', approvedAt: now
     });
-    await window._set(window._ref(window._db, `uid_requests/${uid}`), null);  // ลบออกจาก pending
-    // อัพเดท local cache ทันที เผื่อ realtime listener ช้า
+    await window._set(window._ref(window._db, `uid_requests/${uid}`), null);
     if (window._uidRequests) delete window._uidRequests[uid];
     if (!window._allowedUids) window._allowedUids = {};
     window._allowedUids[uid] = { email: r.email, displayName: r.displayName || '', photoURL: r.photoURL || '', approvedAt: now };
     renderPermissions();
     showPermMsg(`✅ อนุมัติ ${r.email} เรียบร้อย`, true);
   } catch(e) {
-    if (e.code === 'PERMISSION_DENIED' || e.message?.includes('PERMISSION_DENIED')) {
-      showPermMsg('ไม่มีสิทธิ์ — กรุณาอัพเดท Firebase Rules ก่อน', false);
-    } else {
-      showPermMsg('เกิดข้อผิดพลาด: ' + e.message, false);
-    }
+    showPermMsg(e.message?.includes('PERMISSION_DENIED') ? 'ไม่มีสิทธิ์ — กรุณาอัพเดท Firebase Rules' : 'เกิดข้อผิดพลาด: ' + e.message, false);
   }
 }
 
@@ -5196,16 +5287,11 @@ async function rejectUid(uid) {
   if (!confirm(`ปฏิเสธคำขอของ ${r.email}?`)) return;
   try {
     await window._set(window._ref(window._db, `uid_requests/${uid}`), null);
-    // ลบออกจาก local cache ด้วย เผื่อ realtime listener ช้า
     if (window._uidRequests) delete window._uidRequests[uid];
     renderPermissions();
     showPermMsg(`ปฏิเสธ ${r.email} แล้ว`, true);
   } catch(e) {
-    if (e.code === 'PERMISSION_DENIED' || e.message?.includes('PERMISSION_DENIED')) {
-      showPermMsg('ไม่มีสิทธิ์ลบข้อมูล — กรุณาอัพเดท Firebase Rules ก่อน', false);
-    } else {
-      showPermMsg('เกิดข้อผิดพลาด: ' + e.message, false);
-    }
+    showPermMsg(e.message?.includes('PERMISSION_DENIED') ? 'ไม่มีสิทธิ์ลบข้อมูล — กรุณาอัพเดท Firebase Rules' : 'เกิดข้อผิดพลาด: ' + e.message, false);
   }
 }
 
@@ -5216,6 +5302,50 @@ async function revokeUid(uid) {
   try {
     await window._set(window._ref(window._db, `allowed_uids/${uid}`), null);
     showPermMsg(`ยกเลิกสิทธิ์ ${u.email} แล้ว`, true);
+  } catch(e) { showPermMsg('เกิดข้อผิดพลาด: ' + e.message, false); }
+}
+
+// ===== STAFFUD approve/reject/revoke =====
+async function approveUidUd(uid) {
+  const r = (window._uidRequestsUd || {})[uid];
+  if (!r) return;
+  const now = new Date().toLocaleDateString('th-TH', {year:'numeric',month:'short',day:'numeric'});
+  try {
+    await window._set(window._ref(window._db, `allowed_uids_ud/${uid}`), {
+      email: r.email, displayName: r.displayName || '', photoURL: r.photoURL || '', approvedAt: now, branch: 'สาขาอุดร'
+    });
+    await window._set(window._ref(window._db, `uid_requests_ud/${uid}`), null);
+    if (window._uidRequestsUd) delete window._uidRequestsUd[uid];
+    if (!window._allowedUidsUd) window._allowedUidsUd = {};
+    window._allowedUidsUd[uid] = { email: r.email, displayName: r.displayName || '', photoURL: r.photoURL || '', approvedAt: now, branch: 'สาขาอุดร' };
+    renderPermissions();
+    showPermMsg(`✅ อนุมัติ ${r.email} (สาขาอุดร) เรียบร้อย`, true);
+  } catch(e) {
+    showPermMsg(e.message?.includes('PERMISSION_DENIED') ? 'ไม่มีสิทธิ์ — กรุณาอัพเดท Firebase Rules' : 'เกิดข้อผิดพลาด: ' + e.message, false);
+  }
+}
+
+async function rejectUidUd(uid) {
+  const r = (window._uidRequestsUd || {})[uid];
+  if (!r) return;
+  if (!confirm(`ปฏิเสธคำขอของ ${r.email} (สาขาอุดร)?`)) return;
+  try {
+    await window._set(window._ref(window._db, `uid_requests_ud/${uid}`), null);
+    if (window._uidRequestsUd) delete window._uidRequestsUd[uid];
+    renderPermissions();
+    showPermMsg(`ปฏิเสธ ${r.email} แล้ว`, true);
+  } catch(e) {
+    showPermMsg(e.message?.includes('PERMISSION_DENIED') ? 'ไม่มีสิทธิ์ลบข้อมูล — กรุณาอัพเดท Firebase Rules' : 'เกิดข้อผิดพลาด: ' + e.message, false);
+  }
+}
+
+async function revokeUidUd(uid) {
+  const u = (window._allowedUidsUd || {})[uid];
+  if (!u) return;
+  if (!confirm(`ยกเลิกสิทธิ์ของ ${u.email} (สาขาอุดร)?`)) return;
+  try {
+    await window._set(window._ref(window._db, `allowed_uids_ud/${uid}`), null);
+    showPermMsg(`ยกเลิกสิทธิ์ ${u.email} (สาขาอุดร) แล้ว`, true);
   } catch(e) { showPermMsg('เกิดข้อผิดพลาด: ' + e.message, false); }
 }
 
