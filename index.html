@@ -921,7 +921,7 @@ if ('serviceWorker' in navigator) {
           <table>
             <thead><tr>
               <th>รหัส</th><th>ชื่อลูกค้า</th><th>สาขา</th>
-              <th style="text-align:right">ค่าบริการ</th><th>ธนาคาร</th><th>วันที่เริ่ม</th><th>ออกบิล</th><th>สถานะบิล</th><th></th>
+              <th style="text-align:right">ค่าบริการ</th><th>ธนาคาร / บัญชี</th><th>วันที่เริ่ม</th><th>ออกบิล</th><th>สถานะบิล</th><th></th>
             </tr></thead>
             <tbody id="cust-tbody"></tbody>
           </table>
@@ -1513,6 +1513,58 @@ if ('serviceWorker' in navigator) {
         <div class="form-group"><label>ชื่อบัญชี</label><input type="text" id="add-accname"></div>
         <div class="form-group"><label>วันที่เริ่มบริการ</label><input type="text" id="add-due" placeholder="1-ม.ค.-2569"></div>
       </div>
+      <!-- Bank account 2 -->
+      <div class="form-section" style="cursor:pointer;user-select:none" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">➕ บัญชีที่ 2 (ถ้ามี)</div>
+      <div id="add-bank2-group" style="display:none">
+        <div class="form-row">
+          <div class="form-group"><label>ธนาคาร (บัญชีที่ 2)</label>
+            <select id="add2-bank" onchange="onBankChange('add2')">
+              <option value="">— เลือกธนาคาร —</option>
+              <option>ธนาคารกรุงเทพ</option>
+              <option>ธนาคารไทยพาณิชย์</option>
+              <option>ธนาคารกรุงไทย</option>
+              <option>ธนาคารกรุงศรีอยุธยา</option>
+              <option>ธนาคารกสิกรไทย</option>
+            </select>
+          </div>
+          <div class="form-group"><label>เลขที่บัญชี (บัญชีที่ 2)</label>
+            <select id="add2-acc-sel" onchange="onAccSelChange('add2')" style="display:none">
+              <option value="">— เลือกเลขที่บัญชี —</option>
+            </select>
+            <input type="text" id="add2-accno" placeholder="เลขที่บัญชี">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>ชื่อบัญชี (บัญชีที่ 2)</label><input type="text" id="add2-accname"></div>
+          <div class="form-group"></div>
+        </div>
+      </div>
+      <!-- Bank account 3 -->
+      <div class="form-section" style="cursor:pointer;user-select:none" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">➕ บัญชีที่ 3 (ถ้ามี)</div>
+      <div id="add-bank3-group" style="display:none">
+        <div class="form-row">
+          <div class="form-group"><label>ธนาคาร (บัญชีที่ 3)</label>
+            <select id="add3-bank" onchange="onBankChange('add3')">
+              <option value="">— เลือกธนาคาร —</option>
+              <option>ธนาคารกรุงเทพ</option>
+              <option>ธนาคารไทยพาณิชย์</option>
+              <option>ธนาคารกรุงไทย</option>
+              <option>ธนาคารกรุงศรีอยุธยา</option>
+              <option>ธนาคารกสิกรไทย</option>
+            </select>
+          </div>
+          <div class="form-group"><label>เลขที่บัญชี (บัญชีที่ 3)</label>
+            <select id="add3-acc-sel" onchange="onAccSelChange('add3')" style="display:none">
+              <option value="">— เลือกเลขที่บัญชี —</option>
+            </select>
+            <input type="text" id="add3-accno" placeholder="เลขที่บัญชี">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>ชื่อบัญชี (บัญชีที่ 3)</label><input type="text" id="add3-accname"></div>
+          <div class="form-group"></div>
+        </div>
+      </div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-primary" onclick="saveCustomer()">💾 บันทึก</button>
@@ -1654,6 +1706,52 @@ if ('serviceWorker' in navigator) {
         <div class="form-group">
           <label>วันที่เริ่มบริการ</label>
           <input type="text" id="edit-due">
+        </div>
+      </div>
+      <!-- Bank account 2 -->
+      <div class="form-section" style="cursor:pointer;user-select:none" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">➕ บัญชีที่ 2 (ถ้ามี)</div>
+      <div id="edit-bank2-group" style="display:none">
+        <div class="form-row">
+          <div class="form-group"><label>ธนาคาร (บัญชีที่ 2)</label>
+            <select id="edit-bank2">
+              <option value="">— เลือกธนาคาร —</option>
+              <option>ธนาคารกรุงเทพ</option>
+              <option>ธนาคารไทยพาณิชย์</option>
+              <option>ธนาคารกรุงไทย</option>
+              <option>ธนาคารกรุงศรีอยุธยา</option>
+              <option>ธนาคารกสิกรไทย</option>
+            </select>
+          </div>
+          <div class="form-group"><label>เลขที่บัญชี (บัญชีที่ 2)</label>
+            <input type="text" id="edit-accno2">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>ชื่อบัญชี (บัญชีที่ 2)</label><input type="text" id="edit-accname2"></div>
+          <div class="form-group"></div>
+        </div>
+      </div>
+      <!-- Bank account 3 -->
+      <div class="form-section" style="cursor:pointer;user-select:none" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">➕ บัญชีที่ 3 (ถ้ามี)</div>
+      <div id="edit-bank3-group" style="display:none">
+        <div class="form-row">
+          <div class="form-group"><label>ธนาคาร (บัญชีที่ 3)</label>
+            <select id="edit-bank3">
+              <option value="">— เลือกธนาคาร —</option>
+              <option>ธนาคารกรุงเทพ</option>
+              <option>ธนาคารไทยพาณิชย์</option>
+              <option>ธนาคารกรุงไทย</option>
+              <option>ธนาคารกรุงศรีอยุธยา</option>
+              <option>ธนาคารกสิกรไทย</option>
+            </select>
+          </div>
+          <div class="form-group"><label>เลขที่บัญชี (บัญชีที่ 3)</label>
+            <input type="text" id="edit-accno3">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>ชื่อบัญชี (บัญชีที่ 3)</label><input type="text" id="edit-accname3"></div>
+          <div class="form-group"></div>
         </div>
       </div>
     </div>
@@ -2547,7 +2645,11 @@ function renderTable() {
       <td class="td-name">${c.name}${c._dupName?'<span class="dup-warn">ซ้ำ</span>':''}${inactive?'<span class="inactive-tag">ออกแล้ว</span>':''}</td>
       <td class="td-branch">${branchTag(c.branch)}</td>
       <td class="td-fee">฿${fmt(c.fee)}</td>
-      <td style="font-size:12px;color:var(--text2)">${(c.bank||'').replace('ธนาคาร','')}</td>
+      <td style="font-size:12px">
+        <div style="color:var(--text2)">${(c.bank||'').replace('ธนาคาร','')}</div>
+        ${c.account_no  ? `<div style="font-family:'IBM Plex Mono',monospace;color:var(--text3);font-size:11px">${c.account_no}</div>` : ''}
+        ${c.account_name? `<div style="color:var(--text3);font-size:11px">${c.account_name}</div>` : ''}
+      </td>
       <td style="font-size:12px;color:var(--text3)">${c.due_date}</td>
       <td>${inactive ? '<span class="status-badge status-inactive">คืนเคส</span>' : statusBadge(getPayStatus(c.id,currentMonth))}</td>
       <td style="white-space:nowrap">
@@ -2770,9 +2872,9 @@ function openDetail(id){
       </div>
       <div class="detail-block">
         <div class="detail-block-title">ข้อมูลธนาคาร</div>
-        <div class="detail-row"><span class="dl">ธนาคาร</span><span class="dv">${c.bank}</span></div>
-        <div class="detail-row"><span class="dl">เลขบัญชี</span><span class="dv" style="font-family:'IBM Plex Mono',monospace">${c.account_no}</span></div>
-        <div class="detail-row"><span class="dl">ชื่อบัญชี</span><span class="dv">${c.account_name}</span></div>
+        <div class="detail-row"><span class="dl">บัญชีที่ 1</span><span class="dv">${c.bank||'—'} ${c.account_no?`<span style="font-family:'IBM Plex Mono',monospace;margin-left:6px">${c.account_no}</span>`:''} ${c.account_name?`<span style="color:var(--text2);margin-left:6px">${c.account_name}</span>`:''}</span></div>
+        ${c.bank2?`<div class="detail-row"><span class="dl">บัญชีที่ 2</span><span class="dv">${c.bank2} ${c.account_no2?`<span style="font-family:'IBM Plex Mono',monospace;margin-left:6px">${c.account_no2}</span>`:''} ${c.account_name2?`<span style="color:var(--text2);margin-left:6px">${c.account_name2}</span>`:''}</span></div>`:''}
+        ${c.bank3?`<div class="detail-row"><span class="dl">บัญชีที่ 3</span><span class="dv">${c.bank3} ${c.account_no3?`<span style="font-family:'IBM Plex Mono',monospace;margin-left:6px">${c.account_no3}</span>`:''} ${c.account_name3?`<span style="color:var(--text2);margin-left:6px">${c.account_name3}</span>`:''}</span></div>`:''}
       </div>
     </div>
     <div class="form-section" style="margin-top:0">ที่อยู่</div>
@@ -2807,9 +2909,21 @@ function openEditModal(id) {
   document.getElementById('edit-address').value  = c.address;
   document.getElementById('edit-phone').value    = c.phone;
   document.getElementById('edit-fee').value      = c.fee;
-  document.getElementById('edit-bank').value     = c.bank;
-  document.getElementById('edit-accno').value    = c.account_no;
-  document.getElementById('edit-accname').value  = c.account_name;
+  document.getElementById('edit-bank').value     = c.bank||'';
+  document.getElementById('edit-accno').value    = c.account_no||'';
+  document.getElementById('edit-accname').value  = c.account_name||'';
+  // Bank account 2
+  const eb2g = document.getElementById('edit-bank2-group');
+  if(eb2g) eb2g.style.display = c.bank2 ? '' : 'none';
+  document.getElementById('edit-bank2').value    = c.bank2||'';
+  document.getElementById('edit-accno2').value   = c.account_no2||'';
+  document.getElementById('edit-accname2').value = c.account_name2||'';
+  // Bank account 3
+  const eb3g = document.getElementById('edit-bank3-group');
+  if(eb3g) eb3g.style.display = c.bank3 ? '' : 'none';
+  document.getElementById('edit-bank3').value    = c.bank3||'';
+  document.getElementById('edit-accno3').value   = c.account_no3||'';
+  document.getElementById('edit-accname3').value = c.account_name3||'';
   document.getElementById('edit-due').value      = c.due_date;
   document.getElementById('edit-modal').classList.add('open');
 }
@@ -2839,10 +2953,16 @@ function saveEditCustomer() {
   c.address      = document.getElementById('edit-address').value.trim();
   c.phone        = document.getElementById('edit-phone').value.trim();
   c.fee          = parseFloat(document.getElementById('edit-fee').value) || c.fee;
-  c.bank         = document.getElementById('edit-bank').value;
-  c.account_no   = document.getElementById('edit-accno').value.trim();
-  c.account_name = document.getElementById('edit-accname').value.trim();
-  c.due_date     = document.getElementById('edit-due').value.trim();
+  c.bank          = document.getElementById('edit-bank').value;
+  c.account_no    = document.getElementById('edit-accno').value.trim();
+  c.account_name  = document.getElementById('edit-accname').value.trim();
+  c.bank2         = document.getElementById('edit-bank2').value;
+  c.account_no2   = document.getElementById('edit-accno2').value.trim();
+  c.account_name2 = document.getElementById('edit-accname2').value.trim();
+  c.bank3         = document.getElementById('edit-bank3').value;
+  c.account_no3   = document.getElementById('edit-accno3').value.trim();
+  c.account_name3 = document.getElementById('edit-accname3').value.trim();
+  c.due_date      = document.getElementById('edit-due').value.trim();
 
   if (newId !== oldId) {
     // --- Rename in local data ---
@@ -2961,13 +3081,23 @@ function savePay(){
 
 // ADD CUSTOMER
 function openAddModal(){
-  // Reset bank fields
+  // Reset bank fields (account 1)
   const bankSel = document.getElementById('add-bank');
   const accSel  = document.getElementById('add-acc-sel');
   const accNo   = document.getElementById('add-accno');
   if (bankSel)  bankSel.value = '';
   if (accSel)   { accSel.style.display='none'; accSel.innerHTML='<option value="">— เลือกบัญชี —</option>'; }
   if (accNo)    { accNo.style.display='block'; accNo.value=''; }
+  // Reset bank account 2
+  const b2g = document.getElementById('add-bank2-group');
+  if(b2g) b2g.style.display='none';
+  ['add2-bank','add2-accno','add2-accname'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const acc2sel=document.getElementById('add2-acc-sel'); if(acc2sel){acc2sel.style.display='none';acc2sel.innerHTML='<option value="">— เลือกเลขที่บัญชี —</option>';}
+  // Reset bank account 3
+  const b3g = document.getElementById('add-bank3-group');
+  if(b3g) b3g.style.display='none';
+  ['add3-bank','add3-accno','add3-accname'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const acc3sel=document.getElementById('add3-acc-sel'); if(acc3sel){acc3sel.style.display='none';acc3sel.innerHTML='<option value="">— เลือกเลขที่บัญชี —</option>';}
   document.getElementById('add-modal').classList.add('open');
 }
 function saveCustomer(){
@@ -2981,6 +3111,12 @@ function saveCustomer(){
     bank: document.getElementById('add-bank').value,
     account_no: document.getElementById('add-accno').value.trim(),
     account_name: document.getElementById('add-accname').value.trim(),
+    bank2: document.getElementById('add2-bank').value,
+    account_no2: document.getElementById('add2-accno').value.trim(),
+    account_name2: document.getElementById('add2-accname').value.trim(),
+    bank3: document.getElementById('add3-bank').value,
+    account_no3: document.getElementById('add3-accno').value.trim(),
+    account_name3: document.getElementById('add3-accname').value.trim(),
     due_date: document.getElementById('add-due').value.trim(),
     _dupName: false
   };
