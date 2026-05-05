@@ -18,7 +18,7 @@
 // top-level await supported in module scripts
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 const firebaseConfig = {
   apiKey: "AIzaSyDdt1rc23hxWNQFXDhp1we4rfN-lW0wh60",
   authDomain: "dd-data-88eb0.firebaseapp.com",
@@ -41,8 +41,18 @@ const googleProvider = new GoogleAuthProvider();
 // ใช้ localStorage แทน sessionStorage → ป้องกัน ITP error บน iOS/Android
 await setPersistence(auth, browserLocalPersistence);
 window._auth = auth;
-window._googleSignIn = () => signInWithPopup(auth, googleProvider);
+// ใช้ popup บน desktop, redirect บน mobile (Safari iOS ไม่รองรับ popup)
+const _isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+window._googleSignIn = () => {
+  if (_isMobile) {
+    return signInWithRedirect(auth, googleProvider);
+  } else {
+    return signInWithPopup(auth, googleProvider);
+  }
+};
 window._signOut = () => signOut(auth);
+// ดึงผล redirect เมื่อกลับมาจาก Google (mobile)
+getRedirectResult(auth).catch(err => console.warn('getRedirectResult:', err));
 
 function _showStaffMessage(html, type) {
   // type: 'denied' | 'pending' | 'error'

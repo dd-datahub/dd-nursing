@@ -375,7 +375,7 @@ tr.row-inactive:hover { background: #f3f2ef !important; }
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDdt1rc23hxWNQFXDhp1we4rfN-lW0wh60",
@@ -646,8 +646,18 @@ window._fbSave = fbSave;
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 window._auth = auth;
-window._googleSignIn = () => signInWithPopup(auth, googleProvider);
+// ใช้ popup บน desktop, redirect บน mobile (Safari iOS ไม่รองรับ popup)
+const _isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+window._googleSignIn = () => {
+  if (_isMobile) {
+    return signInWithRedirect(auth, googleProvider);
+  } else {
+    return signInWithPopup(auth, googleProvider);
+  }
+};
 window._signOut = () => signOut(auth);
+// ดึงผล redirect เมื่อกลับมาจาก Google (mobile)
+getRedirectResult(auth).catch(err => console.warn('getRedirectResult:', err));
 
 // รอ auth state — ถ้า login แล้วค่อยโหลดข้อมูล
 onAuthStateChanged(auth, async user => {
