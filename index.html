@@ -2694,6 +2694,12 @@ function setMonth(m){ currentMonth=m; renderMonthTabs(); renderBilling(); update
 
 function filteredBilling() {
   let data = customers.filter(c => !isInactive(c.id)); // never show discharged in billing
+  // กรองลูกค้าที่ยังไม่ถึงเดือนเริ่มบริการ (due_date > currentMonth)
+  data = data.filter(c => {
+    const startYM = parseDueYearMonth(c.due_date);
+    if (!startYM) return true; // ถ้าไม่มี due_date ให้แสดงเสมอ
+    return startYM <= currentMonth;
+  });
   const branch = document.getElementById('bf-branch')?.value;
   const status = document.getElementById('bf-status')?.value;
   if(branch) data = data.filter(c=>c.branch===branch);
@@ -4788,6 +4794,18 @@ function parseDueDay(due_date) {
   if (!due_date) return 1;
   const d = parseInt(due_date.split('-')[0]);
   return isNaN(d) ? 1 : d;
+}
+
+function parseDueYearMonth(due_date) {
+  // format: "1-พ.ค.-2569" → "2026-05"
+  if (!due_date) return null;
+  const thaiMonths = {'ม.ค.':1,'ก.พ.':2,'มี.ค.':3,'เม.ย.':4,'พ.ค.':5,'มิ.ย.':6,'ก.ค.':7,'ส.ค.':8,'ก.ย.':9,'ต.ค.':10,'พ.ย.':11,'ธ.ค.':12};
+  const parts = due_date.split('-');
+  if (parts.length < 3) return null;
+  const mo = thaiMonths[parts[1]];
+  const yr = parseInt(parts[2]) - 543; // พ.ศ. → ค.ศ.
+  if (!mo || isNaN(yr)) return null;
+  return `${yr}-${String(mo).padStart(2,'0')}`;
 }
 
 function getDateRangeLabel(startDay, ym) {
