@@ -4663,11 +4663,11 @@ function renderReceiptContent() {
       <div style="flex:1">
         <div class="rcpt-company-name" style="font-size:17px">${_isUd ? 'บริษัท เนอร์สซิ่ง โฮมอุดร ดีดี จำกัด' : 'บริษัท เนอร์สซิ่งโฮม ดีดี จำกัด'}</div>
         <div class="rcpt-company-en">${_isUd ? 'NURSING HOMEUDON DD CO., LTD.' : 'NURSING HOME DD CO.,LTD.'}</div>
-        <div class="rcpt-company-addr">
-          1 หมู่บ้าน ประชานิเวศน์ 4 ตำบลท่าทราย อำเภอเมืองนนทบุรี จ.นนทบุรี 11000<br>
-          โทร : 089-9444987 , 085-0015884&nbsp;&nbsp;|&nbsp;&nbsp;Email : DDnursinghome@outlook.com<br>
-          เลขประจำตัวผู้เสียภาษีอากร : <b>0125562018704</b>
-        </div>
+                  <div class="rcpt-company-addr">
+           ${_isUd ? '288 หมู่ที่ 8 ซอยบ้านดงวัด ตำบลหมากแข้ง อำเภอเมืองอุดรธานี จ.อุดรธานี 41000' : '1 หมู่บ้าน ประชานิเวศน์ 4 ตำบลท่าทราย อำเภอเมืองนนทบุรี จ.นนทบุรี 11000'}<br>
+           ${_isUd ? 'โทร : 089-944-4987 , 080-821-8363' : 'โทร : 089-9444987 , 085-0015884&nbsp;&nbsp;|&nbsp;&nbsp;Email : DDnursinghome@outlook.com'}<br>
+           เลขประจำตัวผู้เสียภาษีอากร : <b>${_isUd ? '0415565000188' : '0125562018704'}</b>
+         </div>
       </div>
       <div style="text-align:center;flex-shrink:0;margin-left:8px">
         <div class="rcpt-copy-box">
@@ -5206,7 +5206,7 @@ function printRefundReceipt(id) {
           <div style="font-size:17px;font-weight:700;color:#c45570">${_isUdRef ? 'บริษัท เนอร์สซิ่ง โฮมอุดร ดีดี จำกัด' : 'บริษัท เนอร์สซิ่งโฮม ดีดี จำกัด'}</div>
           <div style="font-size:12px;color:#555">${_isUdRef ? 'NURSING HOMEUDON DD CO., LTD.' : 'NURSING HOME DD CO.,LTD.'}</div>
           <div style="font-size:10.5px;color:#444;line-height:1.5">
-            1 หมู่บ้านประชานิเวศน์ 4 ต.ท่าทราย อ.เมืองนนทบุรี จ.นนทบุรี 11000 &nbsp;|&nbsp; <span style="white-space:nowrap">โทร : 089-9444987, 085-0015884</span> &nbsp;|&nbsp; <span style="white-space:nowrap">Email : DDnursinghome@outlook.com</span>
+            ${_isUdRef ? '288 หมู่ที่ 8 ซอยบ้านดงวัด ตำบลหมากแข้ง อำเภอเมืองอุดรธานี จ.อุดรธานี 41000' : '1 หมู่บ้านประชานิเวศน์ 4 ต.ท่าทราย อ.เมืองนนทบุรี จ.นนทบุรี 11000'} &nbsp;|&nbsp; <span style="white-space:nowrap">โทร : ${_isUdRef ? '089-944-4987 , 080-821-8363' : '089-9444987, 085-0015884'}</span>${_isUdRef ? '' : ' &nbsp;|&nbsp; <span style="white-space:nowrap">Email : DDnursinghome@outlook.com</span>'}
           </div>
         </div>
         <div style="text-align:center;flex-shrink:0">
