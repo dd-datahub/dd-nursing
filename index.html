@@ -4276,7 +4276,12 @@ function deleteCatalogItem(id) {
 let receiptCounter = 1;
 function nextReceiptNo(branch) {
   const y  = now.getFullYear() + 543;
-  const b  = (branch || '').replace('สาขา ','').replace('สาขา','').trim() || 'X';
+  let b;
+  if ((branch || '') === 'สาขาอุดร') {
+    b = 'UD';
+  } else {
+    b = (branch || '').replace('สาขา ','').replace('สาขา','').trim() || 'X';
+  }
   const no = String(receiptCounter++).padStart(4,'0');
   return `DD${b}-${y}-${no}`;
 }
