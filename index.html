@@ -5600,6 +5600,16 @@ function _schedAttachListeners() {
     const nursesRef = window._ref(window._db, 'schedule_nurses');
     _schedNurseListener = window._onValue(nursesRef, snap => {
       _schedNurses = snap.val() || {};
+      // auto-normalize: กำหนด order ให้พยาบาลที่ยังไม่มี
+      const needsOrder = Object.entries(_schedNurses).filter(([,n]) => n.order == null);
+      if (needsOrder.length > 0) {
+        const maxOrder = Math.max(-1, ...Object.values(_schedNurses).filter(n=>n.order!=null).map(n=>n.order));
+        const sorted = needsOrder.sort((a,b)=>a[1].name.localeCompare(b[1].name,'th'));
+        sorted.forEach(([nid], i) => {
+          window._set(window._ref(window._db, `schedule_nurses/${nid}/order`), maxOrder + 1 + i);
+        });
+        return; // listener จะ fire ใหม่หลัง set เสร็จ
+      }
       _schedRenderTable();
       _schedRenderNurseList();
     });
