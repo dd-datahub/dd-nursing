@@ -5559,7 +5559,7 @@ let _schedNurses        = {};
 let _schedListener      = null;
 let _schedNurseListener = null;
 // Picker state
-let _pkNid = '', _pkDay = '', _pkPrevVal = '';
+let _pkNid = '', _pkDay = '', _pkPrevVal = '', _pkNote = '';
 let _pkSlots = [{shift:'',branch:''},{shift:'',branch:''}];
 
 // ---- helpers ----
@@ -5718,6 +5718,7 @@ function _schedRenderTable() {
         const isWeekend = dow===0||dow===6;
         const isToday = isThisMonth && d===today.getDate();
         const val = nd[`d${d}`] || '';
+        const note = nd[`d${d}n`] || '';
         const slots = schedParseVal(val);
         const shiftsToday = slots.filter(s=>s.shift).map(s=>s.shift);
         shiftsToday.forEach(sh => { if(countMap[sh]!==undefined) countMap[sh]++; });
@@ -5726,7 +5727,8 @@ function _schedRenderTable() {
         if (shiftsToday.includes('ช') && shiftsToday.includes('ด')) otNight++;
         const todayStyle = isToday ? 'outline:2px solid #1a6b4a;outline-offset:-2px;border-radius:4px;' : '';
         const wkStyle = isWeekend && !val ? 'background:#fff5f5;' : '';
-        cells += `<td style="${wkStyle}"><div class="sched-cell${!val?' sched-empty':''}" data-v="${val}" data-nid="${nid}" data-day="${d}" onclick="schedOpenPicker(this)" style="${todayStyle}">${schedRenderChips(val)}</div></td>`;
+        const noteHtml = note ? `<span style="font-size:9px;color:#e67e22;font-weight:600;line-height:1.1;max-width:42px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block" title="${note.replace(/"/g,'&quot;')}">*${note}</span>` : '';
+        cells += `<td style="${wkStyle}"><div class="sched-cell${!val?' sched-empty':''}" data-v="${val}" data-nid="${nid}" data-day="${d}" onclick="schedOpenPicker(this)" style="${todayStyle}">${schedRenderChips(val)}${noteHtml}</div></td>`;
       }
       const summary = Object.entries(countMap).filter(([,v])=>v>0).map(([k,v])=>`<span style="font-size:10px;color:#555">${k}<b>${v}</b></span>`).join(' ');
       const wdCell = `<td style="text-align:center;font-size:14px;font-weight:700;color:#1a6b4a;background:#f0faf5;border-left:2px solid #b0d8c0;vertical-align:middle">${workDays}</td>`;
@@ -5763,6 +5765,7 @@ function schedOpenPicker(el) {
   _pkDay = el.dataset.day;
   _pkPrevVal = el.dataset.v || '';
   _pkSlots = schedParseVal(_pkPrevVal);
+  _pkNote = (_schedData[_pkNid] || {})[`d${_pkDay}n`] || '';
 
   let pk = document.getElementById('sched-picker');
   if (!pk) {
@@ -5816,12 +5819,23 @@ function _schedPickerHTML() {
     </div>`;
   });
 
+  html += `<div style="margin:8px 0 4px">
+    <div class="pk-label">หมายเหตุ</div>
+    <input type="text" id="pk-note-input" value="${_pkNote.replace(/"/g,'&quot;')}" placeholder="เช่น จัดยา, ส่งรายงาน..."
+      oninput="schedPickerSetNote(this.value)"
+      style="width:100%;padding:5px 8px;border:1px solid #d0d4da;border-radius:7px;font-size:12px;font-family:inherit;box-sizing:border-box;outline:none">
+  </div>`;
+
   html += `<div class="pk-footer">
     <button class="pk-save-btn" onclick="schedPickerSave()">บันทึก</button>
     <button class="pk-clear-btn" onclick="schedPickerClear()">ล้างวันนี้</button>
     <button class="pk-cancel-btn" onclick="schedClosePicker()">ยกเลิก</button>
   </div>`;
   return html;
+}
+
+function schedPickerSetNote(v) {
+  _pkNote = v;
 }
 
 function schedPickerSetShift(slotIdx, shift) {
@@ -5851,6 +5865,9 @@ async function schedPickerSave() {
   const ym = schedGetYM();
   const path = `schedule/${ym}/${_pkNid}/d${_pkDay}`;
   await window._set(window._ref(window._db, path), val || null);
+  // บันทึกหมายเหตุ
+  const notePath = `schedule/${ym}/${_pkNid}/d${_pkDay}n`;
+  await window._set(window._ref(window._db, notePath), _pkNote.trim() || null);
   schedClosePicker();
 }
 
@@ -5858,6 +5875,8 @@ async function schedPickerClear() {
   const ym = schedGetYM();
   const path = `schedule/${ym}/${_pkNid}/d${_pkDay}`;
   await window._set(window._ref(window._db, path), null);
+  await window._set(window._ref(window._db, `schedule/${ym}/${_pkNid}/d${_pkDay}n`), null);
+  _pkNote = '';
   schedClosePicker();
 }
 
