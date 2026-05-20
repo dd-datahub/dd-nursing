@@ -5748,7 +5748,13 @@ function _schedRenderTable() {
       const pillStyle = PILL[nb]||PILL[''];
       const rowBg = BG[nb]||'#fff';
       const nameTd = `<td class="sched-name-td" style="background:${rowBg}">
-        <div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap">
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap">
+          <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0">
+            <button onclick="schedMoveNurse('${nid}',-1)" title="เลื่อนขึ้น"
+              style="padding:0 4px;height:14px;font-size:9px;line-height:1;border:1px solid #d0d4da;border-radius:3px;background:#f8f8f8;cursor:pointer;color:#555">▲</button>
+            <button onclick="schedMoveNurse('${nid}',1)" title="เลื่อนลง"
+              style="padding:0 4px;height:14px;font-size:9px;line-height:1;border:1px solid #d0d4da;border-radius:3px;background:#f8f8f8;cursor:pointer;color:#555">▼</button>
+          </div>
           <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nurse.name}</span>
         </div>
       </td>`;
@@ -5969,10 +5975,17 @@ async function schedRemoveNurse(nid, name) {
 }
 
 async function schedMoveNurse(nid, dir) {
-  const nurses = Object.entries(_schedNurses).sort((a,b)=>(a[1].order||99)-(b[1].order||99)||a[1].name.localeCompare(b[1].name,'th'));
+  // Sort ตรงกับตาราง: branch ก่อน แล้วค่อย order
+  const nurses = Object.entries(_schedNurses).sort((a,b) => {
+    const ba = a[1].branch||'9', bb = b[1].branch||'9';
+    if (ba !== bb) return ba.localeCompare(bb);
+    return (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th');
+  });
   const idx = nurses.findIndex(([id])=>id===nid);
   const si = idx + dir;
   if (si<0||si>=nurses.length) return;
+  // ถ้าข้ามสาขาไม่ให้ย้าย
+  if ((nurses[idx][1].branch||'') !== (nurses[si][1].branch||'')) return;
   await Promise.all([
     window._set(window._ref(window._db, `schedule_nurses/${nurses[idx][0]}/order`), si),
     window._set(window._ref(window._db, `schedule_nurses/${nurses[si][0]}/order`), idx),
