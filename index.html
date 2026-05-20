@@ -5654,7 +5654,7 @@ function _schedRenderTable() {
   const ym = schedGetYM();
   const [y,m] = ym.split('-').map(Number);
   const days = _schedDaysInMonth(ym);
-  const nurses = Object.entries(_schedNurses).sort((a,b)=>(a[1].order||99)-(b[1].order||99)||a[1].name.localeCompare(b[1].name,'th'));
+  const nurses = Object.entries(_schedNurses).sort((a,b)=>(a[1].order ?? 999)-(b[1].order ?? 999)||a[1].name.localeCompare(b[1].name,'th'));
   const labelEl = document.getElementById('sched-month-label');
   if (labelEl) labelEl.textContent = `${THAI_MONTHS[m-1]} ${y+543}`;
   const thead = document.getElementById('sched-thead');
@@ -5915,7 +5915,7 @@ function _schedRenderSummary() {
 function _schedRenderNurseList() {
   const el = document.getElementById('sched-nurse-list');
   if (!el) return;
-  const nurses = Object.entries(_schedNurses).sort((a,b)=>(a[1].order||99)-(b[1].order||99)||a[1].name.localeCompare(b[1].name,'th'));
+  const nurses = Object.entries(_schedNurses).sort((a,b)=>(a[1].order ?? 999)-(b[1].order ?? 999)||a[1].name.localeCompare(b[1].name,'th'));
   if (nurses.length === 0) { el.innerHTML = '<div style="color:#aaa;font-size:13px;text-align:center;padding:8px">ยังไม่มีรายชื่อ</div>'; return; }
   const branchColors = {'1':'#dbeafe','2':'#dcfce7','3':'#fef9c3','':'#f3f4f6'};
   const branchText   = {'1':'#1d4ed8','2':'#15803d','3':'#a16207','':'#888'};
@@ -5969,9 +5969,9 @@ async function schedRemoveNurse(nid, name) {
 }
 
 async function schedMoveNurse(nid, dir) {
-  // Sort เหมือน management list: order ก่อน แล้วชื่อ
+  // เรียงตาม order จากน้อยไปมาก (เหมือน management list)
   const nurses = Object.entries(_schedNurses).sort((a,b) =>
-    (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th')
+    (a[1].order ?? 999) - (b[1].order ?? 999) || a[1].name.localeCompare(b[1].name,'th')
   );
   const idx = nurses.findIndex(([id]) => id === nid);
   if (idx < 0) return;
@@ -5979,17 +5979,11 @@ async function schedMoveNurse(nid, dir) {
   if (si < 0 || si >= nurses.length) return;
   // ไม่ให้ข้ามสาขา
   if ((nurses[idx][1].branch||'') !== (nurses[si][1].branch||'')) return;
-  // Normalize orders ทั้งหมดก่อน แล้วค่อย swap เพื่อป้องกัน order ซ้ำ
-  const updates = [];
-  nurses.forEach(([id], i) => {
-    updates.push(window._set(window._ref(window._db, `schedule_nurses/${id}/order`), i));
-  });
-  await Promise.all(updates);
-  // swap
-  await Promise.all([
-    window._set(window._ref(window._db, `schedule_nurses/${nurses[idx][0]}/order`), si),
-    window._set(window._ref(window._db, `schedule_nurses/${nurses[si][0]}/order`), idx),
-  ]);
+  // Swap ใน array แล้ว assign order ใหม่ 0,1,2,... ให้ทั้งหมด
+  [nurses[idx], nurses[si]] = [nurses[si], nurses[idx]];
+  for (let i = 0; i < nurses.length; i++) {
+    await window._set(window._ref(window._db, `schedule_nurses/${nurses[i][0]}/order`), i);
+  }
 }
 
 // ---- export ----
@@ -6000,7 +5994,7 @@ function schedExportSummary() {
   const nurses = Object.entries(_schedNurses).sort((a,b) => {
     const ba = a[1].branch||'9', bb = b[1].branch||'9';
     if (ba!==bb) return ba.localeCompare(bb);
-    return (a[1].order||99)-(b[1].order||99)||a[1].name.localeCompare(b[1].name,'th');
+    return (a[1].order ?? 999)-(b[1].order ?? 999)||a[1].name.localeCompare(b[1].name,'th');
   });
   const days = _schedDaysInMonth(ym);
   let rows = [`ตารางเวร ${THAI_MONTHS[m-1]} ${y+543}\n`];
