@@ -638,6 +638,12 @@ function listenAllData() {
     window._allowedUidsUd = snap.exists() ? snap.val() : {};
     if (document.querySelector(".page.active")?.id === "page-permissions") renderPermissions?.();
   });
+
+  // audit_log — ประวัติการแก้ไขจาก staff/staffud (realtime)
+  onValue(ref(db, "audit_log"), snap => {
+    window._auditLog = snap.exists() ? snap.val() : {};
+    if (document.querySelector(".page.active")?.id === "page-auditlog") renderAuditLog?.();
+  });
 }
 
 window._fbSave = fbSave;
@@ -768,6 +774,7 @@ if ('serviceWorker' in navigator) {
     <div class="nav-item" onclick="goPage('issues')" title="ปัญหาข้อมูล"><span class="nav-icon">⚠️</span><span class="nav-text"> ปัญหาข้อมูล</span><span class="nav-badge" style="background:var(--text3)">0</span></div>
     <div class="nav-item" onclick="goPage('permissions')" title="จัดการสิทธิ์"><span class="nav-icon">🔑</span><span class="nav-text"> จัดการสิทธิ์</span><span id="perm-nav-badge" style="display:none;background:#e67e22;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 6px;margin-left:4px"></span></div>
     <div class="nav-item" onclick="goPage('schedule')" title="ตารางเวร"><span class="nav-icon">📅</span><span class="nav-text"> ตารางเวร</span></div>
+    <div class="nav-item" onclick="goPage('auditlog')" title="ประวัติการแก้ไข"><span class="nav-icon">🔍</span><span class="nav-text"> ประวัติการแก้ไข</span></div>
   </nav>
   <div class="sidebar-footer" style="display:flex;flex-direction:column;gap:6px;padding:10px 14px;border-top:1px solid var(--border)">
     <div id="sidebar-user" style="display:flex;align-items:center;gap:8px;font-size:12px;color:#666">
@@ -1416,6 +1423,53 @@ if ('serviceWorker' in navigator) {
       </div>
     </div>
     <!-- ===== END ตารางเวร ===== -->
+
+    <!-- ===== ประวัติการแก้ไข ===== -->
+    <div class="page" id="page-auditlog">
+      <div style="max-width:900px;margin:0 auto">
+
+        <!-- Filter bar -->
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;background:#fff;border-radius:12px;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+          <select id="al-filter-source" onchange="renderAuditLog()" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fff;cursor:pointer">
+            <option value="">ทุกระบบ</option>
+            <option value="staff">Staff (สาขาหลัก)</option>
+            <option value="staffud">Staff UD (สาขาอุดร)</option>
+          </select>
+          <select id="al-filter-action" onchange="renderAuditLog()" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fff;cursor:pointer">
+            <option value="">ทุกประเภท</option>
+            <option value="บันทึกเบิกของ">บันทึกเบิกของ</option>
+            <option value="ส่งบิลแล้ว">ส่งบิลแล้ว</option>
+            <option value="ยกเลิกส่งบิล">ยกเลิกส่งบิล</option>
+            <option value="ลูกค้าจ่ายแล้ว">ลูกค้าจ่ายแล้ว</option>
+            <option value="ยกเลิกจ่าย">ยกเลิกจ่าย</option>
+          </select>
+          <input type="text" id="al-filter-name" placeholder="ค้นหาชื่อ/อีเมล..." oninput="renderAuditLog()"
+            style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;flex:1;min-width:140px">
+          <span id="al-count" style="font-size:12px;color:#888;white-space:nowrap"></span>
+          <button onclick="clearAuditLogConfirm()" style="padding:5px 12px;border:1px solid #fcc;border-radius:8px;background:#fff5f5;color:#c0392b;font-size:12px;cursor:pointer;white-space:nowrap">🗑 ล้างประวัติ</button>
+        </div>
+
+        <!-- Table -->
+        <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr style="background:#f7f8fa;border-bottom:2px solid #e8eaed">
+                <th style="padding:10px 14px;text-align:left;font-weight:600;color:#555;white-space:nowrap">วันเวลา</th>
+                <th style="padding:10px 14px;text-align:left;font-weight:600;color:#555">ผู้ใช้</th>
+                <th style="padding:10px 14px;text-align:left;font-weight:600;color:#555;white-space:nowrap">ระบบ</th>
+                <th style="padding:10px 14px;text-align:left;font-weight:600;color:#555;white-space:nowrap">การกระทำ</th>
+                <th style="padding:10px 14px;text-align:left;font-weight:600;color:#555">รายละเอียด</th>
+              </tr>
+            </thead>
+            <tbody id="al-tbody">
+              <tr><td colspan="5" style="text-align:center;padding:24px;color:#aaa">กำลังโหลด...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+    <!-- ===== END ประวัติการแก้ไข ===== -->
 
   </div>
 </div>
@@ -5523,6 +5577,77 @@ async function revokeUidUd(uid) {
   } catch(e) { showPermMsg('เกิดข้อผิดพลาด: ' + e.message, false); }
 }
 
+// ========== ประวัติการแก้ไข (AUDIT LOG) ==========
+function renderAuditLog() {
+  const tbody = document.getElementById('al-tbody');
+  if (!tbody) return;
+  const logs = window._auditLog || {};
+  const srcFilter    = (document.getElementById('al-filter-source')?.value  || '').toLowerCase();
+  const actionFilter = document.getElementById('al-filter-action')?.value   || '';
+  const nameFilter   = (document.getElementById('al-filter-name')?.value    || '').trim().toLowerCase();
+
+  const ACTION_COLORS = {
+    'บันทึกเบิกของ': {bg:'#eff6ff',color:'#1d4ed8'},
+    'ส่งบิลแล้ว':   {bg:'#f0fdf4',color:'#15803d'},
+    'ยกเลิกส่งบิล': {bg:'#fef3c7',color:'#b45309'},
+    'ลูกค้าจ่ายแล้ว':{bg:'#f0fdf4',color:'#15803d'},
+    'ยกเลิกจ่าย':   {bg:'#fef2f2',color:'#b91c1c'},
+  };
+  const SOURCE_LABEL = {staff:'Staff สาขาหลัก', staffud:'Staff UD สาขาอุดร'};
+  const SOURCE_COLOR = {staff:{bg:'#eff6ff',color:'#1d4ed8'}, staffud:{bg:'#fdf4ff',color:'#7c3aed'}};
+
+  let entries = Object.entries(logs).map(([k,v])=>({...v,_key:k}));
+  // Filter
+  if (srcFilter)    entries = entries.filter(e => (e.source||'').toLowerCase() === srcFilter);
+  if (actionFilter) entries = entries.filter(e => e.action === actionFilter);
+  if (nameFilter)   entries = entries.filter(e =>
+    (e.name||'').toLowerCase().includes(nameFilter) ||
+    (e.email||'').toLowerCase().includes(nameFilter)
+  );
+  // Sort newest first
+  entries.sort((a,b) => (b.ts||0) - (a.ts||0));
+
+  const countEl = document.getElementById('al-count');
+  if (countEl) countEl.textContent = `${entries.length} รายการ`;
+
+  if (entries.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:28px;color:#aaa">ไม่มีประวัติ</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = entries.map((e, i) => {
+    const dt = new Date(e.ts || 0);
+    const dateStr = dt.toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'});
+    const timeStr = dt.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+    const ac = ACTION_COLORS[e.action] || {bg:'#f3f4f6',color:'#555'};
+    const sc = SOURCE_COLOR[e.source]  || {bg:'#f3f4f6',color:'#555'};
+    const bg = i % 2 === 0 ? '#fff' : '#fafbfc';
+    return `<tr style="background:${bg};border-bottom:1px solid #f0f0f0">
+      <td style="padding:10px 14px;white-space:nowrap;color:#555;font-size:12px">${dateStr}<br><span style="color:#999">${timeStr}</span></td>
+      <td style="padding:10px 14px">
+        <div style="font-weight:500;color:#333">${e.name||'—'}</div>
+        <div style="font-size:11px;color:#999">${e.email||''}</div>
+      </td>
+      <td style="padding:10px 14px;white-space:nowrap">
+        <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:${sc.bg};color:${sc.color}">${SOURCE_LABEL[e.source]||e.source||'—'}</span>
+      </td>
+      <td style="padding:10px 14px;white-space:nowrap">
+        <span style="font-size:12px;font-weight:600;padding:2px 9px;border-radius:10px;background:${ac.bg};color:${ac.color}">${e.action||'—'}</span>
+      </td>
+      <td style="padding:10px 14px;color:#444;font-size:13px">${e.detail||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function clearAuditLogConfirm() {
+  const count = Object.keys(window._auditLog || {}).length;
+  if (count === 0) { alert('ไม่มีประวัติที่จะลบ'); return; }
+  if (!confirm(`ล้างประวัติการแก้ไขทั้งหมด ${count} รายการ?\nไม่สามารถกู้คืนได้`)) return;
+  try {
+    await window._set(window._ref(window._db, 'audit_log'), null);
+  } catch(e) { alert('เกิดข้อผิดพลาด: ' + e.message); }
+}
+
 // ========== goPage (includes requisition) ==========
 function goPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -5534,7 +5659,7 @@ function goPage(id) {
   });
   // Auto-close sidebar on mobile
   if (window.innerWidth <= 640) closeSidebar();
-  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',permissions:'จัดการสิทธิ์',schedule:'ตารางเวร'};
+  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',permissions:'จัดการสิทธิ์',schedule:'ตารางเวร',auditlog:'ประวัติการแก้ไข'};
   document.getElementById('page-title').textContent = titles[id]||'';
   if(id==='customers')    renderTable();
   if(id==='discharged')   renderDischarged();
@@ -5546,6 +5671,7 @@ function goPage(id) {
   if(id==='dashboard')    updateDashboard();
   if(id==='permissions')  renderPermissions();
   if(id==='schedule')     renderSchedulePage();
+  if(id==='auditlog')    renderAuditLog();
 }
 
 // ========== ตารางเวร (SCHEDULE) ==========

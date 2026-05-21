@@ -544,6 +544,8 @@ async function saveRequisition() {
     const key = selectedCustId.replace(/\//g,"_")+"_"+selectedMonth;
     const payload = reqEntries.map(e=>({itemId:e.itemId, qty:e.qty, savedAt:e.date, staffSaved:true}));
     await window._set(window._ref(window._db,"requisitions/"+key), payload);
+    const _cname = allCustomers.find(x=>x.id===selectedCustId)?.name || selectedCustId;
+    _logAction('บันทึกเบิกของ', `${_cname} — ${selectedMonth}`);
     showStatus("✓ บันทึกสำเร็จแล้วค่ะ", "ok");
     _reqDirty = false;  // saved — Firebase sync can update freely again
     reqEntries=[];
@@ -597,6 +599,8 @@ async function toggleBillSent() {
   renderDashboard?.();
   try {
     await window._set(window._ref(window._db, "staff_status/" + key), update);
+    const _cn1 = allCustomers.find(x=>x.id===selectedCustId)?.name || selectedCustId;
+    _logAction(newVal ? 'ส่งบิลแล้ว' : 'ยกเลิกส่งบิล', `${_cn1} — ${selectedMonth}`);
     showStatus(newVal ? "✓ บันทึก: ส่งบิลแล้ว" : "บันทึก: ยกเลิกส่งบิล", newVal ? "ok" : "info");
   } catch(e) { showStatus("บันทึกไม่สำเร็จ: " + e.message, "err"); }
 }
@@ -612,8 +616,28 @@ async function togglePaid() {
   renderDashboard?.();
   try {
     await window._set(window._ref(window._db, "staff_status/" + key), update);
+    const _cn2 = allCustomers.find(x=>x.id===selectedCustId)?.name || selectedCustId;
+    _logAction(newVal ? 'ลูกค้าจ่ายแล้ว' : 'ยกเลิกจ่าย', `${_cn2} — ${selectedMonth}`);
     showStatus(newVal ? "✓ บันทึก: ลูกค้าจ่ายแล้ว" : "บันทึก: ยกเลิกจ่าย", newVal ? "ok" : "info");
   } catch(e) { showStatus("บันทึกไม่สำเร็จ: " + e.message, "err"); }
+}
+
+// ---- audit log ----
+async function _logAction(action, detail) {
+  try {
+    const u = window._currentUser;
+    if (!u) return;
+    const key = Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    await window._set(window._ref(window._db, `audit_log/${key}`), {
+      ts: Date.now(),
+      uid: u.uid,
+      name: u.displayName || '',
+      email: u.email || '',
+      source: 'staffud',
+      action,
+      detail: detail || ''
+    });
+  } catch(_) {}
 }
 
 function showStatus(msg,type) {
