@@ -1851,7 +1851,7 @@ if ('serviceWorker' in navigator) {
       <div class="form-row">
         <div class="form-group">
           <label>จำนวนที่ลูกค้าชำระมา (บาท)</label>
-          <input type="number" id="rf-paid" min="0" placeholder="0" oninput="calcRefundAmount()">
+          <input type="number" id="rf-paid" min="0" placeholder="0">
         </div>
         <div class="form-group">
           <label>ค่าใช้จ่าย (บาท)</label>
@@ -1864,14 +1864,16 @@ if ('serviceWorker' in navigator) {
       <div class="form-row">
         <div class="form-group">
           <label>ส่วนลด (บาท)</label>
-          <input type="number" id="rf-discount" min="0" placeholder="0" oninput="calcRefundAmount()">
+          <input type="number" id="rf-discount" min="0" placeholder="0">
         </div>
         <div class="form-group">
           <label>ยอดคืนเงิน (บาท)</label>
           <div style="display:flex;align-items:center;gap:8px">
-            <input type="number" id="rf-amount" min="0" placeholder="0" style="flex:1;background:var(--surface2)" readonly>
-            <span style="font-size:11px;color:var(--text3)">(ชำระมา − จริง + ส่วนลด)</span>
+            <input type="number" id="rf-amount" min="0" placeholder="0" style="flex:1">
+            <button type="button" onclick="calcRefundAmount()" title="คำนวณจาก ชำระมา − จริง + ส่วนลด"
+              style="padding:4px 10px;border:1px solid var(--border);border-radius:8px;background:#f0f4ff;color:#2563eb;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0">↺ คำนวณ</button>
           </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">แก้ไขได้ หรือกด ↺ คำนวณ (ชำระมา − จริง + ส่วนลด)</div>
         </div>
       </div>
 
