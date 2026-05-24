@@ -176,14 +176,13 @@ input, select, textarea, button { font-family: inherit; font-size: 14px; }
 .pk-btns { display:flex; gap:4px; flex-wrap:wrap; }
 .pk-shift-btn { padding:4px 8px; border:1.5px solid #e0e0e0; border-radius:6px; cursor:pointer; font-size:12px; font-weight:700; background:#fff; transition:all .12s; }
 .pk-shift-btn.active { border-color:transparent; }
-.pk-shift-btn[data-s="ช"].active { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
+.pk-shift-btn[data-s="ห"].active { background:#f1f5f9; color:#475569; border-color:#cbd5e1; }
+.pk-shift-btn[data-s="ล"].active { background:#fef9c3; color:#854d0e; border-color:#fde68a; }
 .pk-shift-btn[data-s="บ"].active { background:#fef3c7; color:#b45309; border-color:#fcd34d; }
-.pk-shift-btn[data-s="ด"].active { background:#ede9fe; color:#6d28d9; border-color:#c4b5fd; }
-.pk-shift-btn[data-s="ห"].active { background:#f1f5f9; color:#64748b; border-color:#cbd5e1; }
-.pk-shift-btn[data-s="ล"].active { background:#fce7f3; color:#be185d; border-color:#f9a8d4; }
-.pk-shift-btn[data-s="ว"].active { background:#d1fae5; color:#065f46; border-color:#6ee7b7; }
-.pk-branch-btn { width:30px; height:30px; border:1.5px solid #e0e0e0; border-radius:6px; cursor:pointer; font-size:13px; font-weight:700; background:#fff; display:flex; align-items:center; justify-content:center; transition:all .12s; }
-.pk-branch-btn.active { background:#1a6b4a; color:#fff; border-color:#1a6b4a; }
+.pk-branch-btn { width:38px; height:32px; border:1.5px solid #e0e0e0; border-radius:6px; cursor:pointer; font-size:12px; font-weight:700; background:#fff; display:flex; align-items:center; justify-content:center; transition:all .12s; }
+.pk-branch-btn[data-b="1"].active { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
+.pk-branch-btn[data-b="2"].active { background:#065f46; color:#fff; border-color:#065f46; }
+.pk-branch-btn[data-b="3"].active { background:#c2410c; color:#fff; border-color:#c2410c; }
 .pk-footer { display:flex; gap:8px; margin-top:12px; }
 .pk-save-btn { flex:1; padding:7px; background:#1a6b4a; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; font-family:inherit; }
 .pk-clear-btn { padding:7px 12px; background:#fff5f5; color:#c0392b; border:1px solid #fcc; border-radius:8px; cursor:pointer; font-size:12px; font-family:inherit; }
@@ -5704,10 +5703,28 @@ function schedFormatVal(slots) {
   const parts = slots.filter(s => s.shift).map(s => s.shift + (s.branch||''));
   return parts.join('/');
 }
+// สีตามสาขา+เวร: [bg, color]
+const SCHED_CHIP_COLORS = {
+  'ช1': ['#dbeafe','#1d4ed8'], // สาขา1 เช้า — ฟ้า
+  'ด1': ['#ede9fe','#5b21b6'], // สาขา1 ดึก — ม่วง
+  'ช2': ['#d1fae5','#065f46'], // สาขา2 เช้า — เขียว
+  'ด2': ['#ccfbf1','#0f766e'], // สาขา2 ดึก — เขียวมิ้นท์
+  'ช3': ['#ffedd5','#c2410c'], // สาขา3 เช้า — ส้ม
+  'ด3': ['#fce7f3','#9d174d'], // สาขา3 ดึก — ชมพู
+  'ห':  ['#f1f5f9','#475569'], // หยุด
+  'ล':  ['#fef9c3','#854d0e'], // ลา
+  'บ':  ['#fef3c7','#b45309'], // บ่าย
+  'ว':  ['#d1fae5','#065f46'], // วันหยุด
+};
+function _chipStyle(shift, branch) {
+  const key = shift + branch;
+  const c = SCHED_CHIP_COLORS[key] || SCHED_CHIP_COLORS[shift] || ['#f3f4f6','#555'];
+  return `background:${c[0]};color:${c[1]}`;
+}
 function schedRenderChips(v) {
   if (!v) return '<span style="color:#ccc;font-size:11px">—</span>';
   return schedParseVal(v).filter(s=>s.shift).map(s =>
-    `<span class="sched-chip sched-chip-${s.shift}">${s.shift}${s.branch}</span>`
+    `<span class="sched-chip" style="${_chipStyle(s.shift, s.branch)}">${s.shift}${s.branch}</span>`
   ).join('');
 }
 
@@ -5952,7 +5969,15 @@ function _schedPickerHTML() {
     html += `<div class="pk-row">
       <div class="pk-label">กะที่ ${i+1} ${i===1?'<span style="font-size:10px;color:#aaa">(ไม่บังคับ)</span>':''}</div>
       <div class="pk-btns" style="margin-bottom:5px">
-        ${SCHED_SHIFT_CODES.map(s=>`<button class="pk-shift-btn${sl.shift===s?' active':''}" data-s="${s}" data-slot="${i}" onclick="schedPickerSetShift(${i},'${s}')">${s}<span style="font-size:9px;font-weight:400;display:block;line-height:1">${SCHED_LABELS[s]}</span></button>`).join('')}
+        ${SCHED_SHIFT_CODES.map(s => {
+          const isActive = sl.shift === s;
+          let inlineStyle = '';
+          if (isActive && (s === 'ช' || s === 'ด') && sl.branch) {
+            const c = SCHED_CHIP_COLORS[s + sl.branch];
+            if (c) inlineStyle = `style="background:${c[0]};color:${c[1]};border-color:${c[1]}44"`;
+          }
+          return `<button class="pk-shift-btn${isActive?' active':''}" data-s="${s}" data-slot="${i}" onclick="schedPickerSetShift(${i},'${s}')" ${inlineStyle}>${s}<span style="font-size:9px;font-weight:400;display:block;line-height:1">${SCHED_LABELS[s]}</span></button>`;
+        }).join('')}
         <button class="pk-shift-btn${sl.shift===''?' active':''}" data-s="" data-slot="${i}" onclick="schedPickerSetShift(${i},'')" style="color:#aaa">✕</button>
       </div>
       ${needBranch ? `
