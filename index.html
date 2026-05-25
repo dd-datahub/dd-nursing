@@ -89,9 +89,11 @@ input, select, textarea, button { font-family: inherit; font-size: 14px; }
   .sidebar .nav-item { padding: 10px 16px !important; justify-content: flex-start !important; gap: 10px !important; }
   .sidebar .sidebar-footer { display: flex !important; }
   .sidebar .nav-icon { width: 18px !important; font-size: 15px !important; }
-  .topbar { padding: 0 12px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); gap: 8px; height: 52px; }
-  .search-wrap { display: none; }
-  .topbar-title { font-size: 14px; }
+  .topbar { padding: 8px 12px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); gap: 8px; height: auto; flex-wrap: wrap; align-items: center; }
+  .topbar-title { font-size: 14px; flex: 1; min-width: 0; }
+  .search-wrap { order: 3; flex: 1 1 100%; }
+  .search-wrap input { width: 100%; box-sizing: border-box; }
+  .topbar .btn-primary { font-size: 12px; padding: 6px 10px; white-space: nowrap; flex-shrink: 0; }
   .content { padding: 12px; padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)); }
   .stats-row { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .stat-value { font-size: 20px; }
