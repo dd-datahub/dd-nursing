@@ -2413,8 +2413,12 @@ function _ssRenderTable() {
   const days = _ssDaysInMonth(ym);
   const now = new Date();
   const todayDay = (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') === ym) ? now.getDate() : -1;
-  const nurses = Object.entries(_ssNurses)
-    .sort((a,b) => (a[1].order??999)-(b[1].order??999) || a[1].name.localeCompare(b[1].name,'th'));
+  // ใช้ logic sort เดียวกับ index.html _schedRenderTable (secondary sort)
+  const nurses = Object.entries(_ssNurses).sort((a,b) => {
+    const ba = a[1].branch||'9', bb = b[1].branch||'9';
+    if (ba !== bb) return ba.localeCompare(bb);
+    return (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th');
+  });
   if (!nurses.length) {
     wrap.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#bbb;font-size:13px">ไม่พบข้อมูลพนักงาน</div>';
     return;
