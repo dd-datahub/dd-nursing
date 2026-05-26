@@ -3307,5 +3307,62 @@ if ('serviceWorker' in navigator) {
   <div id="tdp-calendar"></div>
 </div>
 
+<script>
+/* ===== AUTO-UPDATE: ตรวจ hash ทุก 2 นาที — ถ้าไฟล์เปลี่ยน ล้าง cache แล้ว reload อัตโนมัติ ===== */
+(function(){
+  let _lh='', _busy=false;
+  function _hash(s){
+    const t=s.slice(0,5000)+s.slice(-1000);
+    let h=0;
+    for(let i=0;i<t.length;i++) h=(Math.imul(31,h)+t.charCodeAt(i))|0;
+    return String(h);
+  }
+  function _toast(msg){
+    let el=document.getElementById('_au_toast');
+    if(!el){
+      el=document.createElement('div');
+      el.id='_au_toast';
+      el.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);'+
+        'background:#1a6b4a;color:#fff;padding:11px 24px;border-radius:50px;'+
+        'font-size:13px;font-weight:600;z-index:999999;'+
+        'box-shadow:0 4px 24px rgba(0,0,0,.3);white-space:nowrap;'+
+        'font-family:"IBM Plex Sans Thai",sans-serif;'+
+        'animation:_au_in .35s ease;pointer-events:none';
+      const st=document.createElement('style');
+      st.textContent='@keyframes _au_in{from{opacity:0;transform:translateX(-50%) translateY(14px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
+      document.head.appendChild(st);
+      document.body.appendChild(el);
+    }
+    el.textContent=msg;
+  }
+  async function _doUpdate(){
+    if(_busy)return; _busy=true;
+    _toast('🔄 พบเวอร์ชันใหม่ กำลังอัปเดต...');
+    try{
+      if('serviceWorker' in navigator){
+        const rs=await navigator.serviceWorker.getRegistrations();
+        await Promise.all(rs.map(r=>r.unregister()));
+      }
+      if('caches' in window){
+        const ks=await caches.keys();
+        await Promise.all(ks.map(k=>caches.delete(k)));
+      }
+    }catch(_){}
+    setTimeout(()=>window.location.reload(true),2000);
+  }
+  async function _check(){
+    try{
+      const url=location.href.split('?')[0].split('#')[0];
+      const r=await fetch(url+'?_t='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache'}});
+      if(!r.ok)return;
+      const h=_hash(await r.text());
+      if(!_lh){_lh=h;return;}
+      if(h!==_lh){_lh=h;_doUpdate();}
+    }catch(_){}
+  }
+  setTimeout(()=>{_check();setInterval(_check,2*60*1000);},8000);
+})();
+</script>
+
 </body>
 </html>

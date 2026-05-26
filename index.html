@@ -6673,62 +6673,60 @@ updateDashboard();
 </div>
 
 <!-- ===== Auto-update banner ===== -->
-<div id="update-banner" style="
-  display:none; position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
-  background:#1a6b4a; color:#fff; padding:10px 18px; border-radius:50px;
-  box-shadow:0 4px 20px rgba(0,0,0,.25); z-index:99999;
-  display:none; align-items:center; gap:12px; font-size:13px; font-weight:500;
-  white-space:nowrap; animation:slideUp .3s ease;">
-  <span>🔄 มีการอัปเดตใหม่</span>
-  <button onclick="window.location.reload(true)" style="
-    background:#fff; color:#1a6b4a; border:none; border-radius:20px;
-    padding:4px 14px; font-size:12px; font-weight:700; cursor:pointer;">
-    อัปเดต
-  </button>
-  <span onclick="document.getElementById('update-banner').style.display='none'"
-    style="cursor:pointer; opacity:.7; font-size:16px; line-height:1">×</span>
-</div>
-<style>
-@keyframes slideUp { from { opacity:0; transform:translateX(-50%) translateY(20px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
-</style>
-
 <script>
-(function() {
-  // ตรวจสอบการอัปเดตโดย fetch index.html แล้วเทียบ hash
-  let _lastHash = '';
-
-  async function _hashStr(str) {
-    // ใช้ substring แรก 4000 ตัวอักษรเป็น fingerprint (เร็วพอ)
-    const sample = str.slice(0, 4000) + str.slice(-1000);
-    let h = 0;
-    for (let i = 0; i < sample.length; i++) {
-      h = (Math.imul(31, h) + sample.charCodeAt(i)) | 0;
-    }
+/* ===== AUTO-UPDATE: ตรวจ hash ทุก 2 นาที — ถ้าไฟล์เปลี่ยน ล้าง cache แล้ว reload อัตโนมัติ ===== */
+(function(){
+  let _lh='', _busy=false;
+  function _hash(s){
+    const t=s.slice(0,5000)+s.slice(-1000);
+    let h=0;
+    for(let i=0;i<t.length;i++) h=(Math.imul(31,h)+t.charCodeAt(i))|0;
     return String(h);
   }
-
-  async function _checkUpdate() {
-    try {
-      const url = location.href.split('?')[0].split('#')[0];
-      const res = await fetch(url + '?_t=' + Date.now(), {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      if (!res.ok) return;
-      const text = await res.text();
-      const hash = await _hashStr(text);
-      if (!_lastHash) { _lastHash = hash; return; }   // ครั้งแรก — บันทึก hash ปัจจุบัน
-      if (hash !== _lastHash) {
-        document.getElementById('update-banner').style.display = 'flex';
-      }
-    } catch(_) {}
+  function _toast(msg){
+    let el=document.getElementById('_au_toast');
+    if(!el){
+      el=document.createElement('div');
+      el.id='_au_toast';
+      el.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);'+
+        'background:#1a6b4a;color:#fff;padding:11px 24px;border-radius:50px;'+
+        'font-size:13px;font-weight:600;z-index:999999;'+
+        'box-shadow:0 4px 24px rgba(0,0,0,.3);white-space:nowrap;'+
+        'font-family:"IBM Plex Sans Thai",sans-serif;'+
+        'animation:_au_in .35s ease;pointer-events:none';
+      const st=document.createElement('style');
+      st.textContent='@keyframes _au_in{from{opacity:0;transform:translateX(-50%) translateY(14px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
+      document.head.appendChild(st);
+      document.body.appendChild(el);
+    }
+    el.textContent=msg;
   }
-
-  // เช็คครั้งแรกหลัง 10 วินาที จากนั้นทุก 5 นาที
-  setTimeout(() => {
-    _checkUpdate();
-    setInterval(_checkUpdate, 5 * 60 * 1000);
-  }, 10000);
+  async function _doUpdate(){
+    if(_busy)return; _busy=true;
+    _toast('🔄 พบเวอร์ชันใหม่ กำลังอัปเดต...');
+    try{
+      if('serviceWorker' in navigator){
+        const rs=await navigator.serviceWorker.getRegistrations();
+        await Promise.all(rs.map(r=>r.unregister()));
+      }
+      if('caches' in window){
+        const ks=await caches.keys();
+        await Promise.all(ks.map(k=>caches.delete(k)));
+      }
+    }catch(_){}
+    setTimeout(()=>window.location.reload(true),2000);
+  }
+  async function _check(){
+    try{
+      const url=location.href.split('?')[0].split('#')[0];
+      const r=await fetch(url+'?_t='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache'}});
+      if(!r.ok)return;
+      const h=_hash(await r.text());
+      if(!_lh){_lh=h;return;}
+      if(h!==_lh){_lh=h;_doUpdate();}
+    }catch(_){}
+  }
+  setTimeout(()=>{_check();setInterval(_check,2*60*1000);},8000);
 })();
 </script>
 
