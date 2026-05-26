@@ -1386,6 +1386,54 @@ if ('serviceWorker' in navigator) {
             <button class="sched-month-btn" onclick="schedChangeMonth(1)">▶</button>
             <button class="sched-month-btn" onclick="schedGoToday()" style="margin-left:4px">เดือนนี้</button>
             <button class="sched-month-btn" onclick="schedExportSummary()" style="margin-left:auto">📊 สรุปเวร</button>
+            <button class="sched-month-btn" onclick="schedToggleBulkPanel()" id="sched-bulk-btn" style="background:#eef2ff;color:#3730a3;border-color:#c7d2fe">📝 ลงเวรหลายวัน</button>
+          </div>
+
+          <!-- Bulk fill panel -->
+          <div id="sched-bulk-panel" style="display:none;margin-top:14px;padding:14px;background:#f8f9ff;border:1.5px solid #c7d2fe;border-radius:10px">
+            <div style="font-size:13px;font-weight:600;color:#3730a3;margin-bottom:12px">📝 ลงเวรหลายวัน</div>
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+              <!-- ชื่อพนักงาน -->
+              <div style="display:flex;flex-direction:column;gap:4px;min-width:160px;flex:2">
+                <label style="font-size:11px;color:#666;font-weight:600">พนักงาน</label>
+                <select id="bulk-nurse" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fff">
+                  <option value="">— เลือกพนักงาน —</option>
+                </select>
+              </div>
+              <!-- วันที่เริ่ม -->
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;color:#666;font-weight:600">วันที่เริ่ม</label>
+                <input type="number" id="bulk-from" min="1" max="31" value="1" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;width:70px;font-family:inherit">
+              </div>
+              <!-- วันที่สิ้นสุด -->
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;color:#666;font-weight:600">ถึงวันที่</label>
+                <input type="number" id="bulk-to" min="1" max="31" value="10" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;width:70px;font-family:inherit">
+              </div>
+              <!-- ประเภทเวร -->
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;color:#666;font-weight:600">ประเภทเวร</label>
+                <select id="bulk-shift" onchange="schedBulkShiftChange()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fff">
+                  <option value="ช">ช — เช้า</option>
+                  <option value="ด">ด — ดึก</option>
+                  <option value="ห">ห — หยุด</option>
+                  <option value="ล">ล — ลา</option>
+                </select>
+              </div>
+              <!-- สาขา (ซ่อนเมื่อ Udon หรือ ห/ล) -->
+              <div id="bulk-branch-wrap" style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;color:#666;font-weight:600">สาขา</label>
+                <select id="bulk-branch" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fff">
+                  <option value="1">สข.1</option>
+                  <option value="2">สข.2</option>
+                  <option value="3">สข.3</option>
+                </select>
+              </div>
+              <!-- ปุ่มลงเวร -->
+              <button onclick="schedBulkFill()" style="padding:8px 20px;background:#3730a3;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">✅ ลงเวร</button>
+              <button onclick="schedBulkClear()" style="padding:8px 14px;background:#fff5f5;color:#c0392b;border:1px solid #fcc;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap">🗑 ล้างช่วงวัน</button>
+            </div>
+            <div id="bulk-msg" style="font-size:12px;margin-top:8px;min-height:18px"></div>
           </div>
 
           <!-- Legend -->
@@ -5774,6 +5822,9 @@ function schedSwitchGroup(group) {
   // ซ่อน/แสดง branch selector ในฟอร์มเพิ่ม
   const branchSel = document.getElementById('sched-nurse-branch');
   if (branchSel) branchSel.style.display = group === 'schedule_ud' ? 'none' : '';
+  // ปิด bulk panel เมื่อ switch group
+  const bulkPanel = document.getElementById('sched-bulk-panel');
+  if (bulkPanel) bulkPanel.style.display = 'none';
   // re-attach
   _schedAttachListeners();
 }
@@ -5794,6 +5845,9 @@ function _schedAttachListeners() {
       }
       _schedRenderTable();
       _schedRenderNurseList();
+      // อัปเดต dropdown ใน bulk panel ถ้าเปิดอยู่
+      if (document.getElementById('sched-bulk-panel')?.style.display !== 'none')
+        schedBulkRefreshNurses();
     });
   }
   _schedSubscribeMonth(schedGetYM());
@@ -6194,6 +6248,98 @@ async function schedMoveNurse(nid, dir) {
   [nurses[idx], nurses[si]] = [nurses[si], nurses[idx]];
   for (let i = 0; i < nurses.length; i++) {
     await window._set(window._ref(window._db, `${_schedGroup}_nurses/${nurses[i][0]}/order`), i);
+  }
+}
+
+// ---- bulk fill ----
+function schedToggleBulkPanel() {
+  const panel = document.getElementById('sched-bulk-panel');
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) schedBulkRefreshNurses();
+}
+
+function schedBulkRefreshNurses() {
+  const sel = document.getElementById('bulk-nurse');
+  if (!sel) return;
+  const nurses = Object.entries(_schedNurses).sort((a,b) =>
+    (a[1].order ?? 999) - (b[1].order ?? 999) || a[1].name.localeCompare(b[1].name, 'th')
+  );
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— เลือกพนักงาน —</option>' +
+    nurses.map(([nid, n]) => `<option value="${nid}" ${nid===prev?'selected':''}>${n.name}</option>`).join('');
+  // ซ่อน/แสดง branch ตาม group
+  schedBulkShiftChange();
+}
+
+function schedBulkShiftChange() {
+  const shift = document.getElementById('bulk-shift')?.value || '';
+  const wrap  = document.getElementById('bulk-branch-wrap');
+  if (!wrap) return;
+  const needBranch = (shift === 'ช' || shift === 'ด') && _schedGroup !== 'schedule_ud';
+  wrap.style.display = needBranch ? 'flex' : 'none';
+}
+
+async function schedBulkFill() {
+  const nid    = document.getElementById('bulk-nurse')?.value;
+  const from   = parseInt(document.getElementById('bulk-from')?.value) || 0;
+  const to     = parseInt(document.getElementById('bulk-to')?.value)   || 0;
+  const shift  = document.getElementById('bulk-shift')?.value || '';
+  const branch = _schedGroup === 'schedule_ud' ? '' : (document.getElementById('bulk-branch')?.value || '');
+  const msg    = document.getElementById('bulk-msg');
+  const ym     = schedGetYM();
+  const days   = _schedDaysInMonth(ym);
+
+  if (!nid)           { if(msg){msg.style.color='#c0392b';msg.textContent='กรุณาเลือกพนักงาน';}  return; }
+  if (!shift)         { if(msg){msg.style.color='#c0392b';msg.textContent='กรุณาเลือกประเภทเวร';} return; }
+  if (from < 1 || to < 1 || from > days || to > days || from > to) {
+    if(msg){msg.style.color='#c0392b';msg.textContent=`ช่วงวันที่ไม่ถูกต้อง (1–${days})`;}
+    return;
+  }
+  if (msg) { msg.style.color='#888'; msg.textContent='กำลังบันทึก...'; }
+
+  const val = shift + branch;
+  const writes = [];
+  for (let d = from; d <= to; d++) {
+    writes.push(window._set(window._ref(window._db, `${_schedGroup}/${ym}/${nid}/d${d}`), val));
+  }
+  try {
+    await Promise.all(writes);
+    const nurseName = (_schedNurses[nid]||{}).name || nid;
+    if(msg){ msg.style.color='#065f46'; msg.textContent=`✓ ลงเวร ${shift}${branch||''} ให้ ${nurseName} วันที่ ${from}–${to} แล้ว (${to-from+1} วัน)`; }
+  } catch(e) {
+    if(msg){ msg.style.color='#c0392b'; msg.textContent='เกิดข้อผิดพลาด: '+e.message; }
+  }
+}
+
+async function schedBulkClear() {
+  const nid  = document.getElementById('bulk-nurse')?.value;
+  const from = parseInt(document.getElementById('bulk-from')?.value) || 0;
+  const to   = parseInt(document.getElementById('bulk-to')?.value)   || 0;
+  const msg  = document.getElementById('bulk-msg');
+  const ym   = schedGetYM();
+  const days = _schedDaysInMonth(ym);
+
+  if (!nid) { if(msg){msg.style.color='#c0392b';msg.textContent='กรุณาเลือกพนักงาน';} return; }
+  if (from < 1 || to < 1 || from > days || to > days || from > to) {
+    if(msg){msg.style.color='#c0392b';msg.textContent=`ช่วงวันที่ไม่ถูกต้อง (1–${days})`;}
+    return;
+  }
+  const nurseName = (_schedNurses[nid]||{}).name || nid;
+  if (!confirm(`ล้างเวรของ "${nurseName}" วันที่ ${from}–${to} (${to-from+1} วัน)?`)) return;
+  if(msg){ msg.style.color='#888'; msg.textContent='กำลังล้าง...'; }
+
+  const writes = [];
+  for (let d = from; d <= to; d++) {
+    writes.push(window._set(window._ref(window._db, `${_schedGroup}/${ym}/${nid}/d${d}`), null));
+    writes.push(window._set(window._ref(window._db, `${_schedGroup}/${ym}/${nid}/d${d}n`), null));
+  }
+  try {
+    await Promise.all(writes);
+    if(msg){ msg.style.color='#065f46'; msg.textContent=`✓ ล้างเวร ${nurseName} วันที่ ${from}–${to} แล้ว`; }
+  } catch(e) {
+    if(msg){ msg.style.color='#c0392b'; msg.textContent='เกิดข้อผิดพลาด: '+e.message; }
   }
 }
 
