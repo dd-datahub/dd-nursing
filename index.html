@@ -150,6 +150,10 @@ input, select, textarea, button { font-family: inherit; font-size: 14px; }
 .page.active { display: block; }
 
 /* ===== ตารางเวร ===== */
+.sched-group-tabs { display:flex; gap:6px; margin-bottom:14px; }
+.sched-group-tab { padding:8px 20px; border:2px solid var(--border); border-radius:10px; cursor:pointer; font-size:13px; font-weight:600; background:var(--surface); color:var(--text2); font-family:inherit; transition:all .15s; }
+.sched-group-tab:hover { background:var(--surface2); border-color:var(--accent); color:var(--accent); }
+.sched-group-tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
 .sched-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
 .sched-month-btn { padding:6px 14px; border:1px solid var(--border); border-radius:8px; cursor:pointer; background:var(--surface); color:var(--text2); font-size:13px; font-family:inherit; }
 .sched-month-btn:hover { background:var(--surface2); }
@@ -1367,6 +1371,12 @@ if ('serviceWorker' in navigator) {
     <!-- ===== ตารางเวร ===== -->
     <div class="page" id="page-schedule">
       <div style="max-width:100%;margin:0 auto">
+
+        <!-- Group tabs -->
+        <div class="sched-group-tabs">
+          <button class="sched-group-tab active" data-group="schedule"    onclick="schedSwitchGroup('schedule')">🏥 สาขาหลัก</button>
+          <button class="sched-group-tab"        data-group="schedule_ud" onclick="schedSwitchGroup('schedule_ud')">🏥 สาขาอุดร</button>
+        </div>
 
         <!-- Toolbar -->
         <div style="background:#fff;border-radius:12px;padding:18px 20px 14px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:14px">
@@ -5682,6 +5692,7 @@ function goPage(id) {
 const SCHED_SHIFT_CODES = ['ช','ด','ห','ล'];
 const SCHED_LABELS      = {ช:'เช้า',ด:'ดึก',ห:'หยุด',ล:'ลา'};
 const SCHED_BRANCHES    = ['1','2','3'];
+let _schedGroup         = 'schedule';      // 'schedule' = สาขาหลัก | 'schedule_ud' = สาขาอุดร
 let _schedYM            = '';
 let _schedData          = {};
 let _schedNurses        = {};
@@ -5742,9 +5753,25 @@ function renderSchedulePage() {
   _schedAttachListeners();
   _schedRenderTable();
 }
+function schedSwitchGroup(group) {
+  if (_schedGroup === group) return;
+  // ถอด listeners เดิม
+  if (typeof _schedListener === 'function') { _schedListener(); _schedListener = null; }
+  if (typeof _schedNurseListener === 'function') { _schedNurseListener(); _schedNurseListener = null; }
+  // reset state
+  _schedGroup  = group;
+  _schedData   = {};
+  _schedNurses = {};
+  // อัปเดต tab UI
+  document.querySelectorAll('.sched-group-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.group === group)
+  );
+  // re-attach
+  _schedAttachListeners();
+}
 function _schedAttachListeners() {
   if (!_schedNurseListener) {
-    const nursesRef = window._ref(window._db, 'schedule_nurses');
+    const nursesRef = window._ref(window._db, `${_schedGroup}_nurses`);
     _schedNurseListener = window._onValue(nursesRef, snap => {
       _schedNurses = snap.val() || {};
       // auto-normalize: กำหนด order ให้พยาบาลที่ยังไม่มี
@@ -5753,7 +5780,7 @@ function _schedAttachListeners() {
         const maxOrder = Math.max(-1, ...Object.values(_schedNurses).filter(n=>n.order!=null).map(n=>n.order));
         const sorted = needsOrder.sort((a,b)=>a[1].name.localeCompare(b[1].name,'th'));
         sorted.forEach(([nid], i) => {
-          window._set(window._ref(window._db, `schedule_nurses/${nid}/order`), maxOrder + 1 + i);
+          window._set(window._ref(window._db, `${_schedGroup}_nurses/${nid}/order`), maxOrder + 1 + i);
         });
         return; // listener จะ fire ใหม่หลัง set เสร็จ
       }
@@ -5765,7 +5792,7 @@ function _schedAttachListeners() {
 }
 function _schedSubscribeMonth(ym) {
   if (typeof _schedListener === 'function') _schedListener();
-  const dataRef = window._ref(window._db, `schedule/${ym}`);
+  const dataRef = window._ref(window._db, `${_schedGroup}/${ym}`);
   _schedListener = window._onValue(dataRef, snap => {
     _schedData = snap.val() || {};
     _schedRenderTable();
@@ -5778,7 +5805,7 @@ function schedSaveOtHoliday(nid, value) {
   // Update local cache immediately so input isn't wiped on re-render
   if (!_schedData[nid]) _schedData[nid] = {};
   _schedData[nid]._ot_holiday = parsed;
-  window._set(window._ref(window._db, `schedule/${ym}/${nid}/_ot_holiday`), parsed);
+  window._set(window._ref(window._db, `${_schedGroup}/${ym}/${nid}/_ot_holiday`), parsed);
 }
 function schedChangeMonth(delta) {
   const [y,m] = schedGetYM().split('-').map(Number);
@@ -6034,19 +6061,19 @@ async function schedPickerSave() {
   }
   const val = schedFormatVal(_pkSlots);
   const ym = schedGetYM();
-  const path = `schedule/${ym}/${_pkNid}/d${_pkDay}`;
+  const path = `${_schedGroup}/${ym}/${_pkNid}/d${_pkDay}`;
   await window._set(window._ref(window._db, path), val || null);
   // บันทึกหมายเหตุ
-  const notePath = `schedule/${ym}/${_pkNid}/d${_pkDay}n`;
+  const notePath = `${_schedGroup}/${ym}/${_pkNid}/d${_pkDay}n`;
   await window._set(window._ref(window._db, notePath), _pkNote.trim() || null);
   schedClosePicker();
 }
 
 async function schedPickerClear() {
   const ym = schedGetYM();
-  const path = `schedule/${ym}/${_pkNid}/d${_pkDay}`;
+  const path = `${_schedGroup}/${ym}/${_pkNid}/d${_pkDay}`;
   await window._set(window._ref(window._db, path), null);
-  await window._set(window._ref(window._db, `schedule/${ym}/${_pkNid}/d${_pkDay}n`), null);
+  await window._set(window._ref(window._db, `${_schedGroup}/${ym}/${_pkNid}/d${_pkDay}n`), null);
   _pkNote = '';
   schedClosePicker();
 }
@@ -6123,7 +6150,7 @@ async function schedAddNurse() {
   const nid = 'n_' + Date.now();
   const order = Object.keys(_schedNurses).length;
   try {
-    await window._set(window._ref(window._db, `schedule_nurses/${nid}`), {name, order, branch});
+    await window._set(window._ref(window._db, `${_schedGroup}_nurses/${nid}`), {name, order, branch});
     if (inp) inp.value = '';
     if (msg) { msg.style.color='#1a6b4a'; msg.textContent=`เพิ่ม "${name}" (สข.${branch}) แล้ว`; setTimeout(()=>msg.textContent='',2000); }
   } catch(e) {
@@ -6131,12 +6158,12 @@ async function schedAddNurse() {
   }
 }
 async function schedSetNurseBranch(nid, branch) {
-  await window._set(window._ref(window._db, `schedule_nurses/${nid}/branch`), branch);
+  await window._set(window._ref(window._db, `${_schedGroup}_nurses/${nid}/branch`), branch);
 }
 
 async function schedRemoveNurse(nid, name) {
   if (!confirm(`ลบ "${name}" ออกจากรายชื่อ?`)) return;
-  await window._set(window._ref(window._db, `schedule_nurses/${nid}`), null);
+  await window._set(window._ref(window._db, `${_schedGroup}_nurses/${nid}`), null);
 }
 
 async function schedMoveNurse(nid, dir) {
@@ -6153,7 +6180,7 @@ async function schedMoveNurse(nid, dir) {
   // Swap ใน array แล้ว assign order ใหม่ 0,1,2,... ให้ทั้งหมด
   [nurses[idx], nurses[si]] = [nurses[si], nurses[idx]];
   for (let i = 0; i < nurses.length; i++) {
-    await window._set(window._ref(window._db, `schedule_nurses/${nurses[i][0]}/order`), i);
+    await window._set(window._ref(window._db, `${_schedGroup}_nurses/${nurses[i][0]}/order`), i);
   }
 }
 
