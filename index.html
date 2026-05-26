@@ -1392,7 +1392,7 @@ if ('serviceWorker' in navigator) {
           <!-- Bulk fill panel -->
           <div id="sched-bulk-panel" style="display:none;margin-top:14px;padding:14px;background:#f8f9ff;border:1.5px solid #c7d2fe;border-radius:10px">
             <div style="font-size:13px;font-weight:600;color:#3730a3;margin-bottom:12px">📝 ลงเวรหลายวัน</div>
-            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px">
               <!-- ชื่อพนักงาน -->
               <div style="display:flex;flex-direction:column;gap:4px;min-width:160px;flex:2">
                 <label style="font-size:11px;color:#666;font-weight:600">พนักงาน</label>
@@ -1410,26 +1410,52 @@ if ('serviceWorker' in navigator) {
                 <label style="font-size:11px;color:#666;font-weight:600">ถึงวันที่</label>
                 <input type="number" id="bulk-to" min="1" max="31" value="10" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;width:70px;font-family:inherit">
               </div>
-              <!-- ประเภทเวร -->
+            </div>
+            <!-- กะที่ 1 -->
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:8px">
+              <div style="font-size:11px;color:#3730a3;font-weight:700;width:100%;margin-bottom:-4px">กะที่ 1</div>
               <div style="display:flex;flex-direction:column;gap:4px">
                 <label style="font-size:11px;color:#666;font-weight:600">ประเภทเวร</label>
-                <select id="bulk-shift" onchange="schedBulkShiftChange()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fff">
+                <select id="bulk-shift-1" onchange="schedBulkShiftChange()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fff">
                   <option value="ช">ช — เช้า</option>
                   <option value="ด">ด — ดึก</option>
                   <option value="ห">ห — หยุด</option>
                   <option value="ล">ล — ลา</option>
                 </select>
               </div>
-              <!-- สาขา (ซ่อนเมื่อ Udon หรือ ห/ล) -->
-              <div id="bulk-branch-wrap" style="display:flex;flex-direction:column;gap:4px">
+              <div id="bulk-branch-wrap-1" style="display:flex;flex-direction:column;gap:4px">
                 <label style="font-size:11px;color:#666;font-weight:600">สาขา</label>
-                <select id="bulk-branch" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fff">
+                <select id="bulk-branch-1" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fff">
                   <option value="1">สข.1</option>
                   <option value="2">สข.2</option>
                   <option value="3">สข.3</option>
                 </select>
               </div>
-              <!-- ปุ่มลงเวร -->
+            </div>
+            <!-- กะที่ 2 (ไม่บังคับ) -->
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px">
+              <div style="font-size:11px;color:#888;font-weight:700;width:100%;margin-bottom:-4px">กะที่ 2 <span style="font-weight:400">(ไม่บังคับ)</span></div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;color:#666;font-weight:600">ประเภทเวร</label>
+                <select id="bulk-shift-2" onchange="schedBulkShiftChange()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fff">
+                  <option value="">— ไม่มีกะ 2 —</option>
+                  <option value="ช">ช — เช้า</option>
+                  <option value="ด">ด — ดึก</option>
+                  <option value="ห">ห — หยุด</option>
+                  <option value="ล">ล — ลา</option>
+                </select>
+              </div>
+              <div id="bulk-branch-wrap-2" style="display:none;flex-direction:column;gap:4px">
+                <label style="font-size:11px;color:#666;font-weight:600">สาขา</label>
+                <select id="bulk-branch-2" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit;background:#fff">
+                  <option value="1">สข.1</option>
+                  <option value="2">สข.2</option>
+                  <option value="3">สข.3</option>
+                </select>
+              </div>
+            </div>
+            <!-- ปุ่ม -->
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button onclick="schedBulkFill()" style="padding:8px 20px;background:#3730a3;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">✅ ลงเวร</button>
               <button onclick="schedBulkClear()" style="padding:8px 14px;background:#fff5f5;color:#c0392b;border:1px solid #fcc;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap">🗑 ล้างช่วงวัน</button>
             </div>
@@ -6274,32 +6300,50 @@ function schedBulkRefreshNurses() {
 }
 
 function schedBulkShiftChange() {
-  const shift = document.getElementById('bulk-shift')?.value || '';
-  const wrap  = document.getElementById('bulk-branch-wrap');
-  if (!wrap) return;
-  const needBranch = (shift === 'ช' || shift === 'ด') && _schedGroup !== 'schedule_ud';
-  wrap.style.display = needBranch ? 'flex' : 'none';
+  const isUd = _schedGroup === 'schedule_ud';
+  // กะที่ 1
+  const shift1 = document.getElementById('bulk-shift-1')?.value || '';
+  const wrap1  = document.getElementById('bulk-branch-wrap-1');
+  if (wrap1) wrap1.style.display = (shift1 === 'ช' || shift1 === 'ด') && !isUd ? 'flex' : 'none';
+  // กะที่ 2
+  const shift2 = document.getElementById('bulk-shift-2')?.value || '';
+  const wrap2  = document.getElementById('bulk-branch-wrap-2');
+  if (wrap2) wrap2.style.display = (shift2 === 'ช' || shift2 === 'ด') && !isUd ? 'flex' : 'none';
 }
 
 async function schedBulkFill() {
-  const nid    = document.getElementById('bulk-nurse')?.value;
-  const from   = parseInt(document.getElementById('bulk-from')?.value) || 0;
-  const to     = parseInt(document.getElementById('bulk-to')?.value)   || 0;
-  const shift  = document.getElementById('bulk-shift')?.value || '';
-  const branch = _schedGroup === 'schedule_ud' ? '' : (document.getElementById('bulk-branch')?.value || '');
-  const msg    = document.getElementById('bulk-msg');
-  const ym     = schedGetYM();
-  const days   = _schedDaysInMonth(ym);
+  const nid   = document.getElementById('bulk-nurse')?.value;
+  const from  = parseInt(document.getElementById('bulk-from')?.value) || 0;
+  const to    = parseInt(document.getElementById('bulk-to')?.value)   || 0;
+  const msg   = document.getElementById('bulk-msg');
+  const ym    = schedGetYM();
+  const days  = _schedDaysInMonth(ym);
+  const isUd  = _schedGroup === 'schedule_ud';
 
-  if (!nid)           { if(msg){msg.style.color='#c0392b';msg.textContent='กรุณาเลือกพนักงาน';}  return; }
-  if (!shift)         { if(msg){msg.style.color='#c0392b';msg.textContent='กรุณาเลือกประเภทเวร';} return; }
+  const shift1  = document.getElementById('bulk-shift-1')?.value || '';
+  const branch1 = isUd ? '' : (document.getElementById('bulk-branch-1')?.value || '');
+  const shift2  = document.getElementById('bulk-shift-2')?.value || '';
+  const branch2 = isUd ? '' : (document.getElementById('bulk-branch-2')?.value || '');
+
+  if (!nid)    { if(msg){msg.style.color='#c0392b';msg.textContent='กรุณาเลือกพนักงาน';} return; }
+  if (!shift1) { if(msg){msg.style.color='#c0392b';msg.textContent='กรุณาเลือกประเภทเวร กะที่ 1';} return; }
+  if ((shift1==='ช'||shift1==='ด') && !isUd && !branch1) {
+    if(msg){msg.style.color='#c0392b';msg.textContent='กรุณาเลือกสาขา กะที่ 1';} return;
+  }
+  if (shift2 && (shift2==='ช'||shift2==='ด') && !isUd && !branch2) {
+    if(msg){msg.style.color='#c0392b';msg.textContent='กรุณาเลือกสาขา กะที่ 2';} return;
+  }
   if (from < 1 || to < 1 || from > days || to > days || from > to) {
     if(msg){msg.style.color='#c0392b';msg.textContent=`ช่วงวันที่ไม่ถูกต้อง (1–${days})`;}
     return;
   }
-  if (msg) { msg.style.color='#888'; msg.textContent='กำลังบันทึก...'; }
 
-  const val = shift + branch;
+  const val = schedFormatVal([
+    { shift: shift1, branch: branch1 },
+    { shift: shift2, branch: branch2 }
+  ]);
+
+  if (msg) { msg.style.color='#888'; msg.textContent='กำลังบันทึก...'; }
   const writes = [];
   for (let d = from; d <= to; d++) {
     writes.push(window._set(window._ref(window._db, `${_schedGroup}/${ym}/${nid}/d${d}`), val));
@@ -6307,7 +6351,8 @@ async function schedBulkFill() {
   try {
     await Promise.all(writes);
     const nurseName = (_schedNurses[nid]||{}).name || nid;
-    if(msg){ msg.style.color='#065f46'; msg.textContent=`✓ ลงเวร ${shift}${branch||''} ให้ ${nurseName} วันที่ ${from}–${to} แล้ว (${to-from+1} วัน)`; }
+    const label = val.replace('/', ' + ');
+    if(msg){ msg.style.color='#065f46'; msg.textContent=`✓ ลงเวร ${label} ให้ ${nurseName} วันที่ ${from}–${to} แล้ว (${to-from+1} วัน)`; }
   } catch(e) {
     if(msg){ msg.style.color='#c0392b'; msg.textContent='เกิดข้อผิดพลาด: '+e.message; }
   }
