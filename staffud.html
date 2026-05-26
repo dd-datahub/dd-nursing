@@ -1049,7 +1049,8 @@ function setPage(page) {
   const pageEl = document.getElementById('page-' + page);
   if (pageEl) pageEl.classList.add('active');
   // update topbar title
-  const titles = {dashboard:'รายชื่อเคส', req:'บันทึกเบิกของ', vital:'ลงบันทึกรวม', indiv:'ลงบันทึกรายบุคคล'};
+  const titles = {dashboard:'รายชื่อเคส', req:'บันทึกเบิกของ', vital:'ลงบันทึกรวม', indiv:'ลงบันทึกรายบุคคล', ssud:'ตารางเวรสาขาอุดร'};
+  if (page === 'ssud') staffudSchedInit();
   const tb = document.getElementById('topbar-title');
   if (tb) tb.textContent = titles[page] || page;
   // sync bottom nav
@@ -2335,6 +2336,162 @@ async function saveIndivHospSum(){
   catch(e){showStatus('บันทึกไม่สำเร็จ: '+e.message,'err');}
 }
 window.saveIndivHospSum=saveIndivHospSum;
+
+// ===== UDON SCHEDULE VIEW (อ่านอย่างเดียว — schedule_ud) =====
+let _ssudYM = '';
+let _ssudData = {};
+let _ssudNurses = {};
+let _ssudListener = null;
+let _ssudNurseListener = null;
+
+// สีชิปสาขาอุดร (ไม่มีเลขสาขา)
+const _SSUD_CHIP_COLORS = {
+  'ช': ['#fef3c7','#92400e'], // เช้า — ทองอำพัน
+  'ด': ['#e0e7ff','#3730a3'], // ดึก — คราม
+  'ห': ['#fee2e2','#dc2626'], // หยุด — แดง
+  'ล': ['#fef9c3','#854d0e'], // ลา
+  'บ': ['#fef3c7','#b45309'], // บ่าย
+  'ว': ['#d1fae5','#065f46'], // วันหยุด
+};
+function _ssudChipStyle(shift) {
+  const c = _SSUD_CHIP_COLORS[shift] || ['#f3f4f6','#555'];
+  return `background:${c[0]};color:${c[1]}`;
+}
+function _ssudParseVal(v) {
+  if (!v) return [];
+  return String(v).split('/').slice(0,2)
+    .map(p => ({ shift: p[0]||'', branch: p.slice(1)||'' }))
+    .filter(s => s.shift);
+}
+function _ssudDaysInMonth(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m, 0).getDate();
+}
+function _ssudDayOfWeek(ym, day) {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m-1, day).getDay();
+}
+function _ssudFormatMonthTH(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return `${months[m-1]} ${y+543}`;
+}
+function staffudSchedPrevMonth() {
+  const [y, m] = (_ssudYM||_ssudInitYM()).split('-').map(Number);
+  const d = new Date(y, m-2, 1);
+  _ssudYM = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  _ssudAttachListeners();
+}
+function staffudSchedNextMonth() {
+  const [y, m] = (_ssudYM||_ssudInitYM()).split('-').map(Number);
+  const d = new Date(y, m, 1);
+  _ssudYM = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  _ssudAttachListeners();
+}
+function _ssudInitYM() {
+  if (!_ssudYM) {
+    const now = new Date();
+    _ssudYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  }
+  return _ssudYM;
+}
+function _ssudAttachListeners() {
+  if (typeof _ssudListener === 'function') { _ssudListener(); _ssudListener = null; }
+  if (typeof _ssudNurseListener === 'function') { _ssudNurseListener(); _ssudNurseListener = null; }
+  const ym = _ssudInitYM();
+  const lbl = document.getElementById('ssud-month-label');
+  if (lbl) lbl.textContent = _ssudFormatMonthTH(ym);
+  _ssudData = {}; _ssudNurses = {};
+  _ssudListener = window._onValue(window._ref(window._db, `schedule_ud/${ym}`), snap => {
+    _ssudData = snap.val() || {};
+    _ssudRenderTable();
+  });
+  _ssudNurseListener = window._onValue(window._ref(window._db, `schedule_ud_nurses`), snap => {
+    _ssudNurses = snap.val() || {};
+    _ssudRenderTable();
+  });
+}
+function _ssudRenderTable() {
+  const wrap = document.getElementById('ssud-table-wrap');
+  if (!wrap) return;
+  const ym = _ssudInitYM();
+  const days = _ssudDaysInMonth(ym);
+  const now = new Date();
+  const todayDay = (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') === ym) ? now.getDate() : -1;
+  const nurses = Object.entries(_ssudNurses)
+    .sort((a,b) => (a[1].order??999)-(b[1].order??999) || a[1].name.localeCompare(b[1].name,'th'));
+  if (!nurses.length) {
+    wrap.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#bbb;font-size:13px">ไม่พบข้อมูลพนักงาน</div>';
+    return;
+  }
+
+  // Header row
+  let html = '<table class="ssud-table"><thead><tr>';
+  html += '<th class="ssud-name-col">ชื่อ</th>';
+  for (let d = 1; d <= days; d++) {
+    const dow = _ssudDayOfWeek(ym, d);
+    const isWk = dow===0||dow===6;
+    if (d===todayDay)     html += `<th class="ssud-today-col">${d}</th>`;
+    else if (isWk)        html += `<th style="background:#fff5f5;color:#e57373">${d}</th>`;
+    else                  html += `<th>${d}</th>`;
+  }
+  html += '<th class="ssud-sum-col ssud-wd-col">วัน<br>ทำงาน</th>';
+  html += '<th class="ssud-sum-col ssud-ot-col">OT<br>ดึก</th>';
+  html += '<th class="ssud-sum-col ssud-oth-col">OT<br>วันหยุด</th>';
+  html += '<th class="ssud-sum-col ssud-total-col">รวมกะ</th>';
+  html += '</tr></thead><tbody>';
+
+  // แถวแยกสาขาอุดร (แถวเดียว เพราะไม่มีสาขาย่อย)
+  html += `<tr class="ssud-branch-row"><td colspan="${days+5}" style="background:#fef3c7;color:#92400e">🏥 สาขาอุดร</td></tr>`;
+
+  for (const [nid, nurse] of nurses) {
+    const nd = _ssudData[nid] || {};
+    const countMap = {ช:0, ด:0, ห:0, ล:0};
+    let workDays = 0, otNight = 0, cells = '';
+
+    for (let d = 1; d <= days; d++) {
+      const dow   = _ssudDayOfWeek(ym, d);
+      const isWk  = dow===0||dow===6;
+      const isTdy = d === todayDay;
+      const val   = nd[`d${d}`] || '';
+      const slots = _ssudParseVal(val);
+      const shifts = slots.map(s => s.shift);
+      shifts.forEach(sh => { if (countMap[sh]!==undefined) countMap[sh]++; });
+      if (shifts.some(sh=>sh==='ช'||sh==='ด')) workDays++;
+      if (shifts.includes('ช') && shifts.includes('ด')) otNight++;
+      const chips = slots.map(s =>
+        `<span class="ssud-chip" style="${_ssudChipStyle(s.shift)}">${s.shift}</span>`
+      ).join('');
+      let tdStyle = '';
+      if (isTdy)            tdStyle = 'background:rgba(22,163,74,.06)';
+      else if (isWk && !val) tdStyle = 'background:#fff5f5';
+      cells += `<td${tdStyle?` style="${tdStyle}"`:''}>` +
+               (chips || '<span class="ssud-empty">—</span>') + '</td>';
+    }
+
+    // วันทำงาน
+    const wdCell = `<td class="ssud-sum-val ssud-wd-val">${workDays||'—'}</td>`;
+    // OTดึก
+    const otCell = `<td class="ssud-sum-val ssud-ot-val" style="${otNight>0?'color:#6d28d9;font-weight:700':'color:#ccc'}">${otNight>0?otNight:'—'}</td>`;
+    // OTวันหยุด (อ่านค่าจาก Firebase)
+    const otHolRaw = (nd._ot_holiday!=null && nd._ot_holiday!=='') ? nd._ot_holiday : null;
+    const otHolCell = `<td class="ssud-sum-val ssud-oth-val" style="${otHolRaw!=null?'color:#92400e;font-weight:700':'color:#ccc'}">${otHolRaw!=null?otHolRaw:'—'}</td>`;
+    // รวมกะ
+    const summary = Object.entries(countMap).filter(([,v])=>v>0)
+      .map(([k,v])=>`<span class="ssud-sum-tag">${k}<b>${v}</b></span>`).join('');
+    const sumCell = `<td class="ssud-sum-val ssud-total-val">${summary||'—'}</td>`;
+
+    html += `<tr><td class="ssud-name-col">${nurse.name}</td>` +
+            cells + wdCell + otCell + otHolCell + sumCell + '</tr>';
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+function staffudSchedInit() {
+  _ssudInitYM();
+  if (_ssudListener) { _ssudRenderTable(); return; }
+  _ssudAttachListeners();
+}
 </script>
 
 <style>
@@ -2555,6 +2712,33 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .month-tab-btn{padding:6px 14px;border:1px solid #e0dbd2;border-radius:20px;cursor:pointer;font-size:12px;color:#666;background:#fff;font-family:inherit;transition:all .15s;white-space:nowrap;flex-shrink:0;-webkit-tap-highlight-color:transparent}
 .month-tab-btn:hover{border-color:#1a6b4a;color:#1a6b4a}
 .month-tab-btn.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a}
+
+/* ===== UDON SCHEDULE VIEW ===== */
+#page-ssud.active{display:flex!important;flex-direction:column}
+.ssud-wrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 160px);border-radius:10px;border:1px solid #e8e3dc;box-shadow:0 1px 6px rgba(0,0,0,.07);-webkit-overflow-scrolling:touch}
+.ssud-table{border-collapse:collapse;width:100%;min-width:max-content;font-size:12px;font-family:inherit}
+.ssud-table th{position:sticky;top:0;z-index:2;background:#f5f3ef;color:#555;font-weight:600;padding:7px 4px;text-align:center;border-bottom:2px solid #e0dbd2;white-space:nowrap;min-width:34px}
+.ssud-table td{padding:5px 3px;text-align:center;border-bottom:.5px solid #f0ede8;vertical-align:middle;min-width:34px}
+.ssud-name-col{position:sticky;left:0;z-index:3;background:#fffbf2!important;text-align:left!important;min-width:100px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:10px!important;padding-right:8px!important;border-right:1.5px solid #e0dbd2;font-weight:500}
+.ssud-table th.ssud-name-col{z-index:4}
+.ssud-today-col{background:#f0fdf4!important;color:#16a34a!important;font-weight:700}
+.ssud-chip{display:inline-block;padding:2px 6px;border-radius:5px;font-size:11px;font-weight:600;line-height:1.3;white-space:nowrap}
+.ssud-empty{color:#ddd;font-size:10px}
+.ssud-branch-row td{font-size:11px;font-weight:700;padding:4px 10px;letter-spacing:.3px;position:sticky;left:0}
+/* summary columns */
+.ssud-sum-col{position:sticky;top:0;z-index:2;font-size:11px;font-weight:600;padding:5px 4px;text-align:center;white-space:nowrap;border-left:2px solid #e0dbd2}
+.ssud-wd-col{background:#e8f5ee;color:#1a6b4a;min-width:52px}
+.ssud-ot-col{background:#f5f3ff;color:#6d28d9;min-width:44px}
+.ssud-oth-col{background:#fffbf0;color:#92400e;min-width:54px}
+.ssud-total-col{background:#f0f2f5;color:#444;min-width:80px}
+.ssud-sum-val{text-align:center;font-size:13px;padding:4px 6px;border-left:2px solid #e0dbd2;vertical-align:middle}
+.ssud-wd-val{background:#f0faf5;color:#1a6b4a;font-weight:700}
+.ssud-ot-val{background:#faf8ff}
+.ssud-oth-val{background:#fffdf5}
+.ssud-total-val{background:#f8f9fb;font-size:11px;white-space:nowrap}
+.ssud-sum-tag{display:inline-block;margin:1px 2px;font-size:11px;color:#555;white-space:nowrap}
+.ssud-sum-tag b{margin-left:1px;color:#333}
+@media(max-width:640px){.ssud-wrap{max-height:calc(100vh - 140px)}}
 </style>
 <script>
 // ล้าง Service Worker cache — บังคับโหลดไฟล์ใหม่จาก server ทุกครั้ง
@@ -2628,6 +2812,9 @@ if ('serviceWorker' in navigator) {
       </div>
       <div class="nav-item" id="nav-indiv" onclick="setPage('indiv')" title="ลงบันทึกรายบุคคล">
         <span class="nav-icon">👤</span><span class="nav-text">ลงบันทึกรายบุคคล</span>
+      </div>
+      <div class="nav-item" id="nav-ssud" onclick="setPage('ssud')" title="ตารางเวรสาขาอุดร">
+        <span class="nav-icon">📅</span><span class="nav-text">ตารางเวร</span>
       </div>
     </nav>
 
@@ -3026,6 +3213,33 @@ if ('serviceWorker' in navigator) {
         </div>
       </div><!-- end page-indiv -->
 
+      <!-- ===== PAGE: SSUD (ตารางเวรสาขาอุดร — อ่านอย่างเดียว) ===== -->
+      <div class="page-section" id="page-ssud">
+        <!-- Header controls -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+          <button onclick="staffudSchedPrevMonth()"
+            style="padding:6px 12px;border:1px solid #e0dbd2;border-radius:20px;background:#fff;font-size:13px;cursor:pointer;font-family:inherit;color:#555;transition:all .15s"
+            onmouseover="this.style.borderColor='#92400e';this.style.color='#92400e'" onmouseout="this.style.borderColor='#e0dbd2';this.style.color='#555'">◀</button>
+          <span id="ssud-month-label" style="font-size:15px;font-weight:700;color:#1a1916;min-width:90px;text-align:center">—</span>
+          <button onclick="staffudSchedNextMonth()"
+            style="padding:6px 12px;border:1px solid #e0dbd2;border-radius:20px;background:#fff;font-size:13px;cursor:pointer;font-family:inherit;color:#555;transition:all .15s"
+            onmouseover="this.style.borderColor='#92400e';this.style.color='#92400e'" onmouseout="this.style.borderColor='#e0dbd2';this.style.color='#555'">▶</button>
+          <span style="font-size:11px;color:#aaa;margin-left:4px">สาขาอุดร · ดูได้อย่างเดียว</span>
+        </div>
+        <!-- Legend -->
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center">
+          <span style="font-size:11px;color:#999;margin-right:2px">สัญลักษณ์:</span>
+          <span class="ssud-chip" style="background:#fef3c7;color:#92400e">ช</span><span style="font-size:11px;color:#888">เช้า</span>
+          <span class="ssud-chip" style="background:#e0e7ff;color:#3730a3">ด</span><span style="font-size:11px;color:#888">ดึก</span>
+          <span class="ssud-chip" style="background:#fee2e2;color:#dc2626">ห</span><span style="font-size:11px;color:#888">หยุด</span>
+          <span class="ssud-chip" style="background:#fef9c3;color:#854d0e">ล</span><span style="font-size:11px;color:#888">ลา</span>
+        </div>
+        <!-- Table -->
+        <div class="ssud-wrap" id="ssud-table-wrap">
+          <div style="text-align:center;padding:40px 20px;color:#bbb;font-size:13px">กำลังโหลด...</div>
+        </div>
+      </div><!-- end page-ssud -->
+
       <div style="text-align:center;font-size:11px;color:#bbb;padding:6px 0 14px">
         DD Nursing สาขาอุดร · ระบบพนักงาน · ข้อมูลส่งให้แอดมินทันที
       </div>
@@ -3050,6 +3264,10 @@ if ('serviceWorker' in navigator) {
     <button class="bnav-item" id="bnav-indiv" onclick="setPage('indiv')">
       <span class="bnav-icon">👤</span>
       <span class="bnav-label">รายบุคคล</span>
+    </button>
+    <button class="bnav-item" id="bnav-ssud" onclick="setPage('ssud')">
+      <span class="bnav-icon">📅</span>
+      <span class="bnav-label">ตารางเวร</span>
     </button>
   </nav>
 
