@@ -5766,6 +5766,9 @@ function schedSwitchGroup(group) {
   document.querySelectorAll('.sched-group-tab').forEach(t =>
     t.classList.toggle('active', t.dataset.group === group)
   );
+  // ซ่อน/แสดง branch selector ในฟอร์มเพิ่ม
+  const branchSel = document.getElementById('sched-nurse-branch');
+  if (branchSel) branchSel.style.display = group === 'schedule_ud' ? 'none' : '';
   // re-attach
   _schedAttachListeners();
 }
@@ -6122,17 +6125,20 @@ function _schedRenderNurseList() {
     const bLabel = b ? `สข.${b}` : '—';
     const bgC = branchColors[b]||'#f3f4f6';
     const txC = branchText[b]||'#888';
-    return `
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0">
-      <span style="font-size:12px;color:#888;width:20px;text-align:right">${i+1}.</span>
-      <span style="flex:1;font-size:13px">${nurse.name}</span>
+    const isUd = _schedGroup === 'schedule_ud';
+    const branchEl = isUd ? '' : `
       <select onchange="schedSetNurseBranch('${nid}',this.value)"
         style="padding:2px 6px;border:1px solid #e0e0e0;border-radius:6px;font-size:12px;background:${bgC};color:${txC};font-weight:600;cursor:pointer;font-family:inherit">
         <option value="" ${!b?'selected':''}>— สาขา</option>
         <option value="1" ${'1'===b?'selected':''}>สข.1</option>
         <option value="2" ${'2'===b?'selected':''}>สข.2</option>
         <option value="3" ${'3'===b?'selected':''}>สข.3</option>
-      </select>
+      </select>`;
+    return `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0">
+      <span style="font-size:12px;color:#888;width:20px;text-align:right">${i+1}.</span>
+      <span style="flex:1;font-size:13px">${nurse.name}</span>
+      ${branchEl}
       <button onclick="schedMoveNurse('${nid}',-1)" style="padding:2px 7px;border:1px solid #e0e0e0;border-radius:5px;cursor:pointer;background:#fff;font-size:12px">↑</button>
       <button onclick="schedMoveNurse('${nid}',1)"  style="padding:2px 7px;border:1px solid #e0e0e0;border-radius:5px;cursor:pointer;background:#fff;font-size:12px">↓</button>
       <button onclick="schedRemoveNurse('${nid}','${nurse.name.replace(/'/g,"\\'")}')" style="padding:2px 8px;border:1px solid #fcc;border-radius:5px;cursor:pointer;background:#fff5f5;color:#c0392b;font-size:12px">ลบ</button>
@@ -6145,14 +6151,14 @@ async function schedAddNurse() {
   const branchSel = document.getElementById('sched-nurse-branch');
   const msg = document.getElementById('sched-nurse-msg');
   const name = (inp?.value||'').trim();
-  const branch = branchSel?.value || '1';
+  const branch = _schedGroup === 'schedule_ud' ? '' : (branchSel?.value || '1');
   if (!name) { if(msg) msg.textContent='กรุณากรอกชื่อ'; return; }
   const nid = 'n_' + Date.now();
   const order = Object.keys(_schedNurses).length;
   try {
     await window._set(window._ref(window._db, `${_schedGroup}_nurses/${nid}`), {name, order, branch});
     if (inp) inp.value = '';
-    if (msg) { msg.style.color='#1a6b4a'; msg.textContent=`เพิ่ม "${name}" (สข.${branch}) แล้ว`; setTimeout(()=>msg.textContent='',2000); }
+    if (msg) { msg.style.color='#1a6b4a'; msg.textContent=`เพิ่ม "${name}" แล้ว`; setTimeout(()=>msg.textContent='',2000); }
   } catch(e) {
     if (msg) { msg.style.color='#c0392b'; msg.textContent='เกิดข้อผิดพลาด: '+e.message; }
   }
