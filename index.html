@@ -5724,12 +5724,17 @@ const SCHED_CHIP_COLORS = {
   'ด2': ['#fde68a','#78350f'], // สาขา2 ดึก — เหลืองทอง
   'ช3': ['#ffedd5','#c2410c'], // สาขา3 เช้า — ส้ม
   'ด3': ['#fce7f3','#9d174d'], // สาขา3 ดึก — ชมพู
-  'ห':  ['#f1f5f9','#475569'], // หยุด
+  'ช':  ['#fef3c7','#92400e'], // สาขาอุดร เช้า — ทองอำพัน
+  'ด':  ['#e0e7ff','#3730a3'], // สาขาอุดร ดึก — คราม
+  'ห':  ['#f1f5f9','#475569'], // หยุด (สาขาหลัก)
   'ล':  ['#fef9c3','#854d0e'], // ลา
   'บ':  ['#fef3c7','#b45309'], // บ่าย
   'ว':  ['#d1fae5','#065f46'], // วันหยุด
 };
 function _chipStyle(shift, branch) {
+  // ห สีแดงเฉพาะสาขาอุดร
+  if (shift === 'ห' && _schedGroup === 'schedule_ud')
+    return 'background:#fee2e2;color:#dc2626';
   const key = shift + branch;
   const c = SCHED_CHIP_COLORS[key] || SCHED_CHIP_COLORS[shift] || ['#f3f4f6','#555'];
   return `background:${c[0]};color:${c[1]}`;
