@@ -5737,7 +5737,7 @@ function _chipStyle(shift, branch) {
 function schedRenderChips(v) {
   if (!v) return '<span style="color:#ccc;font-size:11px">—</span>';
   return schedParseVal(v).filter(s=>s.shift).map(s =>
-    `<span class="sched-chip" style="${_chipStyle(s.shift, s.branch)}">${s.shift}${s.branch}</span>`
+    `<span class="sched-chip" style="${_chipStyle(s.shift, s.branch)}">${s.shift}${s.branch||''}</span>`
   ).join('');
 }
 
@@ -5889,7 +5889,7 @@ function _schedRenderTable() {
       // Branch group separator row
       if (nb !== lastBranch) {
         lastBranch = nb;
-        const brLabel = nb ? `🏥 สาขา ${nb}` : '📋 ยังไม่ระบุสาขา';
+        const brLabel = nb ? `🏥 สาขา ${nb}` : (_schedGroup === 'schedule_ud' ? '🏥 สาขาอุดร' : '📋 ยังไม่ระบุสาขา');
         const brBg = nb ? (nb==='1'?'#dbeafe':nb==='2'?'#dcfce7':'#fef9c3') : '#f3f4f6';
         const brTx = nb ? (nb==='1'?'#1e40af':nb==='2'?'#166534':'#92400e') : '#666';
         rows += `<tr><td colspan="${totalCols}" style="background:${brBg};color:${brTx};font-size:12px;font-weight:700;padding:5px 12px;border-top:2px solid ${BORDER[nb]||'#e5e7eb'};letter-spacing:.3px">${brLabel}</td></tr>`;
@@ -5997,7 +5997,7 @@ function _schedPickerHTML() {
 
   [0,1].forEach(i => {
     const sl = _pkSlots[i];
-    const needBranch = sl.shift === 'ช' || sl.shift === 'ด';
+    const needBranch = (sl.shift === 'ช' || sl.shift === 'ด') && _schedGroup !== 'schedule_ud';
     html += `<div class="pk-row">
       <div class="pk-label">กะที่ ${i+1} ${i===1?'<span style="font-size:10px;color:#aaa">(ไม่บังคับ)</span>':''}</div>
       <div class="pk-btns" style="margin-bottom:5px">
@@ -6054,12 +6054,14 @@ function schedPickerSetBranch(slotIdx, branch) {
 }
 
 async function schedPickerSave() {
-  // Validate: เช้า/ดึก ต้องเลือกสาขา, หยุด/ลา ไม่ต้องเลือก
-  for (let i=0; i<2; i++) {
-    const s = _pkSlots[i].shift;
-    if ((s === 'ช' || s === 'ด') && !_pkSlots[i].branch) {
-      alert(`กะที่ ${i+1}: กรุณาเลือกสาขาด้วย`);
-      return;
+  // Validate: เช้า/ดึก ต้องเลือกสาขา (เฉพาะสาขาหลัก), หยุด/ลา ไม่ต้องเลือก
+  if (_schedGroup !== 'schedule_ud') {
+    for (let i=0; i<2; i++) {
+      const s = _pkSlots[i].shift;
+      if ((s === 'ช' || s === 'ด') && !_pkSlots[i].branch) {
+        alert(`กะที่ ${i+1}: กรุณาเลือกสาขาด้วย`);
+        return;
+      }
     }
   }
   const val = schedFormatVal(_pkSlots);
