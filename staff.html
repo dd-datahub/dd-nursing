@@ -2018,6 +2018,9 @@ window.saveIndivVS=saveIndivVS;
 // ─── SHEET 2: IO / DTX / BMI ───
 let _iioMonth = new Date().toISOString().slice(0,7);
 let _iioData = {}, _idtxData = [], _ibmiData = [];
+let _iioOpen = {io:true, dtx:true, bmi:true}; // expand/collapse state
+function toggleIIOSection(sec){ _iioOpen[sec]=!_iioOpen[sec]; renderIndivIO(); }
+window.toggleIIOSection = toggleIIOSection;
 
 function loadIndivIO(){
   if(!_indivCustId)return;
@@ -2070,9 +2073,19 @@ function renderIndivIO(){
     <td style="padding:2px;border:1px solid #eee;text-align:center"><button onclick="removeBMI(${i})" style="padding:2px 8px;border:1px solid #f5b8b0;border-radius:4px;background:#fdf0ee;color:#c0392b;cursor:pointer;font-size:11px">ลบ</button></td>
   </tr>`).join('');
 
-  el.innerHTML=`
-  <div style="margin-bottom:14px">
-    <div style="font-size:12px;font-weight:600;color:#1a5c9e;margin-bottom:6px;background:#e8f0fe;padding:6px 10px;border-radius:6px">💧 น้ำเข้า-ออก (I/O)</div>
+  const _sec=(id,bg,tc,title,body,btns)=>`
+  <div style="margin-bottom:12px;border:1px solid #e8e4de;border-radius:10px;overflow:hidden">
+    <div onclick="toggleIIOSection('${id}')" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:${bg};cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent">
+      <span style="font-size:13px;font-weight:600;color:${tc}">${title}</span>
+      <span style="font-size:12px;color:${tc};transition:transform .2s;display:inline-block;transform:rotate(${_iioOpen[id]?'0':'-90'}deg)">▼</span>
+    </div>
+    <div style="display:${_iioOpen[id]?'block':'none'};padding:10px">
+      ${body}
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">${btns}</div>
+    </div>
+  </div>`;
+  el.innerHTML=
+  _sec('io','#e8f0fe','#1a5c9e','💧 น้ำเข้า-ออก (I/O)',`
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:400px">
       <thead><tr style="background:#f0ede8">
         <th style="padding:6px;border:1px solid #ddd">วันที่</th>
@@ -2082,25 +2095,19 @@ function renderIndivIO(){
         <th style="padding:6px;border:1px solid #ddd">O</th>
         <th style="padding:6px;border:1px solid #ddd">หมายเหตุ</th>
       </tr></thead><tbody>${ioRows}</tbody>
-    </table></div>
-    <button onclick="saveIndivIO()" style="margin-top:8px;padding:8px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600">💾 บันทึก I/O</button>
-  </div>
-  <div style="margin-bottom:14px">
-    <div style="font-size:12px;font-weight:600;color:#7a4f0d;margin-bottom:6px;background:#f5e8d0;padding:6px 10px;border-radius:6px">🩸 บันทึก DTX</div>
+    </table></div>`,
+    `<button onclick="saveIndivIO()" style="padding:8px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600">💾 บันทึก I/O</button>`)+
+  _sec('dtx','#f5e8d0','#7a4f0d','🩸 บันทึก DTX',`
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:360px">
       <thead><tr style="background:#f0ede8">
         <th style="padding:6px;border:1px solid #ddd">วดป.</th><th style="padding:6px;border:1px solid #ddd">เวลา</th>
         <th style="padding:6px;border:1px solid #ddd">DTX</th><th style="padding:6px;border:1px solid #ddd">หมายเหตุ</th>
         <th style="padding:6px;border:1px solid #ddd"></th>
       </tr></thead><tbody id="dtx-tbody">${dtxRows}</tbody>
-    </table></div>
-    <div style="display:flex;gap:8px;margin-top:6px">
-      <button onclick="addDTXRow()" style="padding:6px 14px;border:1px solid #7a4f0d;border-radius:6px;background:#f5e8d0;color:#7a4f0d;cursor:pointer;font-size:12px;font-family:inherit">+ เพิ่มแถว</button>
-      <button onclick="saveIndivDTX()" style="padding:6px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600">💾 บันทึก DTX</button>
-    </div>
-  </div>
-  <div>
-    <div style="font-size:12px;font-weight:600;color:#1a5c9e;margin-bottom:6px;background:#e8f0fe;padding:6px 10px;border-radius:6px">⚖️ บันทึก BMI</div>
+    </table></div>`,
+    `<button onclick="addDTXRow()" style="padding:6px 14px;border:1px solid #7a4f0d;border-radius:6px;background:#f5e8d0;color:#7a4f0d;cursor:pointer;font-size:12px;font-family:inherit">+ เพิ่มแถว</button>
+     <button onclick="saveIndivDTX()" style="padding:6px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600">💾 บันทึก DTX</button>`)+
+  _sec('bmi','#e8f0fe','#1a5c9e','⚖️ บันทึก BMI',`
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:440px">
       <thead><tr style="background:#f0ede8">
         <th style="padding:6px;border:1px solid #ddd">วดป.</th><th style="padding:6px;border:1px solid #ddd">น้ำหนัก(กก.)</th>
@@ -2108,12 +2115,9 @@ function renderIndivIO(){
         <th style="padding:6px;border:1px solid #ddd">แปลผล</th><th style="padding:6px;border:1px solid #ddd">เปลี่ยนแปลง</th>
         <th style="padding:6px;border:1px solid #ddd"></th>
       </tr></thead><tbody id="bmi-tbody">${bmiRows}</tbody>
-    </table></div>
-    <div style="display:flex;gap:8px;margin-top:6px">
-      <button onclick="addBMIRow()" style="padding:6px 14px;border:1px solid #1a5c9e;border-radius:6px;background:#e8f0fe;color:#1a5c9e;cursor:pointer;font-size:12px;font-family:inherit">+ เพิ่มแถว</button>
-      <button onclick="saveIndivBMI()" style="padding:6px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600">💾 บันทึก BMI</button>
-    </div>
-  </div>`;
+    </table></div>`,
+    `<button onclick="addBMIRow()" style="padding:6px 14px;border:1px solid #1a5c9e;border-radius:6px;background:#e8f0fe;color:#1a5c9e;cursor:pointer;font-size:12px;font-family:inherit">+ เพิ่มแถว</button>
+     <button onclick="saveIndivBMI()" style="padding:6px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600">💾 บันทึก BMI</button>`);
 }
 function updateIO(day,f,val){if(!_iioData[day])_iioData[day]={};_iioData[day][f]=val;}
 window.updateIO=updateIO;
