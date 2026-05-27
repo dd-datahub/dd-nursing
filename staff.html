@@ -918,7 +918,7 @@ function selectSidebarCase(id) {
 let _dashSearch = '';
 let _dashBranchOpen = {'สาขา 1': true, 'สาขา 2': true, 'สาขา 3': true};
 let _dashMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'); // init to current month
-let _dashAvailYears = (()=>{ const y=now.getFullYear(); return [y-1, y]; })();
+let _dashAvailYears = (()=>{ const y=now.getFullYear(); return [y]; })();
 
 function buildDashMonthTabs() {
   const el = document.getElementById('dash-month-tabs');
@@ -1711,7 +1711,7 @@ let _activeIndivSheet = 'ivs';
 // ── shared year/month picker for all indiv sheets ──
 const _THAI_MO_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 let _indivYM = new Date().toISOString().slice(0,7); // YYYY-MM (Gregorian)
-let _indivAvailYears = (()=>{ const y=new Date().getFullYear(); return [y-1, y]; })();
+let _indivAvailYears = (()=>{ const y=new Date().getFullYear(); return [y]; })();
 
 function renderIndivYMPicker() {
   const el = document.getElementById('indiv-ym-picker');
