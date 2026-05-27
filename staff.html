@@ -1719,6 +1719,13 @@ window.renderIndivCustSelect = renderIndivCustSelect;
 function _openIndivList() {
   _filterIndivCusts(document.getElementById('indiv-cust-search')?.value || '');
 }
+function _closeIndivList() {
+  // หน่วงเวลา 250ms เพื่อให้ onclick/touchend ของ item ทำงานก่อน
+  setTimeout(() => {
+    const list = document.getElementById('indiv-cust-list');
+    if (list) list.style.display = 'none';
+  }, 250);
+}
 function _filterIndivCusts(q) {
   const list = document.getElementById('indiv-cust-list');
   if (!list) return;
@@ -1735,7 +1742,10 @@ function _filterIndivCusts(q) {
     const cid = (c.id||'').replace(/\//g,'_');
     const bNum = (c.branch||'').replace(/[^0-9]/g,'');
     const sel = cid === _indivCustId ? ' indiv-srch-sel' : '';
-    return `<div class="indiv-srch-item${sel}" onclick="_selectIndivCust('${cid}',${JSON.stringify(c.name)})" onmousedown="event.preventDefault()">
+    // ใช้ทั้ง onclick และ ontouchend เพื่อรองรับมือถือ
+    return `<div class="indiv-srch-item${sel}"
+      onclick="_selectIndivCust('${cid}',${JSON.stringify(c.name)})"
+      ontouchend="event.preventDefault();_selectIndivCust('${cid}',${JSON.stringify(c.name)})">
       <span class="indiv-srch-name">${c.name}</span>
       <span class="indiv-srch-id">${c.id||''}</span>
       ${c.branch?`<span class="branch-tag b${bNum}">${c.branch}</span>`:''}
@@ -1753,14 +1763,9 @@ function _selectIndivCust(cid, name) {
   loadActiveIndivSheet();
 }
 window._openIndivList = _openIndivList;
+window._closeIndivList = _closeIndivList;
 window._filterIndivCusts = _filterIndivCusts;
 window._selectIndivCust = _selectIndivCust;
-// ปิด dropdown เมื่อคลิกนอกกล่อง
-document.addEventListener('mousedown', function(e) {
-  const wrap = document.getElementById('indiv-cust-wrap');
-  const list = document.getElementById('indiv-cust-list');
-  if (wrap && !wrap.contains(e.target) && list) list.style.display = 'none';
-});
 
 function updateIndivBanner() {
   const banner = document.getElementById('indiv-banner');
@@ -3241,6 +3246,7 @@ if ('serviceWorker' in navigator) {
               placeholder="พิมพ์ชื่อหรือรหัสลูกค้า..."
               oninput="_filterIndivCusts(this.value)"
               onfocus="_openIndivList()"
+              onblur="_closeIndivList()"
               autocomplete="off" spellcheck="false">
             <div id="indiv-cust-list"></div>
           </div>
