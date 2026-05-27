@@ -1705,17 +1705,62 @@ function setIndivBranch(branch) {
 window.setIndivBranch = setIndivBranch;
 
 function renderIndivCustSelect() {
-  const sel = document.getElementById('indiv-cust-sel');
-  if (!sel) return;
-  const custs = _getIndivCusts();
-  sel.innerHTML = '<option value="">-- เลือกผู้ป่วย --</option>' +
-    custs.map(c => {
-      const cid = (c.id||'').replace(/\//g,'_');
-      return `<option value="${cid}" ${_indivCustId===cid?'selected':''}>${c.name}</option>`;
-    }).join('');
-  sel.onchange = () => { _indivCustId = sel.value; updateIndivBanner(); loadActiveIndivSheet(); };
+  const inp = document.getElementById('indiv-cust-search');
+  if (!inp) return;
+  // ถ้า selection ปัจจุบันหลุดออกจาก branch filter ให้ reset
+  if (_indivCustId) {
+    const still = _getIndivCusts().some(c => (c.id||'').replace(/\//g,'_') === _indivCustId);
+    if (!still) { _indivCustId = ''; inp.value = ''; updateIndivBanner(); }
+  }
+  _filterIndivCusts(inp.value);
 }
 window.renderIndivCustSelect = renderIndivCustSelect;
+
+function _openIndivList() {
+  _filterIndivCusts(document.getElementById('indiv-cust-search')?.value || '');
+}
+function _filterIndivCusts(q) {
+  const list = document.getElementById('indiv-cust-list');
+  if (!list) return;
+  const custs = _getIndivCusts();
+  const ql = q.trim().toLowerCase();
+  const filtered = ql
+    ? custs.filter(c => c.name.toLowerCase().includes(ql) || (c.id||'').toLowerCase().includes(ql))
+    : custs;
+  if (!filtered.length) {
+    list.innerHTML = `<div style="padding:14px;color:#bbb;font-size:13px;text-align:center">ไม่พบลูกค้า</div>`;
+    list.style.display = 'block'; return;
+  }
+  list.innerHTML = filtered.slice(0, 60).map(c => {
+    const cid = (c.id||'').replace(/\//g,'_');
+    const bNum = (c.branch||'').replace(/[^0-9]/g,'');
+    const sel = cid === _indivCustId ? ' indiv-srch-sel' : '';
+    return `<div class="indiv-srch-item${sel}" onclick="_selectIndivCust('${cid}',${JSON.stringify(c.name)})" onmousedown="event.preventDefault()">
+      <span class="indiv-srch-name">${c.name}</span>
+      <span class="indiv-srch-id">${c.id||''}</span>
+      ${c.branch?`<span class="branch-tag b${bNum}">${c.branch}</span>`:''}
+    </div>`;
+  }).join('');
+  list.style.display = 'block';
+}
+function _selectIndivCust(cid, name) {
+  _indivCustId = cid;
+  const inp = document.getElementById('indiv-cust-search');
+  if (inp) inp.value = name;
+  const list = document.getElementById('indiv-cust-list');
+  if (list) list.style.display = 'none';
+  updateIndivBanner();
+  loadActiveIndivSheet();
+}
+window._openIndivList = _openIndivList;
+window._filterIndivCusts = _filterIndivCusts;
+window._selectIndivCust = _selectIndivCust;
+// ปิด dropdown เมื่อคลิกนอกกล่อง
+document.addEventListener('mousedown', function(e) {
+  const wrap = document.getElementById('indiv-cust-wrap');
+  const list = document.getElementById('indiv-cust-list');
+  if (wrap && !wrap.contains(e.target) && list) list.style.display = 'none';
+});
 
 function updateIndivBanner() {
   const banner = document.getElementById('indiv-banner');
@@ -2697,6 +2742,18 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .isheet-panel.active{display:block}
 .ibranch-btn{padding:7px 13px;border:1.5px solid #ddd;border-radius:20px;background:#fff;font-size:12px;font-family:inherit;cursor:pointer;color:#555;transition:all .15s;font-weight:500}
 .ibranch-btn.active{background:#2856b8;color:#fff;border-color:#2856b8;font-weight:600}
+/* indiv customer search */
+#indiv-cust-wrap{position:relative}
+#indiv-cust-search{width:100%;padding:8px 12px 8px 34px;border:1px solid #e0dbd2;border-radius:8px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box}
+#indiv-cust-search:focus{border-color:#2856b8}
+#indiv-cust-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;line-height:1}
+#indiv-cust-list{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:600;background:#fff;border:1px solid #e0dbd2;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.13);max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.indiv-srch-item{display:flex;align-items:center;gap:6px;padding:9px 12px;cursor:pointer;border-bottom:.5px solid #f0ede8;font-size:13px;transition:background .1s;-webkit-tap-highlight-color:transparent}
+.indiv-srch-item:last-child{border-bottom:none}
+.indiv-srch-item:hover,.indiv-srch-item:active{background:#f5fbf7}
+.indiv-srch-sel{background:#e8f5ee!important}
+.indiv-srch-name{flex:1;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.indiv-srch-id{font-size:11px;color:#aaa;white-space:nowrap;flex-shrink:0}
 /* status toggle buttons */
 .status-toggle-btn{width:100%;padding:13px 16px;border:1.5px solid #e0dbd2;border-radius:12px;cursor:pointer;font-size:14px;font-weight:500;font-family:inherit;text-align:left;transition:all .18s;background:#fff;color:#555;margin-bottom:10px;display:flex;align-items:center;gap:12px}
 .status-toggle-btn:last-child{margin-bottom:0}
@@ -3178,9 +3235,15 @@ if ('serviceWorker' in navigator) {
             <button class="ibranch-btn" data-branch="สาขา 2" onclick="setIndivBranch('สาขา 2')">สาขา 2</button>
             <button class="ibranch-btn" data-branch="สาขา 3" onclick="setIndivBranch('สาขา 3')">สาขา 3</button>
           </div>
-          <select id="indiv-cust-sel" style="width:100%;padding:8px 12px;border:1px solid #e0dbd2;border-radius:8px;font-size:13px;font-family:inherit;outline:none">
-            <option value="">-- เลือกผู้ป่วย --</option>
-          </select>
+          <div id="indiv-cust-wrap">
+            <span id="indiv-cust-search-icon">🔍</span>
+            <input type="text" id="indiv-cust-search"
+              placeholder="พิมพ์ชื่อหรือรหัสลูกค้า..."
+              oninput="_filterIndivCusts(this.value)"
+              onfocus="_openIndivList()"
+              autocomplete="off" spellcheck="false">
+            <div id="indiv-cust-list"></div>
+          </div>
           <div id="indiv-banner" style="display:none;background:#f0f4fe;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:8px"></div>
         </div>
         <!-- Sub-sheet tabs -->
