@@ -1707,6 +1707,24 @@ function setIndivBranch(branch) {
 }
 window.setIndivBranch = setIndivBranch;
 
+// dropdown อยู่นอก card (append to body) เพื่อหลีกเลี่ยง stacking context ที่บล็อก pointer events
+let _indivListEl = null;
+function _getIndivListEl() {
+  if (!_indivListEl || !document.body.contains(_indivListEl)) {
+    _indivListEl = document.createElement('div');
+    _indivListEl.id = 'indiv-cust-list';
+    document.body.appendChild(_indivListEl);
+  }
+  return _indivListEl;
+}
+function _positionIndivList() {
+  const inp = document.getElementById('indiv-cust-search');
+  const list = _getIndivListEl();
+  if (!inp) return;
+  const r = inp.getBoundingClientRect();
+  list.style.cssText = `position:fixed!important;z-index:99999;background:#fff;border:1px solid #e0dbd2;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.15);overflow-y:auto;-webkit-overflow-scrolling:touch;left:${r.left}px;width:${r.width}px;top:${r.bottom+4}px;max-height:${Math.min(260,window.innerHeight-r.bottom-10)}px`;
+}
+
 function renderIndivCustSelect() {
   const inp = document.getElementById('indiv-cust-search');
   if (!inp) return;
@@ -1722,19 +1740,17 @@ function _openIndivList() {
   _filterIndivCusts(document.getElementById('indiv-cust-search')?.value || '');
 }
 function _closeIndivList() {
-  setTimeout(() => {
-    const list = document.getElementById('indiv-cust-list');
-    if (list) list.style.display = 'none';
-  }, 250);
+  // หน่วงเวลาเผื่อ click/touchend ของ item ทำงานก่อน
+  setTimeout(() => { _getIndivListEl().style.display = 'none'; }, 300);
 }
 function _filterIndivCusts(q) {
-  const list = document.getElementById('indiv-cust-list');
-  if (!list) return;
+  const list = _getIndivListEl();
   const custs = _getIndivCusts();
   const ql = q.trim().toLowerCase();
   const filtered = ql
     ? custs.filter(c => c.name.toLowerCase().includes(ql) || (c.id||'').toLowerCase().includes(ql))
     : custs;
+  _positionIndivList();
   if (!filtered.length) {
     list.innerHTML = `<div style="padding:14px;color:#bbb;font-size:13px;text-align:center">ไม่พบลูกค้า</div>`;
     list.style.display = 'block'; return;
@@ -1743,22 +1759,30 @@ function _filterIndivCusts(q) {
     const cid = (c.id||'').replace(/\//g,'_');
     const bNum = (c.branch||'').replace(/[^0-9]/g,'');
     const sel = cid === _indivCustId ? ' indiv-srch-sel' : '';
-    return `<div class="indiv-srch-item${sel}"
-      onclick="_selectIndivCust('${cid}',${JSON.stringify(c.name)})"
-      ontouchend="event.preventDefault();_selectIndivCust('${cid}',${JSON.stringify(c.name)})">
+    return `<div class="indiv-srch-item${sel}" data-cid="${cid}" data-cname="${c.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}">
       <span class="indiv-srch-name">${c.name}</span>
       <span class="indiv-srch-id">${c.id||''}</span>
       ${c.branch?`<span class="branch-tag b${bNum}">${c.branch}</span>`:''}
     </div>`;
   }).join('');
+  // ใช้ addEventListener แทน inline handler — รองรับ module scope และมือถือได้ดีกว่า
+  list.querySelectorAll('.indiv-srch-item').forEach(el => {
+    el.addEventListener('mousedown', e => e.preventDefault()); // ป้องกัน input blur บน desktop
+    el.addEventListener('click', function() {
+      _selectIndivCust(this.dataset.cid, this.dataset.cname);
+    });
+    el.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      _selectIndivCust(this.dataset.cid, this.dataset.cname);
+    });
+  });
   list.style.display = 'block';
 }
 function _selectIndivCust(cid, name) {
   _indivCustId = cid;
   const inp = document.getElementById('indiv-cust-search');
   if (inp) inp.value = name;
-  const list = document.getElementById('indiv-cust-list');
-  if (list) list.style.display = 'none';
+  _getIndivListEl().style.display = 'none';
   updateIndivBanner();
   loadActiveIndivSheet();
 }
@@ -2745,7 +2769,7 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 #indiv-cust-search{width:100%;padding:8px 12px 8px 34px;border:1px solid #e0dbd2;border-radius:8px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box}
 #indiv-cust-search:focus{border-color:#2856b8}
 #indiv-cust-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;line-height:1}
-#indiv-cust-list{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:600;background:#fff;border:1px solid #e0dbd2;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.13);max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#indiv-cust-list{display:none} /* positioned & styled dynamically via JS (fixed to body) */
 .indiv-srch-item{display:flex;align-items:center;gap:6px;padding:9px 12px;cursor:pointer;border-bottom:.5px solid #f0ede8;font-size:13px;transition:background .1s;-webkit-tap-highlight-color:transparent}
 .indiv-srch-item:last-child{border-bottom:none}
 .indiv-srch-item:hover,.indiv-srch-item:active{background:#f5fbf7}
@@ -3229,7 +3253,6 @@ if ('serviceWorker' in navigator) {
               onfocus="_openIndivList()"
               onblur="_closeIndivList()"
               autocomplete="off" spellcheck="false">
-            <div id="indiv-cust-list"></div>
           </div>
           <div id="indiv-banner" style="display:none;background:#f0f4fe;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:8px"></div>
         </div>
