@@ -670,26 +670,67 @@ window._signOut = () => signOut(auth);
 // ดึงผล redirect เมื่อกลับมาจาก Google (mobile)
 getRedirectResult(auth).catch(err => console.warn('getRedirectResult:', err));
 
-// รอ auth state — ถ้า login แล้วค่อยโหลดข้อมูล
+// ── แสดงหน้า "ไม่มีสิทธิ์" ──────────────────────────────────────────
+function _showAdminDenied(user, msg) {
+  const ls = document.getElementById("login-screen");
+  if (!ls) return;
+  ls.innerHTML = `
+    <div class="login-box">
+      <div style="font-size:44px;margin-bottom:8px">🚫</div>
+      <h1 style="color:#c0392b;font-size:16px;margin-bottom:4px">ไม่มีสิทธิ์เข้าใช้งาน</h1>
+      <p style="color:#888;font-size:12px;margin:0 0 2px">${user.displayName||''}</p>
+      <p style="color:#aaa;font-size:11px;margin:0 0 12px">${user.email}</p>
+      <p style="color:#666;font-size:12px;margin-bottom:20px;line-height:1.6">${msg}</p>
+      <button onclick="window._signOut&&window._signOut().then(()=>location.reload())"
+        style="width:100%;padding:11px;background:#c0392b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600">
+        🚪 ออกจากระบบ
+      </button>
+    </div>`;
+  ls.style.display = "flex";
+}
+
+// รอ auth state — ตรวจสอบ admin_uids ก่อนเปิดแอปเสมอ
 onAuthStateChanged(auth, async user => {
   if (user) {
     window._currentUser = user;
-    // Auto-register admin UID
-    // Rules อนุญาต self-read admin_uids/$uid และ write ถ้า admin_uids ยังว่างอยู่
+
+    let isAdmin = false;
     try {
       const mySnap = await get(ref(db, `admin_uids/${user.uid}`));
-      if (!mySnap.exists()) {
-        // ลอง write — สำเร็จถ้า admin_uids ว่าง (bootstrap), ล้มเหลวถ้ามีคนอื่นเป็น admin อยู่แล้ว
-        await set(ref(db, `admin_uids/${user.uid}`), {
-          email: user.email, displayName: user.displayName || '', addedAt: new Date().toLocaleDateString('th-TH')
-        });
-        console.log('✓ Admin UID registered:', user.email);
+      if (mySnap.exists()) {
+        // ✅ เป็น admin อยู่แล้ว
+        isAdmin = true;
+      } else {
+        // ลอง bootstrap (สำเร็จเฉพาะครั้งแรกที่ admin_uids ว่างเปล่า)
+        try {
+          await set(ref(db, `admin_uids/${user.uid}`), {
+            email: user.email,
+            displayName: user.displayName || '',
+            addedAt: new Date().toLocaleDateString('th-TH')
+          });
+          isAdmin = true;
+          console.log('✓ Admin UID registered (bootstrap):', user.email);
+        } catch(_) {
+          // write ล้มเหลว = มี admin อยู่แล้ว → ไม่มีสิทธิ์
+          isAdmin = false;
+        }
       }
     } catch(e) {
-      // write ล้มเหลว = มี admin อยู่แล้วและ user นี้ไม่ใช่ admin → แสดง warning
-      console.warn('Not an admin or admin_uids write failed:', e.message);
+      console.warn('Cannot verify admin:', e.message);
+      _showAdminDenied(user,
+        '⚠️ ไม่สามารถตรวจสอบสิทธิ์ได้<br>' +
+        '<span style="font-size:11px;color:#aaa">กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่</span>');
+      return;
     }
 
+    if (!isAdmin) {
+      _showAdminDenied(user,
+        'บัญชีนี้ไม่ได้รับอนุญาตให้เข้าใช้งาน<br>' +
+        '<span style="font-size:11px;color:#aaa">ติดต่อผู้ดูแลระบบเพื่อขอสิทธิ์</span>');
+      return;
+    }
+
+    // ✅ Admin ยืนยันแล้ว — เปิดแอป
     const ls = document.getElementById("login-screen");
     if (ls) ls.style.display = "none";
     const uname  = document.getElementById("login-user-name");
@@ -697,6 +738,7 @@ onAuthStateChanged(auth, async user => {
     if (uname)  uname.textContent = user.displayName || user.email;
     if (uphoto && user.photoURL) { uphoto.src = user.photoURL; uphoto.style.display = "block"; }
     fbLoad().then(() => { listenRequisitions(); listenAllData(); });
+
   } else {
     window._currentUser = null;
     const ls = document.getElementById("login-screen");
