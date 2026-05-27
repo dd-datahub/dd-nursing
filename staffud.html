@@ -1050,7 +1050,8 @@ function setPage(page) {
   if (pageEl) pageEl.classList.add('active');
   // update topbar title
   const titles = {dashboard:'รายชื่อเคส', req:'บันทึกเบิกของ', vital:'ลงบันทึกรวม', indiv:'ลงบันทึกรายบุคคล', ssud:'ตารางเวรสาขาอุดร'};
-  if (page === 'ssud') staffudSchedInit();
+  if (page === 'ssud')  staffudSchedInit();
+  if (page === 'indiv') renderIndivYMPicker();
   const tb = document.getElementById('topbar-title');
   if (tb) tb.textContent = titles[page] || page;
   // sync bottom nav
@@ -1696,6 +1697,46 @@ let _indivCustId = '';
 let _indivBranch = '';
 let _activeIndivSheet = 'ivs';
 
+// ── shared year/month picker for all indiv sheets ──
+const _THAI_MO_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+let _indivYM = new Date().toISOString().slice(0,7); // YYYY-MM (Gregorian)
+let _indivAvailYears = (()=>{ const y=new Date().getFullYear(); return [y-1, y]; })();
+
+function renderIndivYMPicker() {
+  const el = document.getElementById('indiv-ym-picker');
+  if (!el) return;
+  const [cyStr, cmStr] = _indivYM.split('-');
+  const cy = parseInt(cyStr), cm = parseInt(cmStr);
+  const yearPills = _indivAvailYears.map(y => {
+    const be = y + 543;
+    return `<button class="iym-pill${y===cy?' iym-active':''}" onclick="setIndivYear(${y})">${be}</button>`;
+  }).join('');
+  const monthPills = _THAI_MO_SHORT.map((m,i) => {
+    const mo = i+1;
+    return `<button class="iym-pill${mo===cm?' iym-active':''}" onclick="setIndivMonth(${mo})">${m}</button>`;
+  }).join('');
+  el.innerHTML =
+    `<div class="iym-row">${yearPills}<button class="iym-pill iym-add" onclick="addIndivYear()">+ ปี</button></div>` +
+    `<div class="iym-row">${monthPills}</div>`;
+}
+function setIndivYear(ceYear) {
+  _indivYM = ceYear + '-' + _indivYM.slice(5);
+  _iioMonth = _icareMonth = _imedrecMonth = _indivYM;
+  renderIndivYMPicker(); loadActiveIndivSheet();
+}
+function setIndivMonth(mo) {
+  _indivYM = _indivYM.slice(0,5) + String(mo).padStart(2,'0');
+  _iioMonth = _icareMonth = _imedrecMonth = _indivYM;
+  renderIndivYMPicker(); loadActiveIndivSheet();
+}
+function addIndivYear() {
+  _indivAvailYears.push(Math.max(..._indivAvailYears)+1);
+  renderIndivYMPicker();
+}
+window.setIndivYear  = setIndivYear;
+window.setIndivMonth = setIndivMonth;
+window.addIndivYear  = addIndivYear;
+
 function _getIndivCusts() {
   const all = (typeof allCustomers !== 'undefined') ? allCustomers : [];
   // กรองเฉพาะสาขาอุดร (allCustomers ถูก filter แล้วจาก BRANCH_FILTER แต่ lock เพิ่มอีกชั้น)
@@ -1813,6 +1854,8 @@ window.setIndivSheet = setIndivSheet;
 
 function loadActiveIndivSheet() {
   if (!_indivCustId) return;
+  // sync all month vars from shared picker
+  _iioMonth = _icareMonth = _imedrecMonth = _indivYM;
   const s = _activeIndivSheet;
   if (s==='ivs')      loadIndivVS();
   else if (s==='iio') loadIndivIO();
@@ -1975,10 +2018,6 @@ function renderIndivIO(){
   </tr>`).join('');
 
   el.innerHTML=`
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-    <label style="font-size:12px;color:#666">เดือน:</label>
-    <input type="month" value="${_iioMonth}" onchange="_iioMonth=this.value;loadIndivIO()" style="padding:5px 8px;border:1px solid #ddd;border-radius:6px;font-size:12px">
-  </div>
   <div style="margin-bottom:14px">
     <div style="font-size:12px;font-weight:600;color:#1a5c9e;margin-bottom:6px;background:#e8f0fe;padding:6px 10px;border-radius:6px">💧 น้ำเข้า-ออก (I/O)</div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:400px">
@@ -2099,10 +2138,6 @@ function renderIndivCare(){
     return `<tr>${cells}</tr>`;
   }).join('');
   el.innerHTML=`
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-    <label style="font-size:12px;color:#666">เดือน:</label>
-    <input type="month" value="${_icareMonth}" onchange="_icareMonth=this.value;loadIndivCare()" style="padding:5px 8px;border:1px solid #ddd;border-radius:6px;font-size:12px">
-  </div>
   <div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px">
     <thead><tr>${hdr}</tr></thead><tbody>${rows}</tbody>
   </table></div>
@@ -2211,11 +2246,7 @@ function renderIndivMedRec(){
     cells+=`<td style="padding:2px;border:1px solid #eee;text-align:center"><button onclick="removeMedRec(${i})" style="padding:2px 7px;border:1px solid #f5b8b0;border-radius:4px;background:#fdf0ee;color:#c0392b;cursor:pointer;font-size:11px">ลบ</button></td>`;
     return `<tr style="background:${bg}">${cells}</tr>`;
   }).join('');
-  el.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-    <label style="font-size:12px;color:#666">เดือน:</label>
-    <input type="month" value="${_imedrecMonth}" onchange="_imedrecMonth=this.value;loadIndivMedRec()" style="padding:5px 8px;border:1px solid #ddd;border-radius:6px;font-size:12px">
-  </div>
-  <div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;min-width:600px">
+  el.innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;min-width:600px">
     <thead>${hdr}</thead><tbody>${rows}</tbody>
   </table></div>
   <div style="display:flex;gap:8px;margin-top:8px">
@@ -2760,6 +2791,14 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .vsheet-panel.active{display:block}
 .vbranch-btn.active{background:#f0ede8 !important;border-color:#bbb !important;font-weight:700 !important}
 /* sub-sheet tabs inside ลงบันทึกรายบุคคล */
+/* year/month picker */
+#indiv-ym-picker{background:#f8f6f3;border:1px solid #e8e4de;border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.iym-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.iym-row:last-child{margin-bottom:0}
+.iym-pill{padding:6px 13px;border:1.5px solid #d8d5d0;border-radius:20px;background:#fff;font-size:13px;font-family:inherit;cursor:pointer;color:#555;font-weight:500;transition:all .15s;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.iym-pill:active{opacity:.75}
+.iym-active{background:#1a6b4a!important;color:#fff!important;border-color:#1a6b4a!important;font-weight:600}
+.iym-add{color:#2856b8;border-color:#c0cde8;background:#f0f4fe}
 .isheet-btn{padding:7px 13px;border:1.5px solid #ddd;border-radius:20px;background:#fff;font-size:12px;font-family:inherit;cursor:pointer;color:#555;transition:all .15s;font-weight:500;white-space:nowrap}
 .isheet-btn.active{background:#2856b8;color:#fff;border-color:#2856b8;font-weight:600}
 .isheet-panel{display:none}
@@ -3258,6 +3297,8 @@ if ('serviceWorker' in navigator) {
           </div>
           <div id="indiv-banner" style="display:none;background:#f0f4fe;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:8px"></div>
         </div>
+        <!-- Year/Month picker -->
+        <div id="indiv-ym-picker"></div>
         <!-- Sub-sheet tabs -->
         <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
           <button class="isheet-btn active" data-sheet="ivs"      onclick="setIndivSheet('ivs')">📊 VS รายบุคคล</button>
