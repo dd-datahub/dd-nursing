@@ -288,6 +288,47 @@ function loadData() {
   });
 }
 
+// ── Thai date helper & auto-wrapper ──────────────────────────────────
+const _THAI_MO = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+function _thaiDate(d) {
+  if (!d) return '';
+  const p = String(d).split('-');
+  if (p.length < 3) return d;
+  const [y,m,day] = p.map(Number);
+  if (!y||!m||!day) return '';
+  return `${day} ${_THAI_MO[m-1]} ${y+543}`;
+}
+window._thaiDate = _thaiDate;
+
+function _applyThaiDates(root) {
+  (root||document).querySelectorAll('input[type="date"]:not([data-td])').forEach(inp => {
+    inp.dataset.td = '1';
+    const wrap = document.createElement('div');
+    wrap.className = 'thai-date-wrap';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const lbl = document.createElement('span');
+    lbl.className = 'thai-date-lbl';
+    lbl.textContent = _thaiDate(inp.value);
+    wrap.appendChild(lbl);
+    const upd = () => { lbl.textContent = _thaiDate(inp.value); };
+    inp.addEventListener('change', upd);
+    inp.addEventListener('input',  upd);
+  });
+}
+// MutationObserver: auto-patch เมื่อมี date input ใหม่ถูกเพิ่ม
+const _tdObs = new MutationObserver(muts => {
+  for (const m of muts) {
+    for (const n of m.addedNodes) {
+      if (n.nodeType === 1) _applyThaiDates(n.querySelectorAll ? n : null);
+    }
+  }
+});
+setTimeout(() => {
+  _tdObs.observe(document.body, {childList:true, subtree:true});
+  _applyThaiDates(document.body);
+}, 300);
+
 function buildMonthSelect() {
   const sel = document.getElementById("month-sel");
   const months = [];
@@ -2806,6 +2847,9 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .vbranch-btn.active{background:#f0ede8 !important;border-color:#bbb !important;font-weight:700 !important}
 /* sub-sheet tabs inside ลงบันทึกรายบุคคล */
 /* year/month picker */
+/* thai date wrapper for all date inputs */
+.thai-date-wrap{display:inline-flex;flex-direction:column;align-items:center;gap:0;vertical-align:middle}
+.thai-date-lbl{font-size:10px;color:#1a6b4a;font-weight:600;white-space:nowrap;line-height:1.4;text-align:center}
 #indiv-ym-picker{background:#f8f6f3;border:1px solid #e8e4de;border-radius:12px;padding:10px 12px;margin-bottom:10px}
 .iym-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
 .iym-row:last-child{margin-bottom:0}
