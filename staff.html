@@ -1695,7 +1695,9 @@ let _activeIndivSheet = 'ivs';
 
 function _getIndivCusts() {
   const all = (typeof allCustomers !== 'undefined') ? allCustomers : [];
-  return _indivBranch ? all.filter(c => c.branch === _indivBranch) : all;
+  // กรองเฉพาะสาขาหลัก (ไม่รวมสาขาอุดร)
+  const main = all.filter(c => c.branch !== 'สาขาอุดร');
+  return _indivBranch ? main.filter(c => c.branch === _indivBranch) : main;
 }
 function setIndivBranch(branch) {
   _indivBranch = branch;
