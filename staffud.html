@@ -2277,7 +2277,7 @@ const _MEDREC_SLOTS=[
   {k:'aft_morn',l:'เช้า',grp:'aft'},{k:'aft_noon',l:'เที่ยง',grp:'aft'},{k:'aft_eve',l:'เย็น',grp:'aft'},
   {k:'sleep',l:'ก่อนนอน',grp:'other'},{k:'other',l:'อื่นๆ',grp:'other'}
 ];
-const _MEDREC_EMPTY=()=>({name:'',dose:'',time:'',slots:{},qty:'',note:'',days:{}});
+const _MEDREC_EMPTY=()=>({name:'',dose:'',time:'',slots:{},qty:'',countDate:'',note:'',days:{}});
 
 function loadIndivMedRec(){
   if(!_indivCustId)return;
@@ -2304,10 +2304,12 @@ function renderIndivMedRec(){
   h1+=`<th colspan="3" style="padding:4px 5px;border:1px solid #ddd;font-size:10px;text-align:center;background:${BFR}">ก่อนอาหาร</th>`;
   h1+=`<th colspan="3" style="padding:4px 5px;border:1px solid #ddd;font-size:10px;text-align:center;background:${AFT}">หลังอาหาร</th>`;
   h1+=rs2('ก่อนนอน',null,44)+rs2('อื่นๆ',null,36);
+  h1+=`<th colspan="2" style="padding:4px 5px;border:1px solid #ddd;font-size:10px;text-align:center;background:#e8eaf6;white-space:nowrap">นับยา</th>`;
   days.forEach(d=>{h1+=`<th rowspan="2" style="padding:3px 1px;border:1px solid #ddd;font-size:9px;text-align:center;min-width:26px;background:${BASE}">${d}</th>`;});
-  h1+=rs2('จำนวน<br>(เม็ด)',null,50,'text-align:center')+rs2('หมายเหตุ',null,68)+`<th rowspan="2" style="border:1px solid #ddd;min-width:28px;background:${BASE}"></th>`;
+  h1+=rs2('หมายเหตุ',null,68)+`<th rowspan="2" style="border:1px solid #ddd;min-width:28px;background:${BASE}"></th>`;
   const sh=(t,bg)=>`<th style="padding:3px 2px;border:1px solid #ddd;font-size:9px;text-align:center;min-width:26px;background:${bg}">${t}</th>`;
   let h2=sh('เช้า',BFR)+sh('เที่ยง',BFR)+sh('เย็น',BFR)+sh('เช้า',AFT)+sh('เที่ยง',AFT)+sh('เย็น',AFT);
+  h2+=sh('จำนวน(เม็ด)','#e8eaf6')+`<th style="padding:3px 2px;border:1px solid #ddd;font-size:9px;text-align:center;min-width:84px;background:#e8eaf6">วันที่นับ</th>`;
   const slotBg={bfr:BFR,aft:AFT,other:BASE};
   const rows=_imedrecData.map((r,i)=>{
     const bg=i%2===0?'#fff':'#fafaf8';
@@ -2316,8 +2318,9 @@ function renderIndivMedRec(){
       <td style="padding:2px;border:1px solid #eee"><input type="text" value="${(r.dose||'').replace(/"/g,'&quot;')}" placeholder="1เม็ด" oninput="updateMedRec(${i},'dose',this.value)" style="width:50px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>
       <td style="padding:2px;border:1px solid #eee"><input type="text" value="${(r.time||'').replace(/"/g,'&quot;')}" placeholder="8.00น" oninput="updateMedRec(${i},'time',this.value)" style="width:50px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>`;
     _MEDREC_SLOTS.forEach(s=>{const chk=(r.slots||{})[s.k];c+=`<td style="padding:2px;border:1px solid #eee;text-align:center;background:${slotBg[s.grp]}"><input type="checkbox" ${chk?'checked':''} onchange="updateMedRecSlot(${i},'${s.k}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#1a6b4a"></td>`;});
+    c+=`<td style="padding:2px;border:1px solid #eee;text-align:center;background:#f0f1fa"><input type="number" min="0" value="${r.qty||''}" placeholder="-" oninput="updateMedRec(${i},'qty',this.value)" style="width:46px;padding:4px 2px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>`;
+    c+=`<td style="padding:2px;border:1px solid #eee;background:#f0f1fa"><input type="date" value="${r.countDate||''}" oninput="updateMedRec(${i},'countDate',this.value)" style="padding:3px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit;width:82px"></td>`;
     days.forEach(d=>{const v=(r.days||{})[d];const dv=typeof v==='boolean'?(v?'✓':''):(v||'');c+=`<td style="padding:1px;border:1px solid #eee;text-align:center;background:${bg}"><input type="text" value="${String(dv).replace(/"/g,'&quot;')}" oninput="updateMedRecDay(${i},${d},this.value)" style="width:24px;padding:2px 1px;border:1px solid #ddd;border-radius:3px;font-size:10px;text-align:center;font-family:inherit;background:transparent"></td>`;});
-    c+=`<td style="padding:2px;border:1px solid #eee;text-align:center"><input type="number" min="0" value="${r.qty||''}" placeholder="-" oninput="updateMedRec(${i},'qty',this.value)" style="width:46px;padding:4px 2px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>`;
     c+=`<td style="padding:2px;border:1px solid #eee"><input type="text" value="${(r.note||'').replace(/"/g,'&quot;')}" placeholder="หมายเหตุ" oninput="updateMedRec(${i},'note',this.value)" style="width:65px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>`;
     c+=`<td style="padding:2px;border:1px solid #eee;text-align:center"><button onclick="removeMedRec(${i})" style="padding:2px 7px;border:1px solid #f5b8b0;border-radius:4px;background:#fdf0ee;color:#c0392b;cursor:pointer;font-size:11px">ลบ</button></td>`;
     return `<tr>${c}</tr>`;
@@ -2329,7 +2332,7 @@ function renderIndivMedRec(){
     <label style="display:flex;align-items:center;gap:4px"><span style="color:#888;white-space:nowrap">โรคประจำตัว :</span><input type="text" value="${(inf.disease||'').replace(/"/g,'&quot;')}" placeholder="เช่น ความดัน, กระดูกพรุน" oninput="updateMedRecInfo('disease',this.value)" style="width:200px;padding:3px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;font-family:inherit"></label>
     <label style="display:flex;align-items:center;gap:4px"><span style="color:#888;white-space:nowrap">Bed/ห้อง :</span><input type="text" value="${(inf.bed||'').replace(/"/g,'&quot;')}" placeholder="Bed1" oninput="updateMedRecInfo('bed',this.value)" style="width:65px;padding:3px 6px;border:1px solid #ddd;border-radius:4px;font-size:12px;font-family:inherit"></label>
   </div>
-  <div style="overflow-x:auto;width:100%"><table style="border-collapse:collapse;font-size:12px">
+  <div style="overflow-x:auto;width:100%"><table style="border-collapse:collapse;font-size:12px;width:100%">
     <thead><tr style="background:${BASE}">${h1}</tr><tr>${h2}</tr></thead><tbody>${rows}</tbody>
   </table></div>
   <div style="padding:8px 12px;display:flex;gap:8px">
