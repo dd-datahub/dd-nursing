@@ -2276,8 +2276,8 @@ function loadIndivMedRec(){
   if(!_indivCustId)return;
   window._get(window._ref(window._db,`indiv_medrec/${_indivCustId}/${_imedrecMonth}`)).then(snap=>{
     _imedrecData=snap.exists()?Object.values(snap.val()):[];
-    if(!_imedrecData.length)_imedrecData=[{name:'',dose:'',time:'',slots:{},days:{}}];renderIndivMedRec();
-  }).catch(()=>{_imedrecData=[{name:'',dose:'',time:'',slots:{},days:{}}];renderIndivMedRec();});
+    if(!_imedrecData.length)_imedrecData=[{name:'',dose:'',time:'',note:'',days:{}}];renderIndivMedRec();
+  }).catch(()=>{_imedrecData=[{name:'',dose:'',time:'',note:'',days:{}}];renderIndivMedRec();});
 }
 function renderIndivMedRec(){
   const el=document.getElementById('imedrec-content');
@@ -2286,29 +2286,32 @@ function renderIndivMedRec(){
   const [y,m]=_imedrecMonth.split('-').map(Number);
   const daysInMonth=new Date(y,m,0).getDate();
   const days=Array.from({length:daysInMonth},(_,i)=>i+1);
-  let hdr=`<tr style="background:#f0ede8">
-    <th style="padding:5px 4px;border:1px solid #ddd;font-size:10px;min-width:25px">ที่</th>
-    <th style="padding:5px 6px;border:1px solid #ddd;font-size:10px;min-width:120px">ชื่อยา</th>
-    <th style="padding:5px 4px;border:1px solid #ddd;font-size:10px;min-width:60px">ขนาด</th>
-    <th style="padding:5px 4px;border:1px solid #ddd;font-size:10px;min-width:60px">เวลา</th>`;
-  MED_REC_SLOTS.forEach(s=>{hdr+=`<th style="padding:5px 3px;border:1px solid #ddd;font-size:9px;text-align:center;min-width:34px">${s.l}</th>`;});
-  days.forEach(d=>{hdr+=`<th style="padding:5px 2px;border:1px solid #ddd;font-size:9px;text-align:center;min-width:24px">${d}</th>`;});
-  hdr+=`<th style="padding:5px;border:1px solid #ddd"></th></tr>`;
+  const thSticky=(label,left,width)=>`<th style="padding:5px 4px;border:1px solid #ddd;font-size:10px;min-width:${width}px;position:sticky;left:${left}px;z-index:2;background:#f0ede8;white-space:nowrap">${label}</th>`;
+  let hdr=`<tr style="background:#f0ede8">${thSticky('ที่',0,24)}${thSticky('ชื่อยา / รายละเอียด',24,160)}
+    <th style="padding:5px 4px;border:1px solid #ddd;font-size:10px;min-width:55px;white-space:nowrap">ขนาดยา</th>
+    <th style="padding:5px 4px;border:1px solid #ddd;font-size:10px;min-width:55px;white-space:nowrap">เวลา</th>`;
+  days.forEach(d=>{hdr+=`<th style="padding:3px 1px;border:1px solid #ddd;font-size:9px;text-align:center;min-width:26px">${d}</th>`;});
+  hdr+=`<th style="padding:5px 4px;border:1px solid #ddd;font-size:10px;min-width:70px">หมายเหตุ</th>
+    <th style="padding:5px;border:1px solid #ddd;min-width:28px"></th></tr>`;
   const rows=_imedrecData.map((r,i)=>{
     const bg=i%2===0?'#fff':'#fafaf8';
-    let cells=`<td style="padding:3px 4px;border:1px solid #eee;text-align:center;color:#888;font-size:10px">${i+1}</td>
-      <td style="padding:2px;border:1px solid #eee"><input type="text" value="${(r.name||'').replace(/"/g,'&quot;')}" placeholder="ชื่อยา" oninput="updateMedRec(${i},'name',this.value)" style="width:100%;min-width:110px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>
-      <td style="padding:2px;border:1px solid #eee"><input type="text" value="${r.dose||''}" placeholder="ขนาด" oninput="updateMedRec(${i},'dose',this.value)" style="width:58px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px"></td>
-      <td style="padding:2px;border:1px solid #eee"><input type="text" value="${r.time||''}" placeholder="เวลา" oninput="updateMedRec(${i},'time',this.value)" style="width:58px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px"></td>`;
-    MED_REC_SLOTS.forEach(s=>{const chk=(r.slots||{})[s.k];cells+=`<td style="padding:2px;border:1px solid #eee;text-align:center;background:${bg}"><input type="checkbox" ${chk?'checked':''} onchange="updateMedRecSlot(${i},'${s.k}',this.checked)" style="width:13px;height:13px;cursor:pointer;accent-color:#1a6b4a"></td>`;});
-    days.forEach(d=>{const chk=(r.days||{})[d];cells+=`<td style="padding:2px;border:1px solid #eee;text-align:center;background:${bg}"><input type="checkbox" ${chk?'checked':''} onchange="updateMedRecDay(${i},${d},this.checked)" style="width:12px;height:12px;cursor:pointer;accent-color:#2856b8"></td>`;});
+    let cells=`<td style="padding:3px 4px;border:1px solid #eee;text-align:center;color:#888;font-size:10px;position:sticky;left:0;background:${bg};z-index:1">${i+1}</td>
+      <td style="padding:2px;border:1px solid #eee;position:sticky;left:24px;background:${bg};z-index:1"><input type="text" value="${(r.name||'').replace(/"/g,'&quot;')}" placeholder="ชื่อยา / รายละเอียด" oninput="updateMedRec(${i},'name',this.value)" style="width:100%;min-width:150px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>
+      <td style="padding:2px;border:1px solid #eee"><input type="text" value="${(r.dose||'').replace(/"/g,'&quot;')}" placeholder="เช่น 1เม็ด" oninput="updateMedRec(${i},'dose',this.value)" style="width:53px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>
+      <td style="padding:2px;border:1px solid #eee"><input type="text" value="${(r.time||'').replace(/"/g,'&quot;')}" placeholder="เช่น 8.00น" oninput="updateMedRec(${i},'time',this.value)" style="width:53px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>`;
+    days.forEach(d=>{
+      const v=(r.days||{})[d];
+      const disp=typeof v==='boolean'?(v?'✓':''):(v||'');
+      cells+=`<td style="padding:1px;border:1px solid #eee;text-align:center;background:${bg}"><input type="text" value="${String(disp).replace(/"/g,'&quot;')}" oninput="updateMedRecDay(${i},${d},this.value)" style="width:24px;padding:2px 1px;border:1px solid #ddd;border-radius:3px;font-size:10px;text-align:center;font-family:inherit;background:transparent"></td>`;
+    });
+    cells+=`<td style="padding:2px;border:1px solid #eee"><input type="text" value="${(r.note||'').replace(/"/g,'&quot;')}" placeholder="หมายเหตุ" oninput="updateMedRec(${i},'note',this.value)" style="width:65px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>`;
     cells+=`<td style="padding:2px;border:1px solid #eee;text-align:center"><button onclick="removeMedRec(${i})" style="padding:2px 7px;border:1px solid #f5b8b0;border-radius:4px;background:#fdf0ee;color:#c0392b;cursor:pointer;font-size:11px">ลบ</button></td>`;
     return `<tr style="background:${bg}">${cells}</tr>`;
   }).join('');
-  el.innerHTML=`<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;min-width:600px">
+  el.innerHTML=`<div style="overflow-x:auto;width:100%"><table style="border-collapse:collapse;font-size:12px">
     <thead>${hdr}</thead><tbody>${rows}</tbody>
   </table></div>
-  <div style="display:flex;gap:8px;margin-top:8px">
+  <div style="padding:8px 12px;display:flex;gap:8px">
     <button onclick="addMedRecRow()" style="padding:7px 16px;border:1px solid #1a6b4a;border-radius:6px;background:#e8f5ee;color:#1a6b4a;cursor:pointer;font-size:12px;font-family:inherit">+ เพิ่มยา</button>
     <button onclick="saveIndivMedRec()" style="padding:7px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:600">💾 บันทึก</button>
   </div>`;
@@ -2316,8 +2319,8 @@ function renderIndivMedRec(){
 function updateMedRec(i,f,val){if(!_imedrecData[i])_imedrecData[i]={};_imedrecData[i][f]=val;}window.updateMedRec=updateMedRec;
 function updateMedRecSlot(i,k,val){if(!_imedrecData[i])_imedrecData[i]={};if(!_imedrecData[i].slots)_imedrecData[i].slots={};_imedrecData[i].slots[k]=val;}window.updateMedRecSlot=updateMedRecSlot;
 function updateMedRecDay(i,d,val){if(!_imedrecData[i])_imedrecData[i]={};if(!_imedrecData[i].days)_imedrecData[i].days={};_imedrecData[i].days[d]=val;}window.updateMedRecDay=updateMedRecDay;
-function removeMedRec(i){_imedrecData.splice(i,1);if(!_imedrecData.length)_imedrecData=[{}];renderIndivMedRec();}window.removeMedRec=removeMedRec;
-function addMedRecRow(){_imedrecData.push({name:'',dose:'',time:'',slots:{},days:{}});renderIndivMedRec();}window.addMedRecRow=addMedRecRow;
+function removeMedRec(i){_imedrecData.splice(i,1);if(!_imedrecData.length)_imedrecData=[{name:'',dose:'',time:'',note:'',days:{}}];renderIndivMedRec();}window.removeMedRec=removeMedRec;
+function addMedRecRow(){_imedrecData.push({name:'',dose:'',time:'',note:'',days:{}});renderIndivMedRec();}window.addMedRecRow=addMedRecRow;
 async function saveIndivMedRec(){
   if(!_indivCustId)return;
   const data=_imedrecData.filter(r=>r.name);
@@ -2873,6 +2876,7 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .isheet-panel{display:none}
 .isheet-panel.active{display:block}
 #ip-icare{padding:0!important;overflow:hidden}
+#ip-imedrec{padding:0!important;overflow:hidden}
 .ibranch-btn{padding:7px 13px;border:1.5px solid #ddd;border-radius:20px;background:#fff;font-size:12px;font-family:inherit;cursor:pointer;color:#555;transition:all .15s;font-weight:500}
 .ibranch-btn.active{background:#2856b8;color:#fff;border-color:#2856b8;font-weight:600}
 /* indiv customer search */
