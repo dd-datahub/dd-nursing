@@ -2183,22 +2183,24 @@ function renderIndivCare(){
   const [y,m]=_icareMonth.split('-').map(Number);
   const daysInMonth=new Date(y,m,0).getDate();
   const days=Array.from({length:daysInMonth},(_,i)=>i+1);
-  let hdr=`<th style="padding:5px 8px;border:1px solid #ddd;background:#f0ede8;min-width:200px;text-align:left;font-size:11px;position:sticky;left:0;z-index:2">กิจกรรม</th>`;
-  days.forEach(d=>{hdr+=`<th style="padding:5px 4px;border:1px solid #ddd;background:#f0ede8;text-align:center;font-size:11px;min-width:28px">${d}</th>`;});
+  let hdr=`<th style="padding:5px 8px;border:1px solid #ddd;background:#f0ede8;min-width:150px;max-width:180px;text-align:left;font-size:11px;position:sticky;left:0;z-index:2">กิจกรรม</th>`;
+  days.forEach(d=>{hdr+=`<th style="padding:3px 1px;border:1px solid #ddd;background:#f0ede8;text-align:center;font-size:10px;min-width:24px">${d}</th>`;});
   const rows=CARE_ACTS.map((act,ai)=>{
     const bg=ai%2===0?'#fff':'#fafaf8';
-    let cells=`<td style="padding:5px 8px;border:1px solid #eee;font-size:11px;white-space:nowrap;position:sticky;left:0;background:${bg};z-index:1">${act}</td>`;
+    let cells=`<td style="padding:5px 8px;border:1px solid #eee;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;position:sticky;left:0;background:${bg};z-index:1" title="${act}">${act}</td>`;
     days.forEach(d=>{
       const chk=(_icareData[ai]||{})[d];
-      cells+=`<td style="padding:2px;border:1px solid #eee;text-align:center;background:${bg}"><input type="checkbox" ${chk?'checked':''} onchange="updateCare(${ai},${d},this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#1a6b4a"></td>`;
+      cells+=`<td style="padding:1px;border:1px solid #eee;text-align:center;background:${bg}"><input type="checkbox" ${chk?'checked':''} onchange="updateCare(${ai},${d},this.checked)" style="width:13px;height:13px;cursor:pointer;accent-color:#1a6b4a"></td>`;
     });
     return `<tr>${cells}</tr>`;
   }).join('');
   el.innerHTML=`
-  <div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px">
+  <div style="overflow-x:auto;width:100%"><table style="border-collapse:collapse;font-size:12px;width:100%">
     <thead><tr>${hdr}</tr></thead><tbody>${rows}</tbody>
   </table></div>
-  <button onclick="saveIndivCare()" style="margin-top:10px;padding:10px 24px;background:#1a6b4a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600">💾 บันทึกกิจกรรม</button>`;
+  <div style="padding:10px 14px">
+  <button onclick="saveIndivCare()" style="padding:10px 24px;background:#1a6b4a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600">💾 บันทึกกิจกรรม</button>
+  </div>`;
 }
 function updateCare(ai,day,val){if(!_icareData[ai])_icareData[ai]={};_icareData[ai][day]=val;}
 window.updateCare=updateCare;
@@ -2870,6 +2872,7 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .isheet-btn.active{background:#2856b8;color:#fff;border-color:#2856b8;font-weight:600}
 .isheet-panel{display:none}
 .isheet-panel.active{display:block}
+#ip-icare{padding:0!important;overflow:hidden}
 .ibranch-btn{padding:7px 13px;border:1.5px solid #ddd;border-radius:20px;background:#fff;font-size:12px;font-family:inherit;cursor:pointer;color:#555;transition:all .15s;font-weight:500}
 .ibranch-btn.active{background:#2856b8;color:#fff;border-color:#2856b8;font-weight:600}
 /* indiv customer search */
