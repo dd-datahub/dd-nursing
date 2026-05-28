@@ -2183,11 +2183,11 @@ function renderIndivCare(){
   const [y,m]=_icareMonth.split('-').map(Number);
   const daysInMonth=new Date(y,m,0).getDate();
   const days=Array.from({length:daysInMonth},(_,i)=>i+1);
-  let hdr=`<th style="padding:5px 8px;border:1px solid #ddd;background:#f0ede8;min-width:150px;max-width:180px;text-align:left;font-size:11px;position:sticky;left:0;z-index:2">กิจกรรม</th>`;
+  let hdr=`<th style="padding:5px 8px;border:1px solid #ddd;background:#f0ede8;min-width:150px;text-align:left;font-size:11px;position:sticky;left:0;z-index:2">กิจกรรม</th>`;
   days.forEach(d=>{hdr+=`<th style="padding:3px 1px;border:1px solid #ddd;background:#f0ede8;text-align:center;font-size:10px;min-width:24px">${d}</th>`;});
   const rows=CARE_ACTS.map((act,ai)=>{
     const bg=ai%2===0?'#fff':'#fafaf8';
-    let cells=`<td style="padding:5px 8px;border:1px solid #eee;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;position:sticky;left:0;background:${bg};z-index:1" title="${act}">${act}</td>`;
+    let cells=`<td style="padding:5px 8px;border:1px solid #eee;font-size:11px;white-space:normal;word-break:break-word;position:sticky;left:0;background:${bg};z-index:1">${act}</td>`;
     days.forEach(d=>{
       const chk=(_icareData[ai]||{})[d];
       cells+=`<td style="padding:1px;border:1px solid #eee;text-align:center;background:${bg}"><input type="checkbox" ${chk?'checked':''} onchange="updateCare(${ai},${d},this.checked)" style="width:13px;height:13px;cursor:pointer;accent-color:#1a6b4a"></td>`;
