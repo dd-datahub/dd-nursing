@@ -451,9 +451,9 @@ async function fbLoad() {
     if (d.discharged) {
       discharged = {};
       Object.entries(d.discharged).forEach(([k,v]) => {
-        // Restore key: DD1_03 → DD1/03
-        const restored = k.replace(/^([A-Za-z]+\d+)_(\d+)$/, '$1/$2');
-        discharged[restored] = v;
+        // Use stored _id if available (reliable), fallback to regex restore
+        const origId = (v && v._id) ? v._id : k.replace(/^([A-Za-z]+\d+)_(\d+)$/, '$1/$2');
+        discharged[origId] = v;
       });
     }
     if (d.invoiced)     { invoiced     = d.invoiced;     }
@@ -551,8 +551,8 @@ function listenAllData() {
     if (snap.exists()) {
       discharged = {};
       Object.entries(snap.val()).forEach(([k, v]) => {
-        const restored = k.replace(/^([A-Za-z]+\d+)_(\d+)$/, '$1/$2');
-        discharged[restored] = v;
+        const origId = (v && v._id) ? v._id : k.replace(/^([A-Za-z]+\d+)_(\d+)$/, '$1/$2');
+        discharged[origId] = v;
       });
     } else { discharged = {}; }
     updateDashboard?.();
@@ -2321,9 +2321,9 @@ function confirmDischarge() {
   renderBilling();
   renderDischarged();
   updateDashboard();
-  // Sanitize keys before saving (Firebase key cannot contain "/")
+  // Sanitize keys before saving (Firebase key cannot contain "/"), store _id for reliable restore
   const _dSave = {};
-  Object.entries(discharged).forEach(([k,v]) => { _dSave[k.replace(/\//g,'_')] = v; });
+  Object.entries(discharged).forEach(([k,v]) => { _dSave[k.replace(/\//g,'_')] = { ...v, _id: k }; });
   safeFbSave('discharged', _dSave);
 }
 
@@ -2352,7 +2352,7 @@ function confirmRestore() {
   updateDashboard();
   // Sanitize keys before saving (Firebase key cannot contain "/")
   const _dSave = {};
-  Object.entries(discharged).forEach(([k,v]) => { _dSave[k.replace(/\//g,'_')] = v; });
+  Object.entries(discharged).forEach(([k,v]) => { _dSave[k.replace(/\//g,'_')] = { ...v, _id: k }; });
   safeFbSave('discharged', _dSave);
 }
 
