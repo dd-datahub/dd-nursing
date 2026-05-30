@@ -418,7 +418,7 @@ async function fbLoad() {
       // Restore keys: _ back to / where needed (DD1_03 → DD1/03)
       payments = {};
       Object.entries(d.payments).forEach(([k,v]) => {
-        const restored = k.replace(/^(DD\d)_(\d+)_/, '$1/$2_');
+        const restored = k.replace(/^([A-Za-z]+\d+)_(\d+)_/, '$1/$2_');
         payments[restored] = v;
       });
     }
@@ -452,7 +452,7 @@ async function fbLoad() {
       discharged = {};
       Object.entries(d.discharged).forEach(([k,v]) => {
         // Restore key: DD1_03 → DD1/03
-        const restored = k.replace(/^(DD\d+)_(\d+)/, '$1/$2');
+        const restored = k.replace(/^([A-Za-z]+\d+)_(\d+)$/, '$1/$2');
         discharged[restored] = v;
       });
     }
@@ -529,7 +529,7 @@ function listenAllData() {
     if (snap.exists()) {
       payments = {};
       Object.entries(snap.val()).forEach(([k, v]) => {
-        const restored = k.replace(/^(DD\d)_(\d+)_/, '$1/$2_');
+        const restored = k.replace(/^([A-Za-z]+\d+)_(\d+)_/, '$1/$2_');
         payments[restored] = v;
       });
     } else { payments = {}; }
@@ -551,7 +551,7 @@ function listenAllData() {
     if (snap.exists()) {
       discharged = {};
       Object.entries(snap.val()).forEach(([k, v]) => {
-        const restored = k.replace(/^(DD\d+)_(\d+)/, '$1/$2');
+        const restored = k.replace(/^([A-Za-z]+\d+)_(\d+)$/, '$1/$2');
         discharged[restored] = v;
       });
     } else { discharged = {}; }
