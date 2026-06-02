@@ -415,11 +415,11 @@ async function fbLoad() {
       payHistory = d.payHistory;
     }
     if (d.payments) {
-      // Restore keys: _ back to / where needed (DD1_03 → DD1/03)
+      // Restore keys using stored _key (reliable), fallback to regex
       payments = {};
       Object.entries(d.payments).forEach(([k,v]) => {
-        const restored = k.replace(/^([A-Za-z]+\d+)_(\d+)_/, '$1/$2_');
-        payments[restored] = v;
+        const origKey = (v && v._key) ? v._key : k.replace(/^([A-Za-z]+\d+)_(\d+)_/, '$1/$2_');
+        payments[origKey] = v;
       });
     }
     // ถ้า payHistory ว่าง ให้สร้างจาก payments ที่โหลดมา
@@ -529,8 +529,8 @@ function listenAllData() {
     if (snap.exists()) {
       payments = {};
       Object.entries(snap.val()).forEach(([k, v]) => {
-        const restored = k.replace(/^([A-Za-z]+\d+)_(\d+)_/, '$1/$2_');
-        payments[restored] = v;
+        const origKey = (v && v._key) ? v._key : k.replace(/^([A-Za-z]+\d+)_(\d+)_/, '$1/$2_');
+        payments[origKey] = v;
       });
     } else { payments = {}; }
     updateDashboard?.();
@@ -3194,13 +3194,13 @@ function saveEditCustomer() {
       window._fbSave('customers_extra/' + newSafe, null);
       // payments — re-save whole object with safe keys
       const sp = {};
-      Object.entries(payments).forEach(([k,v]) => { sp[k.replace(/\//g,'_')] = v; });
+      Object.entries(payments).forEach(([k,v]) => { sp[k.replace(/\//g,'_')] = { ...v, _key: k }; });
       window._fbSave('payments', sp);
       // invoiced — re-save whole object
       window._fbSave('invoiced', invoiced);
       // discharged — re-save whole object
       const sd = {};
-      Object.entries(discharged).forEach(([k,v]) => { sd[k.replace(/\//g,'_')] = v; });
+      Object.entries(discharged).forEach(([k,v]) => { sd[k.replace(/\//g,'_')] = { ...v, _id: k }; });
       window._fbSave('discharged', sd);
       // requisitions — save new keys, null old keys
       oldReqKeys.forEach(oldKey => {
@@ -3262,12 +3262,12 @@ function savePay(){
   renderBilling();
   renderTable();
   updateDashboard();
-  // Save to Firebase — sanitize keys (replace / with _)
+  // Save to Firebase — sanitize keys (replace / with _), store _key for reliable restore
   function doSave(retry) {
     if (window._fbSave) {
       const safePayments = {};
       Object.entries(payments).forEach(([k,v]) => {
-        safePayments[k.replace(/\//g,'_')] = v;
+        safePayments[k.replace(/\//g,'_')] = { ...v, _key: k };
       });
       window._fbSave('payments', safePayments);
       window._fbSave('payHistory', payHistory);
@@ -3461,7 +3461,7 @@ function saveEditHistory() {
   closeModal('edit-history-modal');
   renderHistory(); renderBilling(); updateDashboard();
 
-  const sp={};Object.entries(payments).forEach(([k,v])=>{sp[k.replace(/\//g,'_')]=v;});
+  const sp={};Object.entries(payments).forEach(([k,v])=>{sp[k.replace(/\//g,'_')]={...v,_key:k};});
   if(window._fbSave){window._fbSave('payments',sp);window._fbSave('payHistory',payHistory);}
 }
 
@@ -3472,7 +3472,7 @@ function deleteHistory(idx) {
   if(key) delete payments[key];
   payHistory.splice(idx,1);
   renderHistory(); renderBilling(); updateDashboard();
-  const sp={};Object.entries(payments).forEach(([k,v])=>{sp[k.replace(/\//g,'_')]=v;});
+  const sp={};Object.entries(payments).forEach(([k,v])=>{sp[k.replace(/\//g,'_')]={...v,_key:k};});
   if(window._fbSave){window._fbSave('payments',sp);window._fbSave('payHistory',payHistory);}
 }
 
