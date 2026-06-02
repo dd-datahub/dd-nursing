@@ -560,10 +560,11 @@ function listenAllData() {
     if (document.querySelector(".page.active")?.id === "page-discharged") renderDischarged?.();
   });
 
-  // invoiced — sync สถานะออกบิลสำหรับหน้า billing
+  // invoiced — sync สถานะออกบิลสำหรับหน้า billing และ reminders
   onValue(ref(db, "invoiced"), snap => {
     invoiced = snap.exists() ? snap.val() : {};
     if (document.querySelector(".page.active")?.id === "page-billing") renderBilling?.();
+    buildBillingReminders?.();
   });
 
   // refunds — อัปเดตรายการ refund แบบ realtime
@@ -2589,20 +2590,33 @@ function buildBillingReminders() {
           <h3>${cfg.label(r.runDay)}</h3>
           ${badgeHtml}
         </div>
-        ${sorted.map(c => `
+        ${sorted.map(c => {
+          const inv = isInvoiced(c.id, c.billMonth);
+          const ps  = getPayStatus(c.id, c.billMonth);
+          const payBadge = ps === 'paid'
+            ? '<span class="status-badge status-paid" style="font-size:10px">ชำระแล้ว</span>'
+            : ps === 'partial'
+            ? '<span class="status-badge status-partial" style="font-size:10px">บางส่วน</span>'
+            : '<span class="status-badge status-unpaid" style="font-size:10px">ยังไม่ชำระ</span>';
+          const invBtn = inv
+            ? `<button onclick="event.stopPropagation();toggleInvoiced('${c.id}','${c.billMonth}')"
+                style="font-size:10px;padding:3px 8px;border:1px solid #1a6b4a;border-radius:5px;background:#e8f5ee;color:#1a6b4a;cursor:pointer;white-space:nowrap;font-family:inherit">✅ ออกบิลแล้ว</button>`
+            : `<button onclick="event.stopPropagation();toggleInvoiced('${c.id}','${c.billMonth}')"
+                style="font-size:10px;padding:3px 8px;border:1px solid #d0d0d0;border-radius:5px;background:#f5f5f5;color:#888;cursor:pointer;white-space:nowrap;font-family:inherit">📋 ออกบิล</button>`;
+          return `
           <div class="reminder-row" onclick="openDetail('${c.id}')">
             <span class="${cfg.dot}"></span>
             <span style="font-weight:500;flex:1">${c.name}</span>
             <span style="font-size:11px;color:var(--text3);margin-right:4px">${c.id}</span>
             ${branchTag(c.branch)}
             <span class="reminder-due">due: ${c.dueDay}</span>
-            ${getPayStatus(c.id, c.billMonth) === 'partial'
-              ? '<span class="status-badge status-partial" style="font-size:10px">บางส่วน</span>'
-              : '<span class="status-badge status-unpaid" style="font-size:10px">ยังไม่ชำระ</span>'}
+            ${payBadge}
+            ${invBtn}
             <button class="btn btn-sm btn-primary"
               onclick="event.stopPropagation();openPayModal('${c.id}')"
               style="font-size:11px;padding:3px 8px">💳 ชำระ</button>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
       </div>`;
     }).join('')}
   `;
@@ -2978,6 +2992,7 @@ function toggleInvoiced(custId, month) {
   }
   if (window._fbSave) window._fbSave('invoiced', invoiced);
   renderBilling();
+  buildBillingReminders();
 }
 
 function markAllPaid(){
