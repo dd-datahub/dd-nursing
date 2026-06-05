@@ -1623,6 +1623,7 @@ if ('serviceWorker' in navigator) {
         <div style="display:flex;gap:8px;margin-bottom:16px">
           <button id="ac-btn-repair" class="ac-tab-btn active" onclick="acTab('repair')">🔧 ซ่อมแอร์</button>
           <button id="ac-btn-clean"  class="ac-tab-btn"        onclick="acTab('clean')">🧹 ล้างแอร์</button>
+          <button id="ac-btn-units"  class="ac-tab-btn"        onclick="acTab('units')">📋 ทะเบียนแอร์</button>
         </div>
 
         <!-- ─── TAB: ซ่อมแอร์ ─── -->
@@ -1697,12 +1698,88 @@ if ('serviceWorker' in navigator) {
           </div>
         </div>
 
+        <!-- ─── TAB: ทะเบียนแอร์ ─── -->
+        <div id="ac-units-tab" style="display:none">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+            <input type="text" id="ac-u-search" placeholder="🔍 ค้นหารหัส/ห้อง/ยี่ห้อ..." oninput="renderAcUnits()"
+              style="flex:1;min-width:160px;padding:7px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit">
+            <select id="ac-u-branch" onchange="renderAcUnits()"
+              style="padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;background:#fff;cursor:pointer">
+              <option value="">ทุกสาขา</option>
+              <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
+            </select>
+            <button onclick="openAcUnitModal(null)"
+              style="padding:7px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600;white-space:nowrap">+ เพิ่มแอร์</button>
+          </div>
+          <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden">
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead>
+                  <tr style="background:#f0ede8;text-align:left">
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de;white-space:nowrap">รหัสแอร์</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">ชื่อ/ตำแหน่ง</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">สาขา</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">ยี่ห้อ / รุ่น</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de;text-align:right">BTU</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de;white-space:nowrap">วันติดตั้ง</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de;white-space:nowrap">รับประกันถึง</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">ซ่อม</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">ล้าง</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">หมายเหตุ</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de;min-width:80px"></th>
+                  </tr>
+                </thead>
+                <tbody id="ac-units-tbody">
+                  <tr><td colspan="11" style="text-align:center;padding:30px;color:#aaa">ยังไม่มีรายการ</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="ac-units-foot" style="padding:10px 14px;font-size:12px;color:#888;border-top:1px solid #f0ede8;display:none"></div>
+          </div>
+        </div>
+
       </div>
     </div>
     <!-- ===== END ซ่อม/ล้างแอร์ ===== -->
 
   </div>
 </div>
+</div>
+
+<!-- AC Unit Modal -->
+<div class="modal-overlay" id="ac-unit-modal">
+  <div class="modal" style="width:640px;max-width:98vw">
+    <div class="modal-head">
+      <h2 id="acu-modal-title">เพิ่มแอร์ใหม่</h2>
+      <span class="modal-close" onclick="closeModal('ac-unit-modal')">×</span>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group"><label>รหัสแอร์ *</label><input type="text" id="acu-id" placeholder="เช่น DD1/01, AC-301" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+        <div class="form-group"><label>สาขา</label>
+          <select id="acu-branch" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;background:#fff">
+            <option value="">— ไม่ระบุ —</option>
+            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label>ชื่อ / ตำแหน่งติดตั้ง *</label><input type="text" id="acu-room" placeholder="เช่น ห้อง 101, ล็อบบี้ชั้น 1" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group"><label>ยี่ห้อ</label><input type="text" id="acu-brand" placeholder="เช่น Daikin, Mitsubishi" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+        <div class="form-group"><label>รุ่น</label><input type="text" id="acu-model" placeholder="เช่น FTKF25TV" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div class="form-group"><label>BTU</label><input type="number" id="acu-btu" min="0" placeholder="เช่น 9000" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+        <div class="form-group"><label>วันที่ติดตั้ง</label><input type="date" id="acu-install" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+        <div class="form-group"><label>รับประกันถึง</label><input type="date" id="acu-warranty" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+      </div>
+      <div class="form-group"><label>หมายเหตุ</label><input type="text" id="acu-note" placeholder="หมายเหตุเพิ่มเติม" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="saveAcUnit()">💾 บันทึก</button>
+      <button class="btn" onclick="closeModal('ac-unit-modal')">ยกเลิก</button>
+    </div>
+  </div>
 </div>
 
 <!-- AC Repair Modal -->
@@ -5981,7 +6058,7 @@ function goPage(id) {
   if(id==='permissions')  renderPermissions();
   if(id==='schedule')     renderSchedulePage();
   if(id==='auditlog')    renderAuditLog();
-  if(id==='aircond')     { renderAcRepair(); renderAcClean(); }
+  if(id==='aircond')     { renderAcRepair(); renderAcClean(); renderAcUnits(); }
 }
 
 // ========== ตารางเวร (SCHEDULE) ==========
@@ -6851,6 +6928,9 @@ let acCleans  = {};
 let _acrEdit  = null;
 let _accEdit  = null;
 
+let acUnits = {};  // { id: { id, room, branch, brand, model, btu, installDate, warranty, note } }
+let _acuEdit = null;
+
 // Firebase: realtime sync ac_repairs & ac_cleans (ใช้ window globals ที่ expose จาก module)
 (function _acInit(){
   const tryInit=()=>{
@@ -6864,6 +6944,10 @@ let _accEdit  = null;
       acCleans = s.exists()?s.val():{};
       if(document.getElementById('page-aircond')?.classList.contains('active')) renderAcClean();
       _acUpdateBadge();
+    });
+    window._onValue(window._ref(window._db,'ac_units'), s=>{
+      acUnits = s.exists()?s.val():{};
+      if(document.getElementById('ac-units-tbody')) renderAcUnits();
     });
   };
   tryInit();
@@ -6880,10 +6964,13 @@ function _acUpdateBadge(){
 function acTab(tab){
   document.getElementById('ac-repair-tab').style.display = tab==='repair'?'':'none';
   document.getElementById('ac-clean-tab').style.display  = tab==='clean' ?'':'none';
+  document.getElementById('ac-units-tab').style.display  = tab==='units' ?'':'none';
   document.getElementById('ac-btn-repair').classList.toggle('active', tab==='repair');
   document.getElementById('ac-btn-clean').classList.toggle('active',  tab==='clean');
+  document.getElementById('ac-btn-units').classList.toggle('active',  tab==='units');
   if(tab==='repair') renderAcRepair();
   if(tab==='clean')  renderAcClean();
+  if(tab==='units')  renderAcUnits();
 }
 
 // ─── REPAIR ───
@@ -7048,6 +7135,114 @@ function deleteAcClean(id){
   renderAcClean();
 }
 window.deleteAcClean = deleteAcClean;
+
+// ─── AC UNITS (ทะเบียนแอร์) ───
+function renderAcUnits(){
+  const tbody = document.getElementById('ac-units-tbody');
+  if(!tbody) return;
+  const srch   = (document.getElementById('ac-u-search')?.value||'').toLowerCase();
+  const branch = document.getElementById('ac-u-branch')?.value||'';
+  const fmt=(d)=>{ if(!d)return'-'; const [y,m,dd]=d.split('-'); const th=['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']; return `${+dd} ${th[+m]} ${+y+543}`; };
+  const today = new Date().toISOString().split('T')[0];
+  let rows = Object.values(acUnits)
+    .filter(r=>{
+      if(branch && r.branch!==branch) return false;
+      if(srch && !((r.id||'')+(r.room||'')+(r.brand||'')+(r.model||'')+(r.branch||'')).toLowerCase().includes(srch)) return false;
+      return true;
+    })
+    .sort((a,b)=>(a.branch||'').localeCompare(b.branch||'') || (a.id||'').localeCompare(b.id||''));
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:30px;color:#aaa">ยังไม่มีรายการ</td></tr>';
+    const foot=document.getElementById('ac-units-foot');if(foot)foot.style.display='none';
+    return;
+  }
+  // count repairs/cleans per unit
+  const repairCount = id => Object.values(acRepairs).filter(r=>r.unit===id).length;
+  const cleanCount  = id => Object.values(acCleans).filter(r=>r.unit===id).length;
+  tbody.innerHTML = rows.map((r,i)=>{
+    const warnExpired  = r.warranty && r.warranty < today;
+    const warningSoon  = r.warranty && !warnExpired && r.warranty <= new Date(Date.now()+90*86400000).toISOString().split('T')[0];
+    const warrantyCls  = warnExpired ? 'color:#c0392b;font-weight:600' : warningSoon ? 'color:#b8620a;font-weight:600' : 'color:#555';
+    const rc = repairCount(r.id); const cc = cleanCount(r.id);
+    return `<tr style="border-bottom:0.5px solid #f0ede8;${i%2?'background:#fafaf8':''}">
+      <td style="padding:9px 12px;white-space:nowrap">
+        <span style="background:#e8eaf6;color:#3949ab;padding:3px 9px;border-radius:10px;font-weight:700;font-size:12px">${r.id||'-'}</span>
+      </td>
+      <td style="padding:9px 12px;font-weight:500">${r.room||'-'}</td>
+      <td style="padding:9px 12px">${r.branch?`<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#f0ede8;color:#555">${r.branch}</span>`:'-'}</td>
+      <td style="padding:9px 12px;color:#555">${[r.brand,r.model].filter(Boolean).join(' / ')||'-'}</td>
+      <td style="padding:9px 12px;text-align:right;font-weight:600;color:var(--accent)">${r.btu?Number(r.btu).toLocaleString()+' BTU':'-'}</td>
+      <td style="padding:9px 12px;white-space:nowrap;color:#555">${fmt(r.installDate)}</td>
+      <td style="padding:9px 12px;white-space:nowrap;${warrantyCls}">
+        ${r.warranty ? fmt(r.warranty)+(warnExpired?' ⚠️หมดแล้ว':warningSoon?' ⏰ใกล้หมด':'') : '-'}
+      </td>
+      <td style="padding:9px 12px;text-align:center">
+        ${rc>0?`<button onclick="acTab('repair');document.getElementById('ac-r-search').value='${r.id}';renderAcRepair()"
+          style="padding:2px 9px;border:1px solid #ddd;border-radius:5px;background:#f5f5f5;cursor:pointer;font-size:11px">🔧 ${rc} ครั้ง</button>`
+          :`<span style="color:#ccc;font-size:11px">-</span>`}
+      </td>
+      <td style="padding:9px 12px;text-align:center">
+        ${cc>0?`<button onclick="acTab('clean');document.getElementById('ac-c-search').value='${r.id}';renderAcClean()"
+          style="padding:2px 9px;border:1px solid #ddd;border-radius:5px;background:#f5f5f5;cursor:pointer;font-size:11px">🧹 ${cc} ครั้ง</button>`
+          :`<span style="color:#ccc;font-size:11px">-</span>`}
+      </td>
+      <td style="padding:9px 12px;color:#888;font-size:12px">${r.note||''}</td>
+      <td style="padding:9px 8px;text-align:right;white-space:nowrap">
+        <button onclick="openAcUnitModal('${r.id}')" style="padding:3px 10px;border:1px solid #ddd;border-radius:5px;background:#f5f5f5;cursor:pointer;font-size:11px;margin-right:4px">✏️</button>
+        <button onclick="deleteAcUnit('${r.id}')" style="padding:3px 10px;border:1px solid #f5b8b0;border-radius:5px;background:#fdf0ee;color:#c0392b;cursor:pointer;font-size:11px">ลบ</button>
+      </td>
+    </tr>`;
+  }).join('');
+  const foot=document.getElementById('ac-units-foot');
+  if(foot){foot.style.display='';foot.textContent=`ทั้งหมด ${rows.length} เครื่อง`;}
+}
+
+function openAcUnitModal(id){
+  _acuEdit = id;
+  const r = id ? (acUnits[id]||{}) : {};
+  document.getElementById('acu-modal-title').textContent = id?'แก้ไขข้อมูลแอร์':'เพิ่มแอร์ใหม่';
+  document.getElementById('acu-id').value       = r.id||'';
+  document.getElementById('acu-id').disabled    = !!id;  // ไม่ให้แก้ id ถ้า edit
+  document.getElementById('acu-branch').value   = r.branch||'';
+  document.getElementById('acu-room').value     = r.room||'';
+  document.getElementById('acu-brand').value    = r.brand||'';
+  document.getElementById('acu-model').value    = r.model||'';
+  document.getElementById('acu-btu').value      = r.btu||'';
+  document.getElementById('acu-install').value  = r.installDate||'';
+  document.getElementById('acu-warranty').value = r.warranty||'';
+  document.getElementById('acu-note').value     = r.note||'';
+  document.getElementById('ac-unit-modal').classList.add('open');
+}
+window.openAcUnitModal = openAcUnitModal;
+
+function saveAcUnit(){
+  const unitId = _acuEdit || document.getElementById('acu-id').value.trim();
+  const room   = document.getElementById('acu-room').value.trim();
+  if(!unitId||!room){alert('กรุณากรอก รหัสแอร์ และ ชื่อ/ตำแหน่ง');return;}
+  if(!_acuEdit && acUnits[unitId]){alert(`รหัส "${unitId}" มีอยู่แล้วในระบบ`);return;}
+  acUnits[unitId]={
+    id:unitId, room,
+    branch:document.getElementById('acu-branch').value,
+    brand:document.getElementById('acu-brand').value.trim(),
+    model:document.getElementById('acu-model').value.trim(),
+    btu:parseFloat(document.getElementById('acu-btu').value)||0,
+    installDate:document.getElementById('acu-install').value,
+    warranty:document.getElementById('acu-warranty').value,
+    note:document.getElementById('acu-note').value.trim()
+  };
+  window._fbSave('ac_units',acUnits);
+  closeModal('ac-unit-modal');
+  renderAcUnits();
+}
+window.saveAcUnit = saveAcUnit;
+
+function deleteAcUnit(id){
+  if(!confirm(`ลบแอร์ "${id}" ออกจากทะเบียน?\n(ประวัติซ่อม/ล้างที่มีรหัสนี้จะยังคงอยู่)`)) return;
+  delete acUnits[id];
+  window._fbSave('ac_units',acUnits);
+  renderAcUnits();
+}
+window.deleteAcUnit = deleteAcUnit;
 </script>
 
 <!-- Edit History Modal -->
