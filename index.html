@@ -327,6 +327,13 @@ td { padding: 10px 12px; font-size: 13px; vertical-align: middle; }
 /* Summary row */
 .sum-row { padding: 10px 12px; background: var(--surface2); border-top: 2px solid var(--border2); font-size: 13px; font-weight: 600; display: flex; justify-content: flex-end; gap: 24px; color: var(--text); }
 
+/* ===== AC Repair & Clean ===== */
+.ac-tab-btn{padding:8px 18px;border-radius:8px;border:1px solid #ddd;background:#f5f5f5;color:#666;font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;transition:all .15s}
+.ac-tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.ac-status-pending{background:#fff8ec;color:#b8620a;border:1px solid #f0c490;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;white-space:nowrap}
+.ac-status-done{background:#e8f5ee;color:#1a6b4a;border:1px solid #a8d5c0;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;white-space:nowrap}
+.ac-row-done td{opacity:.65}
+
 /* Inactive / discharged */
 .status-inactive { background: #ededea; color: #6b6760; }
 tr.row-inactive { opacity: .55; background: #fafaf8 !important; }
@@ -822,6 +829,7 @@ if ('serviceWorker' in navigator) {
     <div class="nav-item" onclick="goPage('issues')" title="ปัญหาข้อมูล"><span class="nav-icon">⚠️</span><span class="nav-text"> ปัญหาข้อมูล</span><span class="nav-badge" style="background:var(--text3)">0</span></div>
     <div class="nav-item" onclick="goPage('permissions')" title="จัดการสิทธิ์"><span class="nav-icon">🔑</span><span class="nav-text"> จัดการสิทธิ์</span><span id="perm-nav-badge" style="display:none;background:#e67e22;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 6px;margin-left:4px"></span></div>
     <div class="nav-item" onclick="goPage('schedule')" title="ตารางเวร"><span class="nav-icon">📅</span><span class="nav-text"> ตารางเวร</span></div>
+    <div class="nav-item" onclick="goPage('aircond')" title="ซ่อม/ล้างแอร์"><span class="nav-icon">❄️</span><span class="nav-text"> ซ่อม/ล้างแอร์</span><span class="nav-badge" id="ac-badge" style="display:none;background:#b8620a">0</span></div>
     <div class="nav-item" onclick="goPage('auditlog')" title="ประวัติการแก้ไข"><span class="nav-icon">🔍</span><span class="nav-text"> ประวัติการแก้ไข</span></div>
   </nav>
   <div class="sidebar-footer" style="display:flex;flex-direction:column;gap:6px;padding:10px 14px;border-top:1px solid var(--border)">
@@ -1599,8 +1607,149 @@ if ('serviceWorker' in navigator) {
     </div>
     <!-- ===== END ประวัติการแก้ไข ===== -->
 
+    <!-- ===== PAGE: ซ่อม/ล้างแอร์ ===== -->
+    <div class="page" id="page-aircond">
+      <div style="max-width:1000px;margin:0 auto">
+
+        <!-- Tab buttons -->
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <button id="ac-btn-repair" class="ac-tab-btn active" onclick="acTab('repair')">🔧 ซ่อมแอร์</button>
+          <button id="ac-btn-clean"  class="ac-tab-btn"        onclick="acTab('clean')">🧹 ล้างแอร์</button>
+        </div>
+
+        <!-- ─── TAB: ซ่อมแอร์ ─── -->
+        <div id="ac-repair-tab">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+            <input type="text" id="ac-r-search" placeholder="🔍 ค้นหาห้อง/รายละเอียด..." oninput="renderAcRepair()"
+              style="flex:1;min-width:160px;padding:7px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit">
+            <input type="month" id="ac-r-month" oninput="renderAcRepair()"
+              style="padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit">
+            <button onclick="openAcRepairModal(null)"
+              style="padding:7px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600;white-space:nowrap">+ เพิ่มรายการซ่อม</button>
+          </div>
+          <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden">
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead>
+                  <tr style="background:#f0ede8;text-align:left">
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de;white-space:nowrap">วันที่</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">ห้อง / ตำแหน่ง</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">รายละเอียดปัญหา</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">ช่าง</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de;text-align:right">ค่าใช้จ่าย</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">หมายเหตุ</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de;min-width:80px"></th>
+                  </tr>
+                </thead>
+                <tbody id="ac-repair-tbody">
+                  <tr><td colspan="7" style="text-align:center;padding:30px;color:#aaa">ยังไม่มีรายการ</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="ac-repair-foot" style="padding:10px 14px;font-size:12px;color:#888;border-top:1px solid #f0ede8;display:none"></div>
+          </div>
+        </div>
+
+        <!-- ─── TAB: ล้างแอร์ ─── -->
+        <div id="ac-clean-tab" style="display:none">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+            <input type="text" id="ac-c-search" placeholder="🔍 ค้นหาห้อง/ช่าง..." oninput="renderAcClean()"
+              style="flex:1;min-width:160px;padding:7px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit">
+            <select id="ac-c-status" onchange="renderAcClean()"
+              style="padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;background:#fff;cursor:pointer">
+              <option value="">ทุกสถานะ</option>
+              <option value="pending">รอดำเนินการ</option>
+              <option value="done">เสร็จแล้ว</option>
+            </select>
+            <button onclick="openAcCleanModal(null)"
+              style="padding:7px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600;white-space:nowrap">+ เพิ่มนัดล้างแอร์</button>
+          </div>
+          <div style="background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden">
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead>
+                  <tr style="background:#f0ede8;text-align:left">
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de;white-space:nowrap">วันที่นัด</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">ห้อง / ตำแหน่ง</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">ประเภทการล้าง</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">ช่าง</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de;text-align:right">ค่าใช้จ่าย</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">สถานะ</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de">หมายเหตุ</th>
+                    <th style="padding:10px 12px;border-bottom:1px solid #e8e4de;min-width:120px"></th>
+                  </tr>
+                </thead>
+                <tbody id="ac-clean-tbody">
+                  <tr><td colspan="8" style="text-align:center;padding:30px;color:#aaa">ยังไม่มีรายการ</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <!-- ===== END ซ่อม/ล้างแอร์ ===== -->
+
   </div>
 </div>
+</div>
+
+<!-- AC Repair Modal -->
+<div class="modal-overlay" id="ac-repair-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="acr-modal-title">เพิ่มรายการซ่อมแอร์</h2>
+      <span class="modal-close" onclick="closeModal('ac-repair-modal')">×</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>วันที่ซ่อม *</label><input type="date" id="acr-date" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+      <div class="form-group"><label>ห้อง / ตำแหน่งแอร์ *</label><input type="text" id="acr-room" placeholder="เช่น ห้อง 101, ล็อบบี้" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+      <div class="form-group"><label>รายละเอียดปัญหา *</label><textarea id="acr-problem" rows="3" placeholder="อธิบายปัญหาที่พบ..." style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical"></textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group"><label>ช่างซ่อม</label><input type="text" id="acr-tech" placeholder="ชื่อช่าง / บริษัท" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+        <div class="form-group"><label>ค่าใช้จ่าย (บาท)</label><input type="number" id="acr-cost" min="0" placeholder="0" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+      </div>
+      <div class="form-group"><label>หมายเหตุ</label><input type="text" id="acr-note" placeholder="หมายเหตุเพิ่มเติม" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="saveAcRepair()">💾 บันทึก</button>
+      <button class="btn" onclick="closeModal('ac-repair-modal')">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- AC Clean Modal -->
+<div class="modal-overlay" id="ac-clean-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="acc-modal-title">เพิ่มนัดล้างแอร์</h2>
+      <span class="modal-close" onclick="closeModal('ac-clean-modal')">×</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>วันที่นัด *</label><input type="date" id="acc-date" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+      <div class="form-group"><label>ห้อง / ตำแหน่งแอร์ *</label><input type="text" id="acc-room" placeholder="เช่น ห้อง 101, ล็อบบี้" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+      <div class="form-group"><label>ประเภทการล้าง</label>
+        <select id="acc-type" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;background:#fff">
+          <option>ล้างทั่วไป</option>
+          <option>ล้างเคมี</option>
+          <option>ล้างคอยล์เย็น</option>
+          <option>ล้างคอยล์ร้อน</option>
+          <option>ตรวจเช็คน้ำยา</option>
+          <option>อื่นๆ</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group"><label>ช่าง / บริษัท</label><input type="text" id="acc-tech" placeholder="ชื่อช่าง / บริษัท" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+        <div class="form-group"><label>ค่าใช้จ่าย (บาท)</label><input type="number" id="acc-cost" min="0" placeholder="0" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+      </div>
+      <div class="form-group"><label>หมายเหตุ</label><input type="text" id="acc-note" placeholder="หมายเหตุเพิ่มเติม" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="saveAcClean()">💾 บันทึก</button>
+      <button class="btn" onclick="closeModal('ac-clean-modal')">ยกเลิก</button>
+    </div>
+  </div>
 </div>
 
 <!-- Customer Detail Modal -->
@@ -5803,7 +5952,7 @@ function goPage(id) {
   });
   // Auto-close sidebar on mobile
   if (window.innerWidth <= 640) closeSidebar();
-  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',permissions:'จัดการสิทธิ์',schedule:'ตารางเวร',auditlog:'ประวัติการแก้ไข'};
+  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',permissions:'จัดการสิทธิ์',schedule:'ตารางเวร',auditlog:'ประวัติการแก้ไข',aircond:'ซ่อม/ล้างแอร์'};
   document.getElementById('page-title').textContent = titles[id]||'';
   if(id==='customers')    renderTable();
   if(id==='discharged')   renderDischarged();
@@ -5816,6 +5965,7 @@ function goPage(id) {
   if(id==='permissions')  renderPermissions();
   if(id==='schedule')     renderSchedulePage();
   if(id==='auditlog')    renderAuditLog();
+  if(id==='aircond')     { renderAcRepair(); renderAcClean(); }
 }
 
 // ========== ตารางเวร (SCHEDULE) ==========
@@ -6678,6 +6828,206 @@ function onAccSelChange(prefix) {
 
 // ========== INIT ==========
 updateDashboard();
+
+// ========== AC REPAIR & CLEAN ==========
+let acRepairs = {};
+let acCleans  = {};
+let _acrEdit  = null;
+let _accEdit  = null;
+
+// Firebase: realtime sync ac_repairs & ac_cleans (ใช้ window globals ที่ expose จาก module)
+(function _acInit(){
+  const tryInit=()=>{
+    if(!window._onValue||!window._ref||!window._db){ setTimeout(tryInit,200); return; }
+    window._onValue(window._ref(window._db,'ac_repairs'), s=>{
+      acRepairs = s.exists()?s.val():{};
+      if(document.getElementById('page-aircond')?.classList.contains('active')) renderAcRepair();
+      _acUpdateBadge();
+    });
+    window._onValue(window._ref(window._db,'ac_cleans'), s=>{
+      acCleans = s.exists()?s.val():{};
+      if(document.getElementById('page-aircond')?.classList.contains('active')) renderAcClean();
+      _acUpdateBadge();
+    });
+  };
+  tryInit();
+})();
+
+function _acUpdateBadge(){
+  const pending = Object.values(acCleans).filter(r=>r.status==='pending').length;
+  const badge = document.getElementById('ac-badge');
+  if(!badge) return;
+  badge.style.display = pending>0 ? 'inline-block' : 'none';
+  badge.textContent = pending;
+}
+
+function acTab(tab){
+  document.getElementById('ac-repair-tab').style.display = tab==='repair'?'':'none';
+  document.getElementById('ac-clean-tab').style.display  = tab==='clean' ?'':'none';
+  document.getElementById('ac-btn-repair').classList.toggle('active', tab==='repair');
+  document.getElementById('ac-btn-clean').classList.toggle('active',  tab==='clean');
+  if(tab==='repair') renderAcRepair();
+  if(tab==='clean')  renderAcClean();
+}
+
+// ─── REPAIR ───
+function renderAcRepair(){
+  const tbody = document.getElementById('ac-repair-tbody');
+  if(!tbody) return;
+  const srch  = (document.getElementById('ac-r-search')?.value||'').toLowerCase();
+  const month = document.getElementById('ac-r-month')?.value||'';
+  let rows = Object.entries(acRepairs)
+    .map(([id,v])=>({id,...v}))
+    .filter(r=>{
+      if(month && !(r.date||'').startsWith(month)) return false;
+      if(srch && !((r.room||'')+(r.problem||'')+(r.tech||'')).toLowerCase().includes(srch)) return false;
+      return true;
+    })
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:#aaa">ยังไม่มีรายการ</td></tr>';
+    const foot=document.getElementById('ac-repair-foot');if(foot)foot.style.display='none';
+    return;
+  }
+  const fmt=(d)=>{ if(!d)return''; const [y,m,dd]=d.split('-'); const th=['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']; return `${+dd} ${th[+m]} ${+y+543}`; };
+  tbody.innerHTML = rows.map((r,i)=>`
+    <tr style="border-bottom:0.5px solid #f0ede8;${i%2?'background:#fafaf8':''}">
+      <td style="padding:9px 12px;white-space:nowrap;color:#555">${fmt(r.date)}</td>
+      <td style="padding:9px 12px;font-weight:500">${r.room||'-'}</td>
+      <td style="padding:9px 12px;color:#333">${r.problem||'-'}</td>
+      <td style="padding:9px 12px;color:#555">${r.tech||'-'}</td>
+      <td style="padding:9px 12px;text-align:right;font-weight:500;color:${r.cost>0?'var(--accent)':'#aaa'}">${r.cost>0?'฿'+Number(r.cost).toLocaleString():'-'}</td>
+      <td style="padding:9px 12px;color:#888;font-size:12px">${r.note||''}</td>
+      <td style="padding:9px 8px;text-align:right;white-space:nowrap">
+        <button onclick="openAcRepairModal('${r.id}')" style="padding:3px 10px;border:1px solid #ddd;border-radius:5px;background:#f5f5f5;cursor:pointer;font-size:11px;margin-right:4px">✏️</button>
+        <button onclick="deleteAcRepair('${r.id}')" style="padding:3px 10px;border:1px solid #f5b8b0;border-radius:5px;background:#fdf0ee;color:#c0392b;cursor:pointer;font-size:11px">ลบ</button>
+      </td>
+    </tr>`).join('');
+  const totalCost = rows.reduce((s,r)=>s+(parseFloat(r.cost)||0),0);
+  const foot=document.getElementById('ac-repair-foot');
+  if(foot){foot.style.display='';foot.textContent=`${rows.length} รายการ · รวมค่าใช้จ่าย ฿${totalCost.toLocaleString()}`;}
+}
+
+function openAcRepairModal(id){
+  _acrEdit = id;
+  const r = id ? (acRepairs[id]||{}) : {};
+  document.getElementById('acr-modal-title').textContent = id?'แก้ไขรายการซ่อม':'เพิ่มรายการซ่อมแอร์';
+  document.getElementById('acr-date').value    = r.date||new Date().toISOString().split('T')[0];
+  document.getElementById('acr-room').value    = r.room||'';
+  document.getElementById('acr-problem').value = r.problem||'';
+  document.getElementById('acr-tech').value    = r.tech||'';
+  document.getElementById('acr-cost').value    = r.cost||'';
+  document.getElementById('acr-note').value    = r.note||'';
+  document.getElementById('ac-repair-modal').classList.add('open');
+}
+window.openAcRepairModal = openAcRepairModal;
+
+function saveAcRepair(){
+  const date=document.getElementById('acr-date').value;
+  const room=document.getElementById('acr-room').value.trim();
+  const problem=document.getElementById('acr-problem').value.trim();
+  if(!date||!room||!problem){alert('กรุณากรอก วันที่, ห้อง, และรายละเอียดปัญหา');return;}
+  const id = _acrEdit || ('r_'+Date.now());
+  acRepairs[id]={date,room,problem,tech:document.getElementById('acr-tech').value.trim(),cost:parseFloat(document.getElementById('acr-cost').value)||0,note:document.getElementById('acr-note').value.trim()};
+  window._fbSave('ac_repairs',acRepairs);
+  closeModal('ac-repair-modal');
+  renderAcRepair();
+}
+window.saveAcRepair = saveAcRepair;
+
+function deleteAcRepair(id){
+  if(!confirm('ลบรายการซ่อมนี้?')) return;
+  delete acRepairs[id];
+  window._fbSave('ac_repairs',acRepairs);
+  renderAcRepair();
+}
+window.deleteAcRepair = deleteAcRepair;
+
+// ─── CLEAN ───
+function renderAcClean(){
+  const tbody = document.getElementById('ac-clean-tbody');
+  if(!tbody) return;
+  const srch   = (document.getElementById('ac-c-search')?.value||'').toLowerCase();
+  const status = document.getElementById('ac-c-status')?.value||'';
+  let rows = Object.entries(acCleans)
+    .map(([id,v])=>({id,...v}))
+    .filter(r=>{
+      if(status && r.status!==status) return false;
+      if(srch && !((r.room||'')+(r.tech||'')+(r.type||'')).toLowerCase().includes(srch)) return false;
+      return true;
+    })
+    .sort((a,b)=>{
+      if(a.status===b.status) return (b.date||'').localeCompare(a.date||'');
+      return a.status==='pending'?-1:1;
+    });
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px;color:#aaa">ยังไม่มีรายการ</td></tr>';
+    return;
+  }
+  const fmt=(d)=>{ if(!d)return''; const [y,m,dd]=d.split('-'); const th=['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']; return `${+dd} ${th[+m]} ${+y+543}`; };
+  tbody.innerHTML = rows.map((r,i)=>{
+    const done=r.status==='done';
+    return `<tr class="${done?'ac-row-done':''}" style="border-bottom:0.5px solid #f0ede8;${i%2?'background:#fafaf8':''}">
+      <td style="padding:9px 12px;white-space:nowrap;color:#555">${fmt(r.date)}</td>
+      <td style="padding:9px 12px;font-weight:500">${r.room||'-'}</td>
+      <td style="padding:9px 12px;color:#555">${r.type||'ล้างทั่วไป'}</td>
+      <td style="padding:9px 12px;color:#555">${r.tech||'-'}</td>
+      <td style="padding:9px 12px;text-align:right;font-weight:500;color:${r.cost>0?'var(--accent)':'#aaa'}">${r.cost>0?'฿'+Number(r.cost).toLocaleString():'-'}</td>
+      <td style="padding:9px 12px"><span class="${done?'ac-status-done':'ac-status-pending'}">${done?'✅ เสร็จแล้ว':'⏳ รอดำเนินการ'}</span></td>
+      <td style="padding:9px 12px;color:#888;font-size:12px">${r.note||''}</td>
+      <td style="padding:9px 8px;text-align:right;white-space:nowrap">
+        ${!done?`<button onclick="markAcCleanDone('${r.id}')" style="padding:3px 10px;border:1px solid #a8d5c0;border-radius:5px;background:#e8f5ee;color:#1a6b4a;cursor:pointer;font-size:11px;margin-right:4px">✅ เสร็จ</button>`:''}
+        <button onclick="openAcCleanModal('${r.id}')" style="padding:3px 10px;border:1px solid #ddd;border-radius:5px;background:#f5f5f5;cursor:pointer;font-size:11px;margin-right:4px">✏️</button>
+        <button onclick="deleteAcClean('${r.id}')" style="padding:3px 10px;border:1px solid #f5b8b0;border-radius:5px;background:#fdf0ee;color:#c0392b;cursor:pointer;font-size:11px">ลบ</button>
+      </td>
+    </tr>`;
+  }).join('');
+  _acUpdateBadge();
+}
+
+function openAcCleanModal(id){
+  _accEdit = id;
+  const r = id ? (acCleans[id]||{}) : {};
+  document.getElementById('acc-modal-title').textContent = id?'แก้ไขนัดล้างแอร์':'เพิ่มนัดล้างแอร์';
+  document.getElementById('acc-date').value   = r.date||new Date().toISOString().split('T')[0];
+  document.getElementById('acc-room').value   = r.room||'';
+  document.getElementById('acc-type').value   = r.type||'ล้างทั่วไป';
+  document.getElementById('acc-tech').value   = r.tech||'';
+  document.getElementById('acc-cost').value   = r.cost||'';
+  document.getElementById('acc-note').value   = r.note||'';
+  document.getElementById('ac-clean-modal').classList.add('open');
+}
+window.openAcCleanModal = openAcCleanModal;
+
+function saveAcClean(){
+  const date=document.getElementById('acc-date').value;
+  const room=document.getElementById('acc-room').value.trim();
+  if(!date||!room){alert('กรุณากรอก วันที่นัด และห้อง/ตำแหน่ง');return;}
+  const id = _accEdit || ('c_'+Date.now());
+  const existing = _accEdit ? (acCleans[_accEdit]||{}) : {};
+  acCleans[id]={date,room,type:document.getElementById('acc-type').value,tech:document.getElementById('acc-tech').value.trim(),cost:parseFloat(document.getElementById('acc-cost').value)||0,note:document.getElementById('acc-note').value.trim(),status:existing.status||'pending',doneAt:existing.doneAt||null};
+  window._fbSave('ac_cleans',acCleans);
+  closeModal('ac-clean-modal');
+  renderAcClean();
+}
+window.saveAcClean = saveAcClean;
+
+function markAcCleanDone(id){
+  if(!acCleans[id]) return;
+  acCleans[id].status='done';
+  acCleans[id].doneAt=new Date().toISOString();
+  window._fbSave('ac_cleans',acCleans);
+  renderAcClean();
+}
+window.markAcCleanDone = markAcCleanDone;
+
+function deleteAcClean(id){
+  if(!confirm('ลบนัดหมายนี้?')) return;
+  delete acCleans[id];
+  window._fbSave('ac_cleans',acCleans);
+  renderAcClean();
+}
+window.deleteAcClean = deleteAcClean;
 </script>
 
 <!-- Edit History Modal -->
