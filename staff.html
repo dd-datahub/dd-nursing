@@ -326,20 +326,48 @@ setTimeout(() => {
   _applyThaiDates(document.body);
 }, 300);
 
+const _THAI_MO_REQ = ["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+
 function buildMonthSelect() {
-  const sel = document.getElementById("month-sel");
-  const months = [];
-  for (let i=-1; i<=1; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
-    months.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));
+  const curY  = now.getFullYear();
+  const curMo = now.getMonth() + 1;
+  const curYM = curY + "-" + String(curMo).padStart(2,"0");
+
+  // Build year selector (2025–curYear+3)
+  const startYear = 2025;
+  const endYear   = curY + 3;
+  const ySel = document.getElementById("year-sel");
+  ySel.innerHTML = "";
+  for (let y = startYear; y <= endYear; y++) {
+    const opt = document.createElement("option");
+    opt.value = y;
+    opt.textContent = "ปี " + (y + 543);
+    if (y === curY) opt.selected = true;
+    ySel.appendChild(opt);
   }
-  const thaiM = ["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-  const cur = now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
-  sel.innerHTML = months.map(m => {
-    const [y,mo] = m.split("-");
-    return `<option value="${m}" ${m===cur?"selected":""}>${thaiM[+mo]} ${+y+543}</option>`;
-  }).join("");
-  selectedMonth = cur;
+
+  // Build month selector for selected year
+  function rebuildMonths() {
+    const selY = parseInt(ySel.value);
+    const mSel = document.getElementById("month-sel");
+    mSel.innerHTML = _THAI_MO_REQ.slice(1).map((name, i) => {
+      const mo  = i + 1;
+      const val = selY + "-" + String(mo).padStart(2,"0");
+      const sel = (val === selectedMonth || (!selectedMonth && val === curYM)) ? "selected" : "";
+      return `<option value="${val}" ${sel}>${name} ${selY + 543}</option>`;
+    }).join("");
+    // Set selectedMonth to current select value
+    selectedMonth = mSel.value;
+  }
+
+  ySel.onchange = function() {
+    rebuildMonths();
+    if (selectedCustId) { loadExistingReq(); renderPayStatus(); }
+  };
+
+  rebuildMonths();
+  selectedMonth = curYM;
+  document.getElementById("month-sel").value = curYM;
 }
 
 // ---- Branch filter ----
@@ -3119,7 +3147,10 @@ if ('serviceWorker' in navigator) {
     <div class="card">
       <div class="card-title">2. เดือนที่เบิก</div>
       <div id="cust-banner" class="cust-banner"></div>
-      <select class="month-sel" id="month-sel"></select>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <select class="month-sel" id="year-sel" style="width:130px;flex-shrink:0"></select>
+        <select class="month-sel" id="month-sel" style="flex:1;margin-top:0"></select>
+      </div>
     </div>
 
     <!-- สถานะการชำระเงิน -->
