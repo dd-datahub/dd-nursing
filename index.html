@@ -296,15 +296,14 @@ td { padding: 10px 12px; font-size: 13px; vertical-align: middle; }
 .reminder-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
 .reminder-panel-head { padding: 12px 16px 10px; border-bottom: 1px solid var(--border); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 /* Reminder rows — 2-line layout */
-.reminder-row { display: flex; align-items: flex-start; gap: 8px; padding: 10px 14px; border-bottom: 0.5px solid var(--border); cursor: pointer; transition: background .1s; }
+.reminder-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 0.5px solid var(--border); cursor: pointer; transition: background .1s; }
 .reminder-row:last-child { border-bottom: none; }
 .reminder-row:hover { background: var(--surface2); }
-.rr-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:5px; }
-.rr-body { flex:1; min-width:0; }
-.rr-name { font-size:13px; font-weight:500; display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
-.rr-meta { display:flex; align-items:center; gap:5px; margin-top:5px; flex-wrap:wrap; }
-.rr-due { font-size:11px; color:var(--text3); }
-.rr-id { font-size:11px; color:var(--text3); }
+.rr-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.rr-name { font-size:13px; font-weight:500; min-width:0; flex:2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rr-id { font-size:11px; color:var(--text3); white-space:nowrap; }
+.rr-due { font-size:11px; color:var(--text3); white-space:nowrap; min-width:50px; }
+.rr-actions { display:flex; align-items:center; gap:6px; flex-shrink:0; margin-left:auto; }
 
 /* Alert strip */
 .alert { padding: 10px 14px; border-radius: var(--radius); font-size: 13px; margin-bottom: 12px; display: flex; align-items: flex-start; gap: 8px; }
@@ -922,61 +921,19 @@ if ('serviceWorker' in navigator) {
         </div>
       </div>
 
-      <!-- Charts + Reminders side by side -->
-      <div class="dash-layout">
-        <!-- LEFT: Charts -->
-        <div>
-          <div class="chart-grid">
-            <div class="chart-card">
-              <h3 id="dchart1-title">รายได้ต่อสาขา</h3>
-              <div style="position:relative;height:170px"><canvas id="dchart1"></canvas></div>
-            </div>
-            <div class="chart-card">
-              <h3 id="dchart2-title">สถานะการชำระบิล</h3>
-              <div id="dc-progress">
-                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-                  <span style="font-size:13px;font-weight:600;color:var(--accent)"><b id="dc-paid-pct">0%</b> ชำระแล้ว</span>
-                  <span id="dc-paid-amt" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2)">฿0 / ฿0</span>
-                </div>
-                <div class="progress-bar"><div class="progress-fill" id="dc-fill" style="width:0%"></div></div>
-                <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
-                  <div style="display:flex;justify-content:space-between;font-size:12px">
-                    <span style="color:var(--paid)">✓ ชำระแล้ว</span>
-                    <b id="dc-paid-n">0</b>
-                  </div>
-                  <div style="display:flex;justify-content:space-between;font-size:12px">
-                    <span style="color:var(--warning)">◑ บางส่วน</span>
-                    <b id="dc-partial-n">0</b>
-                  </div>
-                  <div style="display:flex;justify-content:space-between;font-size:12px">
-                    <span style="color:var(--danger)">✗ ค้างชำระ</span>
-                    <b id="dc-unpaid-n">0</b>
-                  </div>
-                </div>
-              </div>
-              <div style="margin-top:14px">
-                <h3 style="margin-bottom:8px">รายได้รายเดือน</h3>
-                <div style="position:relative;height:110px"><canvas id="dchart2"></canvas></div>
-              </div>
-            </div>
+      <!-- Billing Reminders — full width -->
+      <div class="reminder-panel">
+        <div class="reminder-panel-head">
+          <span style="font-size:14px;font-weight:600;flex:1">🔔 แจ้งเตือนรอบออกบิล</span>
+          <div id="billing-reminders-filter" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+            <button class="month-tab active" id="rbf-all"  onclick="setReminderBranch('')">ทั้งหมด</button>
+            <button class="month-tab"        id="rbf-b1"   onclick="setReminderBranch('สาขา 1')">สาขา 1</button>
+            <button class="month-tab"        id="rbf-b2"   onclick="setReminderBranch('สาขา 2')">สาขา 2</button>
+            <button class="month-tab"        id="rbf-b3"   onclick="setReminderBranch('สาขา 3')">สาขา 3</button>
+            <button class="month-tab"        id="rbf-b4"   onclick="setReminderBranch('สาขาอุดร')" style="color:var(--b4)">🏙️ สาขาอุดร</button>
           </div>
         </div>
-        <!-- RIGHT: Billing Reminders -->
-        <div>
-          <div class="reminder-panel">
-            <div class="reminder-panel-head">
-              <span style="font-size:14px;font-weight:600;flex:1">🔔 แจ้งเตือนรอบออกบิล</span>
-              <div id="billing-reminders-filter" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-                <button class="month-tab active" id="rbf-all"  onclick="setReminderBranch('')">ทั้งหมด</button>
-                <button class="month-tab"        id="rbf-b1"   onclick="setReminderBranch('สาขา 1')">1</button>
-                <button class="month-tab"        id="rbf-b2"   onclick="setReminderBranch('สาขา 2')">2</button>
-                <button class="month-tab"        id="rbf-b3"   onclick="setReminderBranch('สาขา 3')">3</button>
-                <button class="month-tab"        id="rbf-b4"   onclick="setReminderBranch('สาขาอุดร')" style="color:var(--b4)">🏙️</button>
-              </div>
-            </div>
-            <div id="billing-reminders" style="padding:0"></div>
-          </div>
-        </div>
+        <div id="billing-reminders" style="padding:0"></div>
       </div>
 
     </div>
@@ -1026,6 +983,21 @@ if ('serviceWorker' in navigator) {
         </div>
         <div class="pagination" id="cust-pagination"></div>
       </div>
+    </div>
+
+    <!-- Hidden chart elements (required by updateDashboard JS) -->
+    <div style="display:none" aria-hidden="true">
+      <canvas id="dchart1"></canvas>
+      <canvas id="dchart2"></canvas>
+      <span id="dchart1-title"></span>
+      <span id="dchart2-title"></span>
+      <span id="dc-paid-pct"></span>
+      <span id="dc-paid-amt"></span>
+      <div id="dc-fill"></div>
+      <span id="dc-paid-n"></span>
+      <span id="dc-partial-n"></span>
+      <span id="dc-unpaid-n"></span>
+      <div id="dc-progress"></div>
     </div>
 
     <!-- DISCHARGED PAGE -->
@@ -2860,20 +2832,16 @@ function buildBillingReminders() {
           return `
           <div class="reminder-row" onclick="openDetail('${c.id}')">
             <span class="rr-dot ${cfg.dot}"></span>
-            <div class="rr-body">
-              <div class="rr-name">
-                <span>${c.name}</span>
-                ${branchTag(c.branch)}
-                <span class="rr-id">${c.id}</span>
-              </div>
-              <div class="rr-meta">
-                <span class="rr-due">due ${c.dueDay}</span>
-                ${payBadge}
-                ${invBtn}
-                <button class="btn btn-sm btn-primary"
-                  onclick="event.stopPropagation();openPayModal('${c.id}')"
-                  style="font-size:10px;padding:2px 8px">💳 ชำระ</button>
-              </div>
+            <span class="rr-name">${c.name}</span>
+            ${branchTag(c.branch)}
+            <span class="rr-id">${c.id}</span>
+            <span class="rr-due">due ${c.dueDay}</span>
+            <div class="rr-actions">
+              ${payBadge}
+              ${invBtn}
+              <button class="btn btn-sm btn-primary"
+                onclick="event.stopPropagation();openPayModal('${c.id}')"
+                style="font-size:11px;padding:4px 10px">💳 ชำระ</button>
             </div>
           </div>`;
         }).join('')}
