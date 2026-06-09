@@ -2738,6 +2738,8 @@ function staffSchedInit() {
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+img,video,canvas,svg,iframe{max-width:100%}
+input,select,textarea{max-width:100%}
 body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a1916;font-size:14px;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 /* ===== SIDEBAR LAYOUT ===== */
 .app-layout{display:flex;flex:1;min-height:0;overflow:hidden}
@@ -2788,7 +2790,7 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .case-search:focus{border-color:#1a6b4a}
 /* main content */
 .main-wrapper{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
-.main-content{flex:1;padding:14px 16px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;min-width:0}
+.main-content{flex:1;padding:14px 16px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;min-width:0}
 /* top bar */
 .topbar{background:#fff;border-bottom:1px solid #e8e5e0;padding:10px 16px;display:flex;align-items:center;gap:10px;font-size:13px;flex-shrink:0;z-index:10}
 .topbar .topbar-title{font-weight:600;color:#1a1916;flex:1}
@@ -2833,7 +2835,20 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
   .branch-btn{padding:8px 14px;font-size:13px}
   .cust-list{max-height:200px}
   .form-row{grid-template-columns:1fr}
-  .topbar-title{font-size:15px}
+  .topbar-title{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+  .card{padding:12px 12px}
+  /* Form inputs: never exceed container width */
+  .main-content input[type="text"],
+  .main-content input[type="number"],
+  .main-content select,
+  .main-content textarea { max-width:100%; box-sizing:border-box; }
+}
+/* Landscape phone */
+@media(orientation:landscape) and (max-height:500px){
+  .main-content{padding:8px 12px 60px}
+  .card{padding:10px 12px;margin-bottom:8px}
+  .card-title{margin-bottom:6px}
+  .save-btn{padding:12px}
 }
 
 /* Bottom navigation bar (mobile only) */
