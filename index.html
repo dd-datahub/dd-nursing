@@ -287,18 +287,53 @@ td { padding: 10px 12px; font-size: 13px; vertical-align: middle; }
 .bill-date { font-size: 12px; color: var(--text3); margin-left: auto; }
 .bill-note { font-size: 12px; color: var(--text2); }
 
-/* Dashboard chart */
-.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-.dash-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-.dash-layout > div:first-child .chart-grid { grid-template-columns: 1fr; }
-@media(max-width:1100px){ .dash-layout { grid-template-columns: 1fr; } }
-@media(max-width:1100px){ .dash-layout > div:first-child .chart-grid { grid-template-columns: 1fr 1fr; } }
-.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
-.chart-card h3 { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .4px; }
+/* ===== DASHBOARD redesign ===== */
+.db-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+.db-month-strip { display:flex; gap:5px; margin-bottom:10px; overflow-x:auto; flex-wrap:nowrap; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding-bottom:3px; }
+.db-month-strip::-webkit-scrollbar { display:none; }
+.db-branch-bar { display:flex; align-items:center; gap:5px; margin-bottom:12px; flex-wrap:wrap; }
+/* KPI stat cards */
+.db-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:12px; }
+.db-kpi { display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:12px 14px; position:relative; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
+.db-kpi::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; border-radius:var(--radius-lg) 0 0 var(--radius-lg); }
+.db-kpi-blue::before  { background:#1a5c9e; }
+.db-kpi-green::before { background:var(--accent); }
+.db-kpi-teal::before  { background:var(--paid); }
+.db-kpi-red::before   { background:var(--danger); }
+.db-kpi-icon { font-size:22px; flex-shrink:0; }
+.db-kpi-body { min-width:0; flex:1; }
+.db-kpi-val { font-size:22px; font-weight:700; line-height:1.1; font-family:'IBM Plex Mono',monospace; }
+.db-kpi-blue  .db-kpi-val { color:#1a5c9e; }
+.db-kpi-green .db-kpi-val { color:var(--accent); }
+.db-kpi-teal  .db-kpi-val { color:var(--paid); }
+.db-kpi-red   .db-kpi-val { color:var(--danger); }
+.db-kpi-lbl { font-size:12px; color:var(--text2); font-weight:500; margin-top:2px; }
+.db-kpi-sub { font-size:11px; color:var(--text3); }
+/* Chart cards */
+.db-chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+.db-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px 16px; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
+.db-card-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.db-card-title { font-size:11px; font-weight:600; color:var(--text2); text-transform:uppercase; letter-spacing:.5px; }
+/* Pay status rows */
+.db-pay-row { display:flex; align-items:center; gap:8px; padding:7px 10px; background:var(--surface2); border-radius:8px; }
+.db-pay-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.db-pay-lbl { font-size:12px; color:var(--text2); flex:1; }
+.db-pay-val { font-size:16px; font-weight:700; font-family:'IBM Plex Mono',monospace; }
+.db-pay-unit { font-size:11px; color:var(--text3); }
+/* Responsive */
+@media(max-width:900px){
+  .db-stats { grid-template-columns:repeat(2,1fr); gap:8px; }
+  .db-chart-grid { grid-template-columns:1fr; }
+}
+@media(max-width:480px){
+  .db-kpi { padding:10px 12px; gap:8px; }
+  .db-kpi-icon { font-size:18px; }
+  .db-kpi-val { font-size:16px; }
+}
 /* Reminder panel */
 .reminder-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
 .reminder-panel-head { padding: 12px 16px 10px; border-bottom: 1px solid var(--border); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-/* Reminder rows — 2-line layout */
+/* Reminder rows */
 .reminder-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 0.5px solid var(--border); cursor: pointer; transition: background .1s; }
 .reminder-row:last-child { border-bottom: none; }
 .reminder-row:hover { background: var(--surface2); }
@@ -871,12 +906,13 @@ if ('serviceWorker' in navigator) {
     <!-- DASHBOARD PAGE (ภาพรวม) -->
     <div class="page active" id="page-dashboard">
 
-      <!-- Year / View controls -->
-      <div class="dash-controls">
-        <span class="dash-view-label">ปี:</span>
-        <div id="dash-year-tabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-        <button class="btn btn-sm" onclick="dashAddYear()" style="font-size:11px;padding:4px 10px">+ ปี</button>
-        <div style="flex:1;min-width:4px"></div>
+      <!-- Toolbar: year + view toggle -->
+      <div class="db-toolbar">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1">
+          <span class="dash-view-label">ปี:</span>
+          <div id="dash-year-tabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+          <button class="btn btn-sm" onclick="dashAddYear()" style="font-size:11px;padding:3px 8px">+ ปี</button>
+        </div>
         <div class="dash-seg">
           <button id="dash-btn-month" class="month-tab active" onclick="setDashView('month')">รายเดือน</button>
           <button id="dash-btn-year"  class="month-tab"        onclick="setDashView('year')">รายปี</button>
@@ -884,43 +920,111 @@ if ('serviceWorker' in navigator) {
       </div>
 
       <!-- Month strip -->
-      <div id="dash-month-btns" style="display:flex;gap:6px;margin-bottom:16px"></div>
+      <div id="dash-month-btns" class="db-month-strip"></div>
 
-      <!-- Dashboard branch filter -->
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-        <span style="font-size:12px;color:var(--text2);font-weight:500">📊 ดู:</span>
+      <!-- Branch filter + month label -->
+      <div class="db-branch-bar">
+        <span style="font-size:12px;color:var(--text3);font-weight:600;white-space:nowrap">📊 สาขา:</span>
         <button class="month-tab active" id="dbf-all"  onclick="setDashBranch('')">ทั้งหมด</button>
         <button class="month-tab"        id="dbf-b1"   onclick="setDashBranch('สาขา 1')">สาขา 1</button>
         <button class="month-tab"        id="dbf-b2"   onclick="setDashBranch('สาขา 2')">สาขา 2</button>
         <button class="month-tab"        id="dbf-b3"   onclick="setDashBranch('สาขา 3')">สาขา 3</button>
-        <button class="month-tab"        id="dbf-b4"   onclick="setDashBranch('สาขาอุดร')" style="color:var(--b4);border-color:var(--b4)">🏙️ สาขาอุดร</button>
+        <button class="month-tab"        id="dbf-b4"   onclick="setDashBranch('สาขาอุดร')" style="color:var(--b4);border-color:var(--b4)">🏙️ อุดร</button>
       </div>
 
       <!-- Stat cards -->
-      <div class="stats-row">
-        <div class="stat-card blue">
-          <div class="stat-icon">👥</div>
-          <div class="stat-value" id="s-total">0</div>
-          <div class="stat-label">ลูกค้าทั้งหมด</div>
-          <div class="stat-sub" id="s-branch-sub">4 สาขา</div>
+      <div class="db-stats">
+        <div class="db-kpi db-kpi-blue">
+          <div class="db-kpi-icon">👥</div>
+          <div class="db-kpi-body">
+            <div class="db-kpi-val" id="s-total">0</div>
+            <div class="db-kpi-lbl">ลูกค้าทั้งหมด</div>
+            <div class="db-kpi-sub" id="s-branch-sub">4 สาขา</div>
+          </div>
         </div>
-        <div class="stat-card green">
-          <div class="stat-icon">💰</div>
-          <div class="stat-value" id="s-revenue">0</div>
-          <div class="stat-label" id="s-revenue-label">รายได้/เดือน</div>
-          <div class="stat-sub">บาท</div>
+        <div class="db-kpi db-kpi-green">
+          <div class="db-kpi-icon">💰</div>
+          <div class="db-kpi-body">
+            <div class="db-kpi-val" id="s-revenue">0</div>
+            <div class="db-kpi-lbl" id="s-revenue-label">รายได้/เดือน</div>
+            <div class="db-kpi-sub">บาท</div>
+          </div>
         </div>
-        <div class="stat-card" id="sc-paid" style="--top-color:var(--paid)">
-          <div class="stat-icon">✅</div>
-          <div class="stat-value" id="s-paid">0</div>
-          <div class="stat-label" id="s-paid-label">ชำระแล้ว</div>
-          <div class="stat-sub">ราย</div>
+        <div class="db-kpi db-kpi-teal" id="sc-paid">
+          <div class="db-kpi-icon">✅</div>
+          <div class="db-kpi-body">
+            <div class="db-kpi-val" id="s-paid">0</div>
+            <div class="db-kpi-lbl" id="s-paid-label">ชำระแล้ว</div>
+            <div class="db-kpi-sub">ราย</div>
+          </div>
         </div>
-        <div class="stat-card red">
-          <div class="stat-icon">⏳</div>
-          <div class="stat-value" id="s-unpaid">0</div>
-          <div class="stat-label" id="s-unpaid-label">ค้างชำระ</div>
-          <div class="stat-sub">ราย</div>
+        <div class="db-kpi db-kpi-red">
+          <div class="db-kpi-icon">⏳</div>
+          <div class="db-kpi-body">
+            <div class="db-kpi-val" id="s-unpaid">0</div>
+            <div class="db-kpi-lbl" id="s-unpaid-label">ค้างชำระ</div>
+            <div class="db-kpi-sub">ราย</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts row: 2 columns -->
+      <div class="db-chart-grid">
+
+        <!-- Chart 1: รายได้ต่อสาขา -->
+        <div class="db-card">
+          <div class="db-card-head">
+            <span class="db-card-title" id="dchart1-title">รายได้ต่อสาขา</span>
+          </div>
+          <div style="position:relative;height:200px">
+            <canvas id="dchart1"></canvas>
+          </div>
+        </div>
+
+        <!-- สถานะชำระบิล -->
+        <div class="db-card">
+          <div class="db-card-head">
+            <span class="db-card-title">สถานะชำระบิล</span>
+            <span id="dc-paid-pct" style="font-size:20px;font-weight:700;color:var(--accent)">0%</span>
+          </div>
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px">
+              <span>ยอดชำระ</span>
+              <span id="dc-paid-amt">฿0 / ฿0</span>
+            </div>
+            <div class="progress-bar" style="height:8px"><div class="progress-fill" id="dc-fill" style="width:0%"></div></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div class="db-pay-row">
+              <span class="db-pay-dot" style="background:var(--paid)"></span>
+              <span class="db-pay-lbl">ชำระแล้ว</span>
+              <span class="db-pay-val" style="color:var(--paid)" id="dc-paid-n">0</span>
+              <span class="db-pay-unit">ราย</span>
+            </div>
+            <div class="db-pay-row">
+              <span class="db-pay-dot" style="background:var(--warning)"></span>
+              <span class="db-pay-lbl">บางส่วน</span>
+              <span class="db-pay-val" style="color:var(--warning)" id="dc-partial-n">0</span>
+              <span class="db-pay-unit">ราย</span>
+            </div>
+            <div class="db-pay-row">
+              <span class="db-pay-dot" style="background:var(--danger)"></span>
+              <span class="db-pay-lbl">ค้างชำระ</span>
+              <span class="db-pay-val" style="color:var(--danger)" id="dc-unpaid-n">0</span>
+              <span class="db-pay-unit">ราย</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Chart 2: รายได้รายเดือน full width -->
+      <div class="db-card" style="margin-top:0">
+        <div class="db-card-head">
+          <span class="db-card-title" id="dchart2-title">รายได้รายเดือน</span>
+        </div>
+        <div style="position:relative;height:180px">
+          <canvas id="dchart2"></canvas>
         </div>
       </div>
 
@@ -1003,20 +1107,6 @@ if ('serviceWorker' in navigator) {
       </div>
     </div>
 
-    <!-- Hidden chart elements (required by updateDashboard JS) -->
-    <div style="display:none" aria-hidden="true">
-      <canvas id="dchart1"></canvas>
-      <canvas id="dchart2"></canvas>
-      <span id="dchart1-title"></span>
-      <span id="dchart2-title"></span>
-      <span id="dc-paid-pct"></span>
-      <span id="dc-paid-amt"></span>
-      <div id="dc-fill"></div>
-      <span id="dc-paid-n"></span>
-      <span id="dc-partial-n"></span>
-      <span id="dc-unpaid-n"></span>
-      <div id="dc-progress"></div>
-    </div>
 
     <!-- DISCHARGED PAGE -->
     <div class="page" id="page-discharged">
@@ -3917,7 +4007,6 @@ function updateDashboard(){
   document.getElementById('s-unpaid').textContent=unpaidN;
   document.getElementById('s-unpaid-label').textContent=_dashView==='year'?'ค้างชำระ (ครั้ง)':'ค้างชำระ';
   document.getElementById('discharged-badge').textContent=dcCount;
-  buildBillingReminders();
 
   const pct=totalTarget>0?Math.round(paidRev/totalTarget*100):0;
   document.getElementById('dc-paid-pct').textContent=pct+'%';
