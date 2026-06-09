@@ -835,7 +835,7 @@ if ('serviceWorker' in navigator) {
     <div class="nav-item" onclick="goPage('customers')" title="ลูกค้าทั้งหมด"><span class="nav-icon">👥</span><span class="nav-text"> ลูกค้าทั้งหมด</span></div>
     <div class="nav-item" onclick="goPage('discharged')" title="คืนเคส"><span class="nav-icon">🚪</span><span class="nav-text"> คืนเคส</span><span class="nav-badge" id="discharged-badge" style="background:var(--text3)">0</span></div>
     <div class="nav-item" onclick="goPage('billing')" title="ชำระบิล"><span class="nav-icon">💳</span><span class="nav-text"> ชำระบิล</span><span class="nav-badge" id="unpaid-badge">0</span></div>
-    <div class="nav-item" onclick="goPage('dashboard')" title="แจ้งเตือนบิล"><span class="nav-icon">🔔</span><span class="nav-text"> แจ้งเตือนบิล</span><span class="nav-badge" id="reminder-badge" style="display:none;background:#c0392b">0</span></div>
+    <div class="nav-item" onclick="goPage('reminders')" title="แจ้งเตือนบิล"><span class="nav-icon">🔔</span><span class="nav-text"> แจ้งเตือนบิล</span><span class="nav-badge" id="reminder-badge" style="display:none;background:#c0392b">0</span></div>
     <div class="nav-item" onclick="goPage('requisition')" title="เบิกของ"><span class="nav-icon">📦</span><span class="nav-text"> เบิกของ</span></div>
     <div class="nav-item" onclick="goPage('history')" title="ประวัติการชำระ"><span class="nav-icon">📋</span><span class="nav-text"> ประวัติการชำระ</span></div>
     <div class="nav-item" onclick="goPage('refund')" title="คืนเงินลูกค้า"><span class="nav-icon">↩️</span><span class="nav-text"> คืนเงินลูกค้า</span></div>
@@ -868,7 +868,7 @@ if ('serviceWorker' in navigator) {
   </div>
   <div class="content">
 
-    <!-- DASHBOARD PAGE -->
+    <!-- DASHBOARD PAGE (ภาพรวม) -->
     <div class="page active" id="page-dashboard">
 
       <!-- Year / View controls -->
@@ -883,9 +883,18 @@ if ('serviceWorker' in navigator) {
         </div>
       </div>
 
-      <!-- Month strip — horizontal scroll -->
+      <!-- Month strip -->
       <div id="dash-month-btns" style="display:flex;gap:6px;margin-bottom:16px"></div>
 
+      <!-- Dashboard branch filter -->
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--text2);font-weight:500">📊 ดู:</span>
+        <button class="month-tab active" id="dbf-all"  onclick="setDashBranch('')">ทั้งหมด</button>
+        <button class="month-tab"        id="dbf-b1"   onclick="setDashBranch('สาขา 1')">สาขา 1</button>
+        <button class="month-tab"        id="dbf-b2"   onclick="setDashBranch('สาขา 2')">สาขา 2</button>
+        <button class="month-tab"        id="dbf-b3"   onclick="setDashBranch('สาขา 3')">สาขา 3</button>
+        <button class="month-tab"        id="dbf-b4"   onclick="setDashBranch('สาขาอุดร')" style="color:var(--b4);border-color:var(--b4)">🏙️ สาขาอุดร</button>
+      </div>
 
       <!-- Stat cards -->
       <div class="stats-row">
@@ -915,7 +924,22 @@ if ('serviceWorker' in navigator) {
         </div>
       </div>
 
-      <!-- Billing Reminders — full width -->
+    </div>
+
+    <!-- REMINDERS PAGE (แจ้งเตือนบิล) -->
+    <div class="page" id="page-reminders">
+
+      <!-- Year / Month controls -->
+      <div class="dash-controls">
+        <span class="dash-view-label">ปี:</span>
+        <div id="rem-year-tabs" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+        <button class="btn btn-sm" onclick="dashAddYear();renderRemControls()" style="font-size:11px;padding:4px 10px">+ ปี</button>
+      </div>
+
+      <!-- Month strip -->
+      <div id="rem-month-btns" style="display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px"></div>
+
+      <!-- Billing Reminders panel -->
       <div class="reminder-panel">
         <div class="reminder-panel-head">
           <span style="font-size:14px;font-weight:600;flex:1">🔔 แจ้งเตือนรอบออกบิล</span>
@@ -3814,6 +3838,30 @@ function renderDashMonthBtns() {
   }).join('');
 }
 
+function renderRemControls() {
+  // Year tabs
+  const yEl = document.getElementById('rem-year-tabs');
+  if (yEl) {
+    yEl.innerHTML = _SYSTEM_YEARS.map(y =>
+      `<button class="month-tab ${y.year===_dashYear?'active':''}" onclick="setDashYear(${y.year});renderRemControls();buildBillingReminders()">${y.year+543}</button>`
+    ).join('');
+  }
+  // Month buttons
+  const mEl = document.getElementById('rem-month-btns');
+  if (mEl) {
+    const months = _getYearMonths(_dashYear);
+    mEl.innerHTML = months.map(m => {
+      const mo = parseInt(m.split('-')[1]);
+      return `<button class="month-tab ${m===currentMonth?'active':''}" onclick="setMonth('${m}');buildBillingReminders()">${_THAI_M[mo]}</button>`;
+    }).join('');
+    // scroll active into view
+    setTimeout(() => {
+      const active = mEl.querySelector('.month-tab.active');
+      if (active) active.scrollIntoView({ inline: 'center', block: 'nearest' });
+    }, 50);
+  }
+}
+
 function _revenueFromHistory(months) {
   return payHistory.filter(p=>{
     const [y,mo]=months[0].split('-').map(Number);
@@ -6025,7 +6073,7 @@ function goPage(id) {
   });
   // Auto-close sidebar on mobile
   if (window.innerWidth <= 640) closeSidebar();
-  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',permissions:'จัดการสิทธิ์',schedule:'ตารางเวร',auditlog:'ประวัติการแก้ไข',aircond:'ซ่อม/ล้างแอร์'};
+  const titles = {dashboard:'ภาพรวม',reminders:'แจ้งเตือนบิล',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',permissions:'จัดการสิทธิ์',schedule:'ตารางเวร',auditlog:'ประวัติการแก้ไข',aircond:'ซ่อม/ล้างแอร์'};
   document.getElementById('page-title').textContent = titles[id]||'';
   if(id==='customers')    renderTable();
   if(id==='discharged')   renderDischarged();
@@ -6035,6 +6083,7 @@ function goPage(id) {
   if(id==='history')      renderHistory();
   if(id==='issues')       renderIssues();
   if(id==='dashboard')    updateDashboard();
+  if(id==='reminders')    { renderRemControls(); buildBillingReminders(); }
   if(id==='permissions')  renderPermissions();
   if(id==='schedule')     renderSchedulePage();
   if(id==='auditlog')    renderAuditLog();
