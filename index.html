@@ -886,15 +886,6 @@ if ('serviceWorker' in navigator) {
       <!-- Month strip — horizontal scroll -->
       <div id="dash-month-btns" style="display:flex;gap:6px;margin-bottom:16px"></div>
 
-      <!-- Dashboard branch filter -->
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-        <span style="font-size:12px;color:var(--text2);font-weight:500">📊 ดู:</span>
-        <button class="month-tab active" id="dbf-all"   onclick="setDashBranch('')">ทั้งหมด</button>
-        <button class="month-tab"        id="dbf-b1"    onclick="setDashBranch('สาขา 1')">สาขา 1</button>
-        <button class="month-tab"        id="dbf-b2"    onclick="setDashBranch('สาขา 2')">สาขา 2</button>
-        <button class="month-tab"        id="dbf-b3"    onclick="setDashBranch('สาขา 3')">สาขา 3</button>
-        <button class="month-tab"        id="dbf-b4"    onclick="setDashBranch('สาขาอุดร')" style="color:var(--b4);border-color:var(--b4)">🏙️ สาขาอุดร</button>
-      </div>
 
       <!-- Stat cards -->
       <div class="stats-row">
@@ -927,7 +918,14 @@ if ('serviceWorker' in navigator) {
       <!-- Billing Reminders — full width -->
       <div class="reminder-panel">
         <div class="reminder-panel-head">
-          <span style="font-size:14px;font-weight:600">🔔 แจ้งเตือนรอบออกบิล</span>
+          <span style="font-size:14px;font-weight:600;flex:1">🔔 แจ้งเตือนรอบออกบิล</span>
+          <div id="billing-reminders-filter" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+            <button class="month-tab active" id="rbf-all"  onclick="setReminderBranch('')">ทั้งหมด</button>
+            <button class="month-tab"        id="rbf-b1"   onclick="setReminderBranch('สาขา 1')">สาขา 1</button>
+            <button class="month-tab"        id="rbf-b2"   onclick="setReminderBranch('สาขา 2')">สาขา 2</button>
+            <button class="month-tab"        id="rbf-b3"   onclick="setReminderBranch('สาขา 3')">สาขา 3</button>
+            <button class="month-tab"        id="rbf-b4"   onclick="setReminderBranch('สาขาอุดร')" style="color:var(--b4)">🏙️ สาขาอุดร</button>
+          </div>
         </div>
         <div id="billing-reminders" style="padding:0"></div>
       </div>
