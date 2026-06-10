@@ -2003,7 +2003,7 @@ function renderMedDaily() {
     </td>`).join('');
     return `<tr style="background:${bg}">
       <td style="padding:4px 5px;border:1px solid #eee;text-align:center;color:#888;font-size:11px;white-space:nowrap">${i+1}</td>
-      <td style="padding:4px 8px;border:1px solid #eee;font-size:12px;white-space:nowrap">${c.name||''}</td>
+      <td style="padding:4px 8px;border:1px solid #eee;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.name||''}</td>
       ${cells}
     </tr>`;
   }).join('');
@@ -3676,24 +3676,31 @@ if ('serviceWorker' in navigator) {
               <button id="meddaily-save-btn" onclick="saveMedDaily()" style="padding:7px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
             </div>
             <div style="overflow-x:auto">
-              <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
+                <colgroup>
+                  <col style="width:3%">   <!-- ลำดับ -->
+                  <col style="width:15%">  <!-- ชื่อ -->
+                  <col><col><col>          <!-- ก่อนอาหาร เช้า/เที่ยง/เย็น -->
+                  <col><col><col>          <!-- หลังอาหาร เช้า/เที่ยง/เย็น -->
+                  <col><col><col>          <!-- ก่อนนอน / ยารายสัปดาห์ / อื่นๆ -->
+                </colgroup>
                 <thead>
                   <tr style="background:#f0ede8;text-align:center">
-                    <th rowspan="2" style="padding:6px 6px;border:1px solid #ddd;white-space:nowrap">ลำดับ</th>
-                    <th rowspan="2" style="padding:6px 10px;border:1px solid #ddd;white-space:nowrap;text-align:left">ชื่อ</th>
-                    <th colspan="3" style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap">ก่อนอาหาร</th>
-                    <th colspan="3" style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap">หลังอาหาร</th>
-                    <th rowspan="2" style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap">ก่อนนอน</th>
-                    <th rowspan="2" style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap">ยารายสัปดาห์</th>
-                    <th rowspan="2" style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap;width:99%">อื่นๆ</th>
+                    <th rowspan="2" style="padding:6px 4px;border:1px solid #ddd">ลำดับ</th>
+                    <th rowspan="2" style="padding:6px 8px;border:1px solid #ddd;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">ชื่อ</th>
+                    <th colspan="3" style="padding:6px 4px;border:1px solid #ddd">ก่อนอาหาร</th>
+                    <th colspan="3" style="padding:6px 4px;border:1px solid #ddd">หลังอาหาร</th>
+                    <th rowspan="2" style="padding:6px 4px;border:1px solid #ddd">ก่อนนอน</th>
+                    <th rowspan="2" style="padding:6px 4px;border:1px solid #ddd">ยารายสัปดาห์</th>
+                    <th rowspan="2" style="padding:6px 4px;border:1px solid #ddd">อื่นๆ</th>
                   </tr>
                   <tr style="background:#f0ede8;text-align:center">
-                    <th style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap">เช้า</th>
-                    <th style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap">เที่ยง</th>
-                    <th style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap">เย็น</th>
-                    <th style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap">เช้า</th>
-                    <th style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap">เที่ยง</th>
-                    <th style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap">เย็น</th>
+                    <th style="padding:5px 4px;border:1px solid #ddd">เช้า</th>
+                    <th style="padding:5px 4px;border:1px solid #ddd">เที่ยง</th>
+                    <th style="padding:5px 4px;border:1px solid #ddd">เย็น</th>
+                    <th style="padding:5px 4px;border:1px solid #ddd">เช้า</th>
+                    <th style="padding:5px 4px;border:1px solid #ddd">เที่ยง</th>
+                    <th style="padding:5px 4px;border:1px solid #ddd">เย็น</th>
                   </tr>
                 </thead>
                 <tbody id="meddaily-tbody"></tbody>
