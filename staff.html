@@ -1509,7 +1509,7 @@ function _openDatePicker(labelId, currentVal) {
     dp = document.createElement('input');
     dp.type = 'date';
     dp.id = '_shared_date_picker';
-    dp.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;width:1px;height:1px';
+    dp.style.cssText = 'position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;border:0;padding:0;margin:0;z-index:9999';
     dp.addEventListener('change', function() {
       const val = this.value;
       if (!this._cid) return;
@@ -1518,9 +1518,18 @@ function _openDatePicker(labelId, currentVal) {
       if (lbl) {
         lbl.textContent = val ? _fmtAdmitDate(val) : '📅 เลือก';
         lbl.style.color = val ? '#555' : '#bbb';
+        // อัปเดต onclick ให้ใช้ค่าใหม่ครั้งถัดไปที่คลิก
+        lbl.setAttribute('onclick', `_openDatePicker('${this._labelId}','${val}')`);
       }
     });
     document.body.appendChild(dp);
+  }
+  // วาง input ตรงใต้ label เพื่อให้ picker ขึ้นใกล้คอลัมน์
+  const lbl = document.getElementById(labelId);
+  if (lbl) {
+    const r = lbl.getBoundingClientRect();
+    dp.style.top = r.bottom + 'px';
+    dp.style.left = r.left + 'px';
   }
   dp.value = currentVal || '';
   dp._labelId = labelId;
