@@ -1346,7 +1346,7 @@ function renderVitalTable() {
     return `<tr style="background:${bg}">
       <td style="padding:5px 4px;border:1px solid #eee;text-align:center;color:#aaa;font-size:11px">${idx+1}</td>
       <td style="padding:5px 8px;border:1px solid #eee;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.name||''}">${shortName}</td>
-      <td style="padding:5px 4px;border:1px solid #eee;text-align:center;font-size:12px;color:#555">${age}</td>
+      <td style="padding:2px 3px;border:1px solid #eee"><input type="number" min="0" max="120" value="${age}" placeholder="-" oninput="updateVitalAge('${cid}',this.value)" style="width:44px;padding:3px 4px;border:1px solid #e0dbd2;border-radius:4px;font-size:11px;text-align:center;font-family:inherit;background:transparent"></td>
       ${cells}
     </tr>`;
   }).join('');
@@ -1358,6 +1358,9 @@ function updateVital(timeKey, cid, field, val) {
   _vitalAllData[timeKey][cid][field] = val;
 }
 window.updateVital = updateVital;
+
+function updateVitalAge(cid, val) { _vitalAges[cid] = val; }
+window.updateVitalAge = updateVitalAge;
 
 async function saveVitalSigns() {
   if (!_vitalDate) return;
@@ -1387,6 +1390,12 @@ async function saveVitalSigns() {
   try {
     await window._set(window._ref(window._db, `vital_signs/${_vitalDate}`),
       Object.keys(saveObj).length > 0 ? saveObj : null);
+    // บันทึกอายุไปยัง case_summary ด้วย
+    const [yyyy, mm] = _vitalDate.split('-');
+    const agePromises = Object.entries(_vitalAges)
+      .filter(([,age]) => age !== '' && age != null)
+      .map(([cid, age]) => window._set(window._ref(window._db, `case_summary/${yyyy}-${mm}/${cid}/age`), age));
+    if (agePromises.length) await Promise.all(agePromises);
     if (msg) { msg.textContent = `✓ บันทึกแล้ว (${totalRows} รายการ)`; msg.style.color = '#1a6b4a'; }
     if (btn) { btn.textContent = '✓ บันทึกแล้ว'; setTimeout(() => { btn.disabled=false; btn.textContent='💾 บันทึก'; }, 2500); }
   } catch(e) {
@@ -1468,33 +1477,29 @@ function renderCaseSummary() {
   if (!tbody) return;
   const custs = _getVitalCustomers();
   if (!custs.length) { tbody.innerHTML='<tr><td colspan="12" style="text-align:center;padding:20px;color:#bbb">ไม่มีข้อมูลผู้ป่วย</td></tr>'; return; }
-  const LEVELS = ['','ระดับ 1','ระดับ 2','ระดับ 3','ระดับ 4'];
   tbody.innerHTML = custs.map((c,i) => {
     const cid = (c.id||'').replace(/\//g,'_');
     const v = _summaryData[cid] || {};
     const bg = i%2===0 ? '#fff' : '#fafaf8';
-    const chk = (f) => `<input type="checkbox" ${v[f]?'checked':''} onchange="updateSummary('${cid}','${f}',this.checked)" style="width:16px;height:16px;cursor:pointer">`;
+    const txt = (f, w, ph) => `<input type="text" value="${v[f]||''}" placeholder="${ph}" oninput="updateSummary('${cid}','${f}',this.value)" style="width:${w}px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit">`;
     return `<tr style="background:${bg}">
-      <td style="padding:5px 5px;border:1px solid #eee;text-align:center;color:#888;font-size:11px">${i+1}</td>
-      <td style="padding:5px 8px;border:1px solid #eee;font-size:12px">${c.name||''}</td>
+      <td style="padding:5px 4px;border:1px solid #eee;text-align:center;color:#888;font-size:11px">${i+1}</td>
+      <td style="padding:5px 6px;border:1px solid #eee;font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.name||''}">${c.name||''}</td>
       <td style="padding:3px;border:1px solid #eee;text-align:center">
         <select onchange="updateSummary('${cid}','gender',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:2px 4px">
           <option value="" ${!v.gender?'selected':''}>-</option>
           <option value="ชาย" ${v.gender==='ชาย'?'selected':''}>ชาย</option>
           <option value="หญิง" ${v.gender==='หญิง'?'selected':''}>หญิง</option>
         </select></td>
-      <td style="padding:3px;border:1px solid #eee"><input type="number" min="0" max="120" value="${v.age||''}" oninput="updateSummary('${cid}','age',this.value)" style="width:42px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>
+      <td style="padding:3px;border:1px solid #eee"><input type="number" min="0" max="120" value="${v.age||''}" oninput="updateSummary('${cid}','age',this.value)" style="width:40px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>
       <td style="padding:3px;border:1px solid #eee"><input type="date" value="${v.admitDate||''}" onchange="updateSummary('${cid}','admitDate',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px"></td>
-      <td style="padding:3px;border:1px solid #eee"><input type="number" min="0" max="100" value="${v.adl||''}" oninput="updateSummary('${cid}','adl',this.value)" style="width:42px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>
-      <td style="padding:3px;border:1px solid #eee;text-align:center">
-        <select onchange="updateSummary('${cid}','level',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:2px 4px">
-          ${LEVELS.map(l => `<option value="${l}" ${v.level===l?'selected':''}>${l||'-'}</option>`).join('')}
-        </select></td>
-      <td style="padding:3px;border:1px solid #eee;text-align:center">${chk('feedTube')}</td>
-      <td style="padding:3px;border:1px solid #eee;text-align:center">${chk('trach')}</td>
-      <td style="padding:3px;border:1px solid #eee;text-align:center">${chk('wounds')}</td>
-      <td style="padding:3px;border:1px solid #eee;text-align:center">${chk('catheter')}</td>
-      <td style="padding:3px;border:1px solid #eee"><input type="text" value="${v.note||''}" oninput="updateSummary('${cid}','note',this.value)" style="width:100%;min-width:75px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>
+      <td style="padding:3px;border:1px solid #eee"><input type="text" value="${v.adl||''}" placeholder="0/0" oninput="updateSummary('${cid}','adl',this.value)" style="width:54px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center;font-family:inherit"></td>
+      <td style="padding:3px;border:1px solid #eee"><input type="text" value="${v.level||''}" placeholder="3/1" oninput="updateSummary('${cid}','level',this.value)" style="width:74px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center;font-family:inherit"></td>
+      <td style="padding:3px;border:1px solid #eee">${txt('feedTube',62,'-')}</td>
+      <td style="padding:3px;border:1px solid #eee">${txt('trach',62,'-')}</td>
+      <td style="padding:3px;border:1px solid #eee">${txt('wounds',62,'-')}</td>
+      <td style="padding:3px;border:1px solid #eee">${txt('catheter',62,'-')}</td>
+      <td style="padding:3px;border:1px solid #eee"><input type="text" value="${v.note||''}" oninput="updateSummary('${cid}','note',this.value)" style="width:100%;min-width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>
     </tr>`;
   }).join('');
 }
@@ -3276,18 +3281,18 @@ if ('serviceWorker' in navigator) {
               <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:920px">
                 <thead>
                   <tr style="background:#f0ede8;text-align:center">
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:36px">ลำดับ</th>
-                    <th style="padding:7px 6px;border:1px solid #ddd;min-width:120px;text-align:left">ชื่อ-นามสกุล</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:50px">เพศ</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:44px">อายุ</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:96px">วันที่แรกรับ</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:50px">ADL</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:80px">ระดับการดูแล</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:60px">สายอาหาร</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:60px">แผลเจาะคอ</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:60px">แผลกดทับ</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:60px">สายสวน</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:80px">หมายเหตุ</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:32px">ลำดับ</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;min-width:110px;text-align:left">ชื่อ-นามสกุล</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:46px">เพศ</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:40px">อายุ</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:90px">วันที่แรกรับ</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:62px">ADL/IADL</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:90px">ระดับพึ่งพาการดูแล</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:70px">สายอาหาร</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:70px">แผลเจาะคอ</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:70px">แผลกดทับ</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:70px">สายสวน</th>
+                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:78px">หมายเหตุ</th>
                   </tr>
                 </thead>
                 <tbody id="summary-tbody"></tbody>
