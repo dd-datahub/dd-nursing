@@ -1977,16 +1977,19 @@ function renderMedDaily() {
   if(!tbody) return;
   const custs=_getVitalCustomers();
   if(!custs.length){tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:20px;color:#bbb">ไม่มีข้อมูลผู้ป่วย</td></tr>';return;}
+  const IS='width:52px;padding:3px 5px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit;text-align:center;background:#fafafa;color:#333;box-sizing:border-box';
   tbody.innerHTML=custs.map((c,i)=>{
     const cid=(c.id||'').replace(/\//g,'_');
     const v=_medDailyData[cid]||{};
     const bg=i%2===0?'#fff':'#fafaf8';
-    const cells=MED_DAILY_COLS.map(col=>`<td style="padding:4px;border:1px solid #eee;text-align:center">
-      <input type="checkbox" ${v[col.key]?'checked':''} onchange="updateMedDaily('${cid}','${col.key}',this.checked)" style="width:16px;height:16px;cursor:pointer">
+    const cells=MED_DAILY_COLS.map(col=>`<td style="padding:3px 4px;border:1px solid #eee;text-align:center">
+      <input type="text" value="${(v[col.key]||'').replace(/"/g,'&quot;')}" maxlength="20" placeholder="—"
+        oninput="updateMedDaily('${cid}','${col.key}',this.value)"
+        style="${IS}">
     </td>`).join('');
     return `<tr style="background:${bg}">
-      <td style="padding:5px 5px;border:1px solid #eee;text-align:center;color:#888;font-size:11px">${i+1}</td>
-      <td style="padding:5px 8px;border:1px solid #eee;font-size:12px">${c.name||''}</td>
+      <td style="padding:4px 5px;border:1px solid #eee;text-align:center;color:#888;font-size:11px;white-space:nowrap">${i+1}</td>
+      <td style="padding:4px 8px;border:1px solid #eee;font-size:12px;white-space:nowrap">${c.name||''}</td>
       ${cells}
     </tr>`;
   }).join('');
@@ -2001,7 +2004,8 @@ async function saveMedDaily() {
   if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
   const user=window._currentUser,saveObj={};
   Object.entries(_medDailyData).forEach(([cid,v])=>{
-    if(Object.values(v).some(x=>x))saveObj[cid]={...v,savedBy:user?(user.displayName||user.email):'staff',savedAt:new Date().toISOString()};
+    const vals=Object.entries(v).filter(([k])=>!['savedBy','savedAt'].includes(k)).map(([,x])=>x);
+    if(vals.some(x=>x&&x!==false&&x!==''))saveObj[cid]={...v,savedBy:user?(user.displayName||user.email):'staff',savedAt:new Date().toISOString()};
   });
   try {
     await window._set(window._ref(window._db,`med_daily/${_medDailyDate}`),Object.keys(saveObj).length?saveObj:null);
@@ -3656,24 +3660,24 @@ if ('serviceWorker' in navigator) {
               <button id="meddaily-save-btn" onclick="saveMedDaily()" style="padding:7px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
             </div>
             <div style="overflow-x:auto">
-              <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:720px">
+              <table style="border-collapse:collapse;font-size:12px;table-layout:auto">
                 <thead>
                   <tr style="background:#f0ede8;text-align:center">
-                    <th rowspan="2" style="padding:6px 4px;border:1px solid #ddd;min-width:36px">ลำดับ</th>
-                    <th rowspan="2" style="padding:6px 8px;border:1px solid #ddd;min-width:120px;text-align:left">ชื่อ</th>
-                    <th colspan="3" style="padding:6px 4px;border:1px solid #ddd">ก่อนอาหาร</th>
-                    <th colspan="3" style="padding:6px 4px;border:1px solid #ddd">หลังอาหาร</th>
-                    <th rowspan="2" style="padding:6px 4px;border:1px solid #ddd;min-width:55px">ก่อนนอน</th>
-                    <th rowspan="2" style="padding:6px 4px;border:1px solid #ddd;min-width:70px">ยารายสัปดาห์</th>
-                    <th rowspan="2" style="padding:6px 4px;border:1px solid #ddd;min-width:50px">อื่นๆ</th>
+                    <th rowspan="2" style="padding:6px 6px;border:1px solid #ddd;white-space:nowrap">ลำดับ</th>
+                    <th rowspan="2" style="padding:6px 10px;border:1px solid #ddd;white-space:nowrap;text-align:left">ชื่อ</th>
+                    <th colspan="3" style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap">ก่อนอาหาร</th>
+                    <th colspan="3" style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap">หลังอาหาร</th>
+                    <th rowspan="2" style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap">ก่อนนอน</th>
+                    <th rowspan="2" style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap">ยารายสัปดาห์</th>
+                    <th rowspan="2" style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap">อื่นๆ</th>
                   </tr>
                   <tr style="background:#f0ede8;text-align:center">
-                    <th style="padding:5px 4px;border:1px solid #ddd;min-width:40px">เช้า</th>
-                    <th style="padding:5px 4px;border:1px solid #ddd;min-width:40px">เที่ยง</th>
-                    <th style="padding:5px 4px;border:1px solid #ddd;min-width:40px">เย็น</th>
-                    <th style="padding:5px 4px;border:1px solid #ddd;min-width:40px">เช้า</th>
-                    <th style="padding:5px 4px;border:1px solid #ddd;min-width:40px">เที่ยง</th>
-                    <th style="padding:5px 4px;border:1px solid #ddd;min-width:40px">เย็น</th>
+                    <th style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap">เช้า</th>
+                    <th style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap">เที่ยง</th>
+                    <th style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap">เย็น</th>
+                    <th style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap">เช้า</th>
+                    <th style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap">เที่ยง</th>
+                    <th style="padding:5px 8px;border:1px solid #ddd;white-space:nowrap">เย็น</th>
                   </tr>
                 </thead>
                 <tbody id="meddaily-tbody"></tbody>
