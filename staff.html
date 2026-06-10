@@ -1434,6 +1434,7 @@ function setVitalBranch(branch) {
   else if (sheet === 'registry') renderRegistry?.();
   else if (sheet === 'meddaily') renderMedDaily?.();
   else if (sheet === 'medcheck') renderMedCheckCustSelect?.();
+  else if (sheet === 'caseinfo') renderCaseInfoPatientSelect?.();
 }
 window.setVitalBranch = setVitalBranch;
 
@@ -1464,7 +1465,8 @@ function setVitalSheet(sheet) {
   if (sheet==='appt'     && !window._apptInited)     { window._apptInited=true;     initApptCalendar(); }
   if (sheet==='registry' && !window._registryInited) { window._registryInited=true; initRegistry(); }
   if (sheet==='medcheck' && !window._medcheckInited) { window._medcheckInited=true; initMedCheck(); }
-  if (sheet==='meddaily' && !window._meddailyInited) { window._meddailyInited=true; initMedDaily(); }
+  if (sheet==='meddaily'  && !window._meddailyInited)  { window._meddailyInited=true;  initMedDaily(); }
+  if (sheet==='caseinfo'  && !window._caseinfoInited)  { window._caseinfoInited=true;  initCaseInfo(); }
   if (sheet === 'appt')     requestAnimationFrame(_resizeApptCalendar);
   if (sheet === 'medcheck') requestAnimationFrame(()=>requestAnimationFrame(_resizeMedCheck));
 }
@@ -2033,6 +2035,105 @@ async function saveMedDaily() {
   }
 }
 window.saveMedDaily=saveMedDaily;
+
+// ============================================================
+//  ข้อมูลเคส SHEET
+// ============================================================
+const CASE_INFO_ITEMS=[
+  {no:1, label:'วินิจฉัยโรค',         key:'diagnosis'},
+  {no:2, label:'ระดับรู้สึกตัว',       key:'consciousness'},
+  {no:3, label:'การหายใจ',            key:'breathing'},
+  {no:4, label:'ผิวหนัง',             key:'skin'},
+  {no:5, label:'อาการบวม',            key:'swelling'},
+  {no:6, label:'การสื่อสาร',          key:'communication'},
+  {no:7, label:'การเคลื่อนไหว',       key:'movement'},
+  {no:8, label:'การรับประทานอาหาร',   key:'eating'},
+  {no:9, label:'การขับถ่ายปัสสาวะ',   key:'urination'},
+  {no:10,label:'การขับถ่ายอุจจาระ',   key:'defecation'},
+  {no:11,label:'การประเมิน V/S',      key:'vs_assess'},
+  {no:12,label:'I/O',                 key:'io'},
+  {no:13,label:'DTX',                 key:'dtx'},
+  {no:14,label:'LAB',                 key:'lab'},
+  {no:15,label:'การนัด',              key:'appointment'},
+  {no:16,label:'อื่นๆ / รายการยา',    key:'other'},
+];
+let _caseInfoDate='', _caseInfoCid='', _caseInfoData={};
+
+function initCaseInfo() {
+  const dateEl=document.getElementById('caseinfo-date');
+  _caseInfoDate=new Date().toISOString().split('T')[0];
+  if(dateEl){dateEl.value=_caseInfoDate;dateEl.addEventListener('change',()=>{_caseInfoDate=dateEl.value;loadCaseInfo();});}
+  renderCaseInfoPatientSelect();
+}
+
+function renderCaseInfoPatientSelect() {
+  const sel=document.getElementById('caseinfo-patient');
+  if(!sel) return;
+  const custs=_getVitalCustomers();
+  const prev=_caseInfoCid;
+  sel.innerHTML='<option value="">— เลือกผู้ป่วย —</option>'+
+    custs.map(c=>{const cid=(c.id||'').replace(/\//g,'_');return`<option value="${cid}">${c.name||cid}</option>`;}).join('');
+  if(prev&&custs.find(c=>(c.id||'').replace(/\//g,'_')===prev)) sel.value=prev;
+  else if(custs.length){_caseInfoCid=(custs[0].id||'').replace(/\//g,'_');sel.value=_caseInfoCid;}
+  sel.onchange=()=>{_caseInfoCid=sel.value;loadCaseInfo();};
+  loadCaseInfo();
+}
+window.renderCaseInfoPatientSelect=renderCaseInfoPatientSelect;
+
+function loadCaseInfo() {
+  if(!_caseInfoDate||!_caseInfoCid){renderCaseInfoForm({});return;}
+  const msg=document.getElementById('caseinfo-status');
+  if(msg){msg.textContent='กำลังโหลด...';msg.style.color='#aaa';}
+  window._get(window._ref(window._db,`case_info/${_caseInfoDate}/${_caseInfoCid}`)).then(snap=>{
+    _caseInfoData=snap.exists()?snap.val():{};
+    renderCaseInfoForm(_caseInfoData);
+    if(msg){msg.textContent=snap.exists()?'✓ โหลดแล้ว':'ยังไม่มีข้อมูล';msg.style.color=snap.exists()?'#1a6b4a':'#bbb';}
+  }).catch(()=>{_caseInfoData={};renderCaseInfoForm({});if(msg)msg.textContent='';});
+}
+
+function renderCaseInfoForm(data) {
+  const tbody=document.getElementById('caseinfo-tbody');
+  if(!tbody) return;
+  tbody.innerHTML=CASE_INFO_ITEMS.map((item,i)=>{
+    const val=(data[item.key]||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const bg=i%2===0?'#fff':'#fafaf8';
+    return `<tr style="background:${bg}">
+      <td style="padding:8px 10px;border:1px solid #eee;text-align:center;color:#888;font-size:12px;white-space:nowrap;width:36px">${item.no}</td>
+      <td style="padding:8px 12px;border:1px solid #eee;font-size:13px;white-space:nowrap;font-weight:500;color:#333;width:170px">${item.label}</td>
+      <td style="padding:4px 6px;border:1px solid #eee">
+        <textarea rows="2" placeholder="—"
+          oninput="updateCaseInfoField('${item.key}',this.value);_autoResizeCI(this)"
+          style="width:100%;border:1px solid #ddd;border-radius:5px;padding:5px 8px;font-size:13px;font-family:inherit;resize:none;background:#fafafa;color:#333;box-sizing:border-box;line-height:1.5;overflow:hidden">${val}</textarea>
+      </td>
+    </tr>`;
+  }).join('');
+  requestAnimationFrame(()=>tbody.querySelectorAll('textarea').forEach(_autoResizeCI));
+}
+
+function _autoResizeCI(el){el.style.height='auto';el.style.height=Math.max(38,el.scrollHeight)+'px';}
+window._autoResizeCI=_autoResizeCI;
+
+function updateCaseInfoField(key,val){if(!_caseInfoData)_caseInfoData={};_caseInfoData[key]=val;}
+window.updateCaseInfoField=updateCaseInfoField;
+
+async function saveCaseInfo() {
+  if(!_caseInfoDate||!_caseInfoCid) return;
+  const btn=document.getElementById('caseinfo-save-btn'),msg=document.getElementById('caseinfo-status');
+  if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
+  const saveObj={};
+  CASE_INFO_ITEMS.forEach(item=>{const v=(_caseInfoData[item.key]||'').trim();if(v)saveObj[item.key]=v;});
+  const user=window._currentUser;
+  if(Object.keys(saveObj).length){saveObj.savedBy=user?(user.displayName||user.email):'staff';saveObj.savedAt=new Date().toISOString();}
+  try {
+    await window._set(window._ref(window._db,`case_info/${_caseInfoDate}/${_caseInfoCid}`),Object.keys(saveObj).length?saveObj:null);
+    if(msg){msg.textContent='✓ บันทึกแล้ว';msg.style.color='#1a6b4a';}
+    if(btn){btn.textContent='✓ บันทึกแล้ว';setTimeout(()=>{btn.disabled=false;btn.textContent='💾 บันทึก';},2500);}
+  } catch(e){
+    if(msg){msg.textContent='❌ บันทึกไม่สำเร็จ';msg.style.color='#c0392b';}
+    if(btn){btn.disabled=false;btn.textContent='💾 บันทึก';}
+  }
+}
+window.saveCaseInfo=saveCaseInfo;
 
 // ============================================================
 //  ลงบันทึกรายบุคคล — INDIVIDUAL PATIENT RECORDS
@@ -3502,6 +3603,7 @@ if ('serviceWorker' in navigator) {
           <button class="vsheet-btn"        data-sheet="registry" onclick="setVitalSheet('registry')">📝 ทะเบียน</button>
           <button class="vsheet-btn"        data-sheet="medcheck" onclick="setVitalSheet('medcheck')">💊 ยารายวัน</button>
           <button class="vsheet-btn"        data-sheet="meddaily" onclick="setVitalSheet('meddaily')">🗒️ ยาแต่ละวัน</button>
+          <button class="vsheet-btn"        data-sheet="caseinfo" onclick="setVitalSheet('caseinfo')">📋 ข้อมูลเคส</button>
         </div>
 
         <!-- ===== vp-vs: สัญญาณชีพ ===== -->
@@ -3704,6 +3806,37 @@ if ('serviceWorker' in navigator) {
                   </tr>
                 </thead>
                 <tbody id="meddaily-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== vp-caseinfo: ข้อมูลเคส ===== -->
+        <div id="vp-caseinfo" class="vsheet-panel">
+          <div class="card" style="margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <b style="font-size:14px;color:#1a6b4a">📋 ข้อมูลเคส</b>
+              <input type="date" id="caseinfo-date" style="padding:5px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;font-family:inherit">
+              <select id="caseinfo-patient" style="padding:5px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;font-family:inherit;min-width:160px">
+                <option value="">— เลือกผู้ป่วย —</option>
+              </select>
+              <button id="caseinfo-save-btn" onclick="saveCaseInfo()" style="padding:6px 16px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
+              <span id="caseinfo-status" style="font-size:12px;color:#aaa"></span>
+            </div>
+          </div>
+          <div class="card" style="padding:0;overflow:hidden">
+            <div style="overflow-y:auto;max-height:calc(100vh - 220px)">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead>
+                  <tr style="background:#f0ede8;text-align:center">
+                    <th style="padding:8px 10px;border:1px solid #ddd;white-space:nowrap;width:36px">ที่</th>
+                    <th style="padding:8px 12px;border:1px solid #ddd;text-align:left;width:170px">รายการประเมิน</th>
+                    <th style="padding:8px 12px;border:1px solid #ddd;text-align:left">บันทึก</th>
+                  </tr>
+                </thead>
+                <tbody id="caseinfo-tbody">
+                  <tr><td colspan="3" style="padding:20px;text-align:center;color:#aaa;font-size:13px">กรุณาเลือกวันที่และผู้ป่วย</td></tr>
+                </tbody>
               </table>
             </div>
           </div>
