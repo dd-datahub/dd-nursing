@@ -1491,6 +1491,16 @@ function loadCaseSummary() {
   }).catch(e => { if (msg) { msg.textContent='โหลดไม่ได้: '+e.message; msg.style.color='#c0392b'; } renderCaseSummary(); });
 }
 
+function _fmtAdmitDate(s) {
+  if (!s) return '';
+  try {
+    const [y,m,d] = s.split('-');
+    const mn=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    return `${parseInt(d)} ${mn[parseInt(m)-1]} ${String(parseInt(y)+543).slice(2)}`;
+  } catch(e){ return s; }
+}
+window._fmtAdmitDate = _fmtAdmitDate;
+
 function renderCaseSummary() {
   const tbody = document.getElementById('summary-tbody');
   if (!tbody) return;
@@ -1513,7 +1523,12 @@ function renderCaseSummary() {
           <option value="หญิง" ${v.gender==='หญิง'?'selected':''}>หญิง</option>
         </select></td>
       <td style="${TD}"><input type="number" min="0" max="120" value="${v.age||''}" oninput="updateSummary('${cid}','age',this.value)" style="${I};text-align:center"></td>
-      <td style="${TD}"><input type="text" value="${v.admitDate||''}" placeholder="วว/ดด/ปปปป" oninput="updateSummary('${cid}','admitDate',this.value)" style="${I};text-align:center"></td>
+      <td style="${TD}">
+        <div style="position:relative;width:100%;overflow:hidden;cursor:pointer">
+          <div id="dtlbl-${cid}" style="font-size:11px;text-align:center;padding:3px 2px;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${v.admitDate?'#333':'#bbb'}">${v.admitDate?_fmtAdmitDate(v.admitDate):'📅 เลือกวันที่'}</div>
+          <input type="date" value="${v.admitDate||''}" onchange="updateSummary('${cid}','admitDate',this.value);(function(el,val){if(el){el.textContent=val?_fmtAdmitDate(val):'📅 เลือกวันที่';el.style.color=val?'#333':'#bbb'}})(document.getElementById('dtlbl-${cid}'),this.value)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2;box-sizing:border-box">
+        </div>
+      </td>
       <td style="${TD}">${txt('adl','0/0',';text-align:center')}</td>
       <td style="${TD}">${txt('level','3/1',';text-align:center')}</td>
       <td style="${TD}">${txt('feedTube','-')}</td>
