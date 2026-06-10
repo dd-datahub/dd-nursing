@@ -2097,16 +2097,13 @@ function renderCaseInfoTable() {
     wrap.innerHTML='<p style="text-align:center;color:#aaa;padding:30px;font-size:13px">ไม่มีข้อมูลผู้ป่วย</p>';
     return;
   }
-  // colgroup: #(3%) + label(15%) + n patient cols (share remaining equally)
-  const n=pageCusts.length;
-  const patW=Math.floor((100-3-15)/n);
-  const lastW=100-3-15-patW*(n-1);
-  const cols='<col style="width:3%"><col style="width:15%">'+
-    pageCusts.map((_,i)=>`<col style="width:${i===n-1?lastW:patW}%">`).join('');
+  // colgroup: # and label = fixed pixel (fit content), patient cols = no width → equal share
+  const cols='<col style="width:36px"><col style="width:170px">'+
+    pageCusts.map(()=>'<col>').join('');
   // header
   const hdr=`<tr style="background:#f0ede8;text-align:center">
-    <th style="padding:6px 4px;border:1px solid #ddd;font-size:11px">#</th>
-    <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;font-size:12px">รายการประเมิน</th>
+    <th style="padding:6px 4px;border:1px solid #ddd;font-size:11px;white-space:nowrap">#</th>
+    <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;font-size:12px;white-space:nowrap">รายการประเมิน</th>
     ${pageCusts.map(c=>`<th style="padding:6px 5px;border:1px solid #ddd;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name||''}</th>`).join('')}
   </tr>`;
   const TA='width:100%;border:1px solid #ddd;border-radius:4px;padding:4px 5px;font-size:12px;font-family:inherit;resize:none;background:#fafafa;color:#333;box-sizing:border-box;overflow:hidden;line-height:1.4;min-height:30px';
@@ -2121,7 +2118,7 @@ function renderCaseInfoTable() {
     }).join('');
     return `<tr style="background:${bg}">
       <td style="padding:6px 4px;border:1px solid #eee;text-align:center;color:#888;font-size:11px;white-space:nowrap">${item.no}</td>
-      <td style="padding:6px 8px;border:1px solid #eee;font-size:12px;white-space:nowrap;font-weight:500;color:#333">${item.label}</td>
+      <td style="padding:6px 8px;border:1px solid #eee;font-size:12px;white-space:nowrap;font-weight:500;color:#333;overflow:hidden;text-overflow:ellipsis">${item.label}</td>
       ${cells}
     </tr>`;
   }).join('');
