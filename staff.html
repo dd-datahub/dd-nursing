@@ -1464,7 +1464,8 @@ function setVitalSheet(sheet) {
   if (sheet==='registry' && !window._registryInited) { window._registryInited=true; initRegistry(); }
   if (sheet==='medcheck' && !window._medcheckInited) { window._medcheckInited=true; initMedCheck(); }
   if (sheet==='meddaily' && !window._meddailyInited) { window._meddailyInited=true; initMedDaily(); }
-  if (sheet === 'appt') requestAnimationFrame(_resizeApptCalendar);
+  if (sheet === 'appt')     requestAnimationFrame(_resizeApptCalendar);
+  if (sheet === 'medcheck') requestAnimationFrame(_resizeMedCheck);
 }
 window.setVitalSheet = setVitalSheet;
 
@@ -1794,13 +1795,14 @@ const MED_TIME_KEY_MAP={
   'ก่อนอาหารเย็น':'bfr_eve','หลังอาหารเย็น':'aft_eve',
   'ก่อนนอน':'sleep','ยาฉีด':'weekly'
 };
-let _medCheckDate='';
+let _medCheckDate='', _medCheckNotes={};
 
 function initMedCheck() {
   const dateEl=document.getElementById('medcheck-date');
   _medCheckDate=new Date().toISOString().split('T')[0];
   if(dateEl){dateEl.value=_medCheckDate;dateEl.addEventListener('change',()=>{_medCheckDate=dateEl.value;loadMedCheck();});}
   loadMedCheck();
+  window.addEventListener('resize',_resizeMedCheck);
 }
 window.renderMedCheckCustSelect=function(){};/* no-op: selector removed */
 
@@ -1808,12 +1810,50 @@ function loadMedCheck() {
   if(!_medCheckDate){renderMedCheck();return;}
   const msg=document.getElementById('medcheck-status');
   if(msg){msg.textContent='กำลังโหลด...';msg.style.color='#aaa';}
-  window._get(window._ref(window._db,`med_daily/${_medCheckDate}`)).then(snap=>{
-    _medDailyData=snap.exists()?snap.val():{};
+  Promise.all([
+    window._get(window._ref(window._db,`med_daily/${_medCheckDate}`)),
+    window._get(window._ref(window._db,`med_check_notes/${_medCheckDate}`))
+  ]).then(([snap1,snap2])=>{
+    _medDailyData=snap1.exists()?snap1.val():{};
+    _medCheckNotes=snap2.exists()?snap2.val():{};
     renderMedCheck();
-    if(msg){msg.textContent=snap.exists()?'✓ โหลดแล้ว':'ยังไม่มีข้อมูล';msg.style.color=snap.exists()?'#1a6b4a':'#bbb';}
-  }).catch(()=>{_medDailyData={};renderMedCheck();});
+    if(msg){msg.textContent='✓ โหลดแล้ว';msg.style.color='#1a6b4a';}
+  }).catch(()=>{_medDailyData={};_medCheckNotes={};renderMedCheck();
+    if(msg){msg.textContent='';} });
 }
+
+function _resizeMedCheck() {
+  if(_activeVitalSheet!=='medcheck') return;
+  const wrap=document.getElementById('medcheck-table-wrap');
+  if(!wrap) return;
+  const rect=wrap.getBoundingClientRect();
+  const available=Math.max(200,window.innerHeight-rect.top-8);
+  wrap.style.height=available+'px';
+}
+window._resizeMedCheck=_resizeMedCheck;
+
+function _autoResizeMCTA(el) {
+  el.style.height='auto';
+  el.style.height=(el.scrollHeight)+'px';
+}
+window._autoResizeMCTA=_autoResizeMCTA;
+
+function updateMedCheckNote(key,val){_medCheckNotes[key]=val;}
+window.updateMedCheckNote=updateMedCheckNote;
+
+async function saveMedCheckNotes() {
+  if(!_medCheckDate) return;
+  const btn=document.getElementById('medcheck-save-btn');
+  if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
+  try {
+    const saveObj={};
+    Object.entries(_medCheckNotes).forEach(([k,v])=>{if(v&&v.trim())saveObj[k]=v;});
+    await window._set(window._ref(window._db,`med_check_notes/${_medCheckDate}`),
+      Object.keys(saveObj).length?saveObj:null);
+    if(btn){btn.textContent='✓ บันทึกแล้ว';setTimeout(()=>{btn.disabled=false;btn.textContent='💾 บันทึก';},2500);}
+  } catch(e){alert('บันทึกไม่สำเร็จ: '+e.message);if(btn){btn.disabled=false;btn.textContent='💾 บันทึก';}}
+}
+window.saveMedCheckNotes=saveMedCheckNotes;
 
 function renderMedCheck() {
   const tbody=document.getElementById('medcheck-tbody');
@@ -1828,12 +1868,22 @@ function renderMedCheck() {
     }):[];
     const chips=patients.length
       ? patients.map(c=>`<span style="display:inline-block;padding:3px 10px;margin:2px 3px;background:#e8f5ee;color:#1a6b4a;border:1px solid #b2d8c4;border-radius:20px;font-size:12px;font-weight:500">${c.name}</span>`).join('')
-      : `<span style="color:#bbb;font-size:12px">ไม่มีผู้ป่วย</span>`;
+      : '';
+    const noteVal=(_medCheckNotes[key]||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     return `<tr style="background:${bg}">
-      <td style="padding:8px 12px;border:1px solid #eee;font-size:13px;font-weight:600;min-width:160px;white-space:nowrap;color:#333">${t}</td>
-      <td style="padding:6px 10px;border:1px solid #eee;vertical-align:middle">${chips}</td>
+      <td style="padding:8px 12px;border:1px solid #eee;font-size:13px;font-weight:600;white-space:nowrap;color:#333;vertical-align:top">${t}</td>
+      <td style="padding:6px 10px;border:1px solid #eee;vertical-align:top">
+        ${chips?`<div style="margin-bottom:5px">${chips}</div>`:''}
+        <textarea rows="1" placeholder="พิมพ์บันทึกเพิ่มเติม..."
+          oninput="_autoResizeMCTA(this);updateMedCheckNote('${key}',this.value)"
+          style="width:100%;padding:5px 8px;border:1px solid #e0e0e0;border-radius:6px;font-size:12px;font-family:inherit;resize:none;overflow:hidden;box-sizing:border-box;background:#fafafa;color:#444;line-height:1.5;min-height:30px">${noteVal}</textarea>
+      </td>
     </tr>`;
   }).join('');
+  requestAnimationFrame(()=>{
+    tbody.querySelectorAll('textarea').forEach(_autoResizeMCTA);
+    _resizeMedCheck();
+  });
 }
 window.renderMedCheck=renderMedCheck;
 
@@ -3491,7 +3541,7 @@ if ('serviceWorker' in navigator) {
 
         <!-- ===== vp-medcheck: ใบตรวจสอบยารายวัน ===== -->
         <div id="vp-medcheck" class="vsheet-panel">
-          <div class="card" style="margin-bottom:12px">
+          <div class="card" style="margin-bottom:8px">
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
               <div>
                 <label style="font-size:12px;color:#888;display:block;margin-bottom:3px">วันที่</label>
@@ -3500,19 +3550,22 @@ if ('serviceWorker' in navigator) {
               <div id="medcheck-status" style="font-size:12px;color:#888;margin-top:18px"></div>
             </div>
           </div>
-          <div class="card" style="padding:0;overflow:hidden">
-            <div style="padding:12px 14px;background:#f8f5f2;border-bottom:1px solid #eee">
+          <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
+            <div style="padding:10px 14px;background:#f8f5f2;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
               <div style="font-weight:600;font-size:13px;color:#333">💊 รายชื่อผู้ป่วยแยกตามเวลายา</div>
+              <button id="medcheck-save-btn" onclick="saveMedCheckNotes()" style="padding:6px 16px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
             </div>
-            <table style="width:100%;border-collapse:collapse;font-size:13px">
-              <thead>
-                <tr style="background:#f0ede8">
-                  <th style="padding:8px 12px;border:1px solid #ddd;text-align:left;min-width:160px;white-space:nowrap">เวลาให้ยา</th>
-                  <th style="padding:8px 12px;border:1px solid #ddd;text-align:left">รายชื่อผู้ป่วย</th>
-                </tr>
-              </thead>
-              <tbody id="medcheck-tbody"></tbody>
-            </table>
+            <div id="medcheck-table-wrap" style="overflow-y:auto;flex:1">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead>
+                  <tr style="background:#f0ede8;position:sticky;top:0;z-index:1">
+                    <th style="padding:8px 12px;border:1px solid #ddd;text-align:left;white-space:nowrap">เวลาให้ยา</th>
+                    <th style="padding:8px 12px;border:1px solid #ddd;text-align:left;width:99%">รายชื่อผู้ป่วย / บันทึก</th>
+                  </tr>
+                </thead>
+                <tbody id="medcheck-tbody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
