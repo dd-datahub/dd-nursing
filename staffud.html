@@ -1325,7 +1325,9 @@ function renderVitalTable() {
   tbody.innerHTML = custs.map((c, idx) => {
     const cid = (c.id||'').replace(/\//g,'_');
     const age = _vitalAges[cid] || '';
-    const shortName = (c.name||'').replace(/^คุณ\s*/,'');
+    // แสดงชื่อพร้อม "คุณ " นำหน้า
+    const _n = (c.name||'');
+    const shortName = /^คุณ/.test(_n) ? _n : 'คุณ ' + _n;
     const bg = idx % 2 === 0 ? '#fff' : '#fafaf8';
     let cells = '';
     VITAL_TIMES.forEach((t,i) => {
@@ -1453,11 +1455,28 @@ window.setVitalSheet = setVitalSheet;
 let _summaryMonth = '';
 let _summaryData  = {};
 
+const THAI_MONTHS_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+function _updateSummaryMonthDisplay() {
+  const el = document.getElementById('summary-month-display');
+  if (!el || !_summaryMonth) return;
+  const [y, m] = _summaryMonth.split('-').map(Number);
+  el.textContent = THAI_MONTHS_FULL[m-1] + ' ' + y;
+}
+
+function summaryMonthNav(dir) {
+  const [y, m] = _summaryMonth.split('-').map(Number);
+  const d2 = new Date(y, m-1+dir, 1);
+  _summaryMonth = d2.getFullYear() + '-' + String(d2.getMonth()+1).padStart(2,'0');
+  _updateSummaryMonthDisplay();
+  loadCaseSummary();
+}
+window.summaryMonthNav = summaryMonthNav;
+
 function initCaseSummary() {
-  const d = document.getElementById('summary-month');
   const now2 = new Date();
   _summaryMonth = now2.getFullYear() + '-' + String(now2.getMonth()+1).padStart(2,'0');
-  if (d) { d.value = _summaryMonth; d.addEventListener('change', () => { _summaryMonth=d.value; loadCaseSummary(); }); }
+  _updateSummaryMonthDisplay();
   loadCaseSummary();
 }
 
@@ -1492,7 +1511,7 @@ function renderCaseSummary() {
           <option value="หญิง" ${v.gender==='หญิง'?'selected':''}>หญิง</option>
         </select></td>
       <td style="padding:3px;border:1px solid #eee"><input type="number" min="0" max="120" value="${v.age||''}" oninput="updateSummary('${cid}','age',this.value)" style="width:40px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>
-      <td style="padding:3px;border:1px solid #eee"><input type="date" value="${v.admitDate||''}" onchange="updateSummary('${cid}','admitDate',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px"></td>
+      <td style="padding:3px;border:1px solid #eee"><input type="date" value="${v.admitDate||''}" onchange="updateSummary('${cid}','admitDate',this.value)" style="width:86px;font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px"></td>
       <td style="padding:3px;border:1px solid #eee"><input type="text" value="${v.adl||''}" placeholder="0/0" oninput="updateSummary('${cid}','adl',this.value)" style="width:54px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center;font-family:inherit"></td>
       <td style="padding:3px;border:1px solid #eee"><input type="text" value="${v.level||''}" placeholder="3/1" oninput="updateSummary('${cid}','level',this.value)" style="width:74px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center;font-family:inherit"></td>
       <td style="padding:3px;border:1px solid #eee">${txt('feedTube',62,'-')}</td>
@@ -3266,8 +3285,12 @@ if ('serviceWorker' in navigator) {
           <div class="card" style="margin-bottom:12px">
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
               <div>
-                <label style="font-size:12px;color:#888;display:block;margin-bottom:3px">เดือน</label>
-                <input type="month" id="summary-month" style="padding:7px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px" />
+                <label style="font-size:12px;color:#888;display:block;margin-bottom:4px">เดือน</label>
+                <div style="display:flex;align-items:center;gap:4px">
+                  <button onclick="summaryMonthNav(-1)" style="padding:5px 12px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:15px;line-height:1">‹</button>
+                  <div id="summary-month-display" style="min-width:148px;text-align:center;font-size:13px;font-weight:600;color:#333;padding:5px 8px;border:1px solid #ddd;border-radius:6px;background:#fff"></div>
+                  <button onclick="summaryMonthNav(1)" style="padding:5px 12px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:15px;line-height:1">›</button>
+                </div>
               </div>
               <div id="summary-status" style="font-size:12px;color:#888;margin-top:18px"></div>
             </div>
@@ -3278,21 +3301,21 @@ if ('serviceWorker' in navigator) {
               <button id="summary-save-btn" onclick="saveCaseSummary()" style="padding:7px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
             </div>
             <div style="overflow-x:auto">
-              <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:920px">
+              <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:860px">
                 <thead>
                   <tr style="background:#f0ede8;text-align:center">
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:32px">ลำดับ</th>
-                    <th style="padding:7px 6px;border:1px solid #ddd;min-width:110px;text-align:left">ชื่อ-นามสกุล</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:46px">เพศ</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:40px">อายุ</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:90px">วันที่แรกรับ</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:62px">ADL/IADL</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:90px">ระดับพึ่งพาการดูแล</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:70px">สายอาหาร</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:70px">แผลเจาะคอ</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:70px">แผลกดทับ</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:70px">สายสวน</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:78px">หมายเหตุ</th>
+                    <th style="padding:6px 3px;border:1px solid #ddd;min-width:28px">ลำดับ</th>
+                    <th style="padding:6px 5px;border:1px solid #ddd;min-width:100px;text-align:left">ชื่อ-นามสกุล</th>
+                    <th style="padding:6px 3px;border:1px solid #ddd;min-width:44px">เพศ</th>
+                    <th style="padding:6px 3px;border:1px solid #ddd;min-width:38px">อายุ</th>
+                    <th style="padding:6px 3px;border:1px solid #ddd;min-width:88px">วันที่แรกรับ</th>
+                    <th style="padding:6px 3px;border:1px solid #ddd;min-width:60px">ADL/IADL</th>
+                    <th style="padding:6px 3px;border:1px solid #ddd;min-width:86px">ระดับพึ่งพาการดูแล</th>
+                    <th style="padding:6px 3px;border:1px solid #ddd;min-width:66px">สายอาหาร</th>
+                    <th style="padding:6px 3px;border:1px solid #ddd;min-width:66px">แผลเจาะคอ</th>
+                    <th style="padding:6px 3px;border:1px solid #ddd;min-width:66px">แผลกดทับ</th>
+                    <th style="padding:6px 3px;border:1px solid #ddd;min-width:66px">สายสวน</th>
+                    <th style="padding:6px 3px;border:1px solid #ddd;min-width:72px">หมายเหตุ</th>
                   </tr>
                 </thead>
                 <tbody id="summary-tbody"></tbody>
