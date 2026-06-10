@@ -1739,8 +1739,9 @@ function renderRegistry() {
   const custs=_getVitalCustomers();
   if(!custs.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:#bbb">ไม่มีข้อมูลผู้ป่วย</td></tr>';return;}
   const IS='width:100%;padding:3px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit;box-sizing:border-box';
-  const DIS='width:100%;padding:3px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;box-sizing:border-box';
-  const TD='padding:3px;border:1px solid #eee;overflow:hidden';
+  const DIS='padding:3px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;box-sizing:border-box;white-space:nowrap';
+  const TD='padding:3px;border:1px solid #eee';
+  const TDnw=TD+';white-space:nowrap';
   tbody.innerHTML=custs.map((c,i)=>{
     const cid=(c.id||'').replace(/\//g,'_');
     const e=_registryExtra[cid]||{};
@@ -1753,14 +1754,14 @@ function renderRegistry() {
     };
     const days=e.admitDate&&e.endDate?Math.max(0,Math.round((new Date(e.endDate)-new Date(e.admitDate))/(864e5)))+' วัน':'-';
     return `<tr style="background:${bg}">
-      <td style="${TD};text-align:center;color:#888;font-size:11px">${i+1}</td>
-      <td style="${TD};font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.name||''}">${c.name||''}</td>
-      <td style="${TD}">${inp('generalId','เลขที่')}</td>
+      <td style="${TDnw};text-align:center;color:#888;font-size:11px">${i+1}</td>
+      <td style="${TDnw};font-size:12px">${c.name||''}</td>
+      <td style="${TDnw}">${inp('generalId','เลขที่')}</td>
       <td style="${TD}">${inp('address','ที่อยู่')}</td>
-      <td style="${TD}"><input type="date" value="${e.admitDate||''}" onchange="updateRegistryDate('${cid}','admitDate',this.value)" style="${DIS}"></td>
-      <td style="${TD}"><input type="date" value="${e.endDate||''}" onchange="updateRegistryDate('${cid}','endDate',this.value)" style="${DIS}"></td>
-      <td style="${TD};text-align:center;font-size:11px;color:#666;white-space:nowrap">${days}</td>
-      <td style="${TD}">${inp('phone','โทรศัพท์','tel')}</td>
+      <td style="${TDnw}"><input type="date" value="${e.admitDate||''}" onchange="updateRegistryDate('${cid}','admitDate',this.value)" style="${DIS}"></td>
+      <td style="${TDnw}"><input type="date" value="${e.endDate||''}" onchange="updateRegistryDate('${cid}','endDate',this.value)" style="${DIS}"></td>
+      <td style="${TDnw};text-align:center;font-size:11px;color:#666">${days}</td>
+      <td style="${TDnw}">${inp('phone','โทรศัพท์','tel')}</td>
     </tr>`;
   }).join('');
 }
@@ -3478,28 +3479,18 @@ if ('serviceWorker' in navigator) {
                 <button id="registry-save-btn" onclick="saveRegistry()" style="padding:7px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
               </div>
             </div>
-            <div>
-              <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
-                <colgroup>
-                  <col style="width:4%">
-                  <col style="width:18%">
-                  <col style="width:10%">
-                  <col style="width:22%">
-                  <col style="width:12%">
-                  <col style="width:12%">
-                  <col style="width:8%">
-                  <col style="width:14%">
-                </colgroup>
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:auto">
                 <thead>
                   <tr style="background:#f0ede8;text-align:center">
-                    <th style="padding:7px 4px;border:1px solid #ddd;overflow:hidden">ลำดับ</th>
-                    <th style="padding:7px 6px;border:1px solid #ddd;text-align:left;overflow:hidden">ชื่อ-สกุล</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;overflow:hidden">เลขที่ทั่วไป</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;overflow:hidden">ที่อยู่</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;overflow:hidden">วันที่เข้ารับ</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;overflow:hidden">วันที่สิ้นสุด</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;overflow:hidden">จำนวนวัน</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;overflow:hidden">เบอร์โทรฉุกเฉิน</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">ลำดับ</th>
+                    <th style="padding:7px 8px;border:1px solid #ddd;white-space:nowrap;text-align:left">ชื่อ-สกุล</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">เลขที่ทั่วไป</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;width:99%">ที่อยู่</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">วันที่เข้ารับ</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">วันที่สิ้นสุด</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">จำนวนวัน</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">เบอร์โทรฉุกเฉิน</th>
                   </tr>
                 </thead>
                 <tbody id="registry-tbody"></tbody>
