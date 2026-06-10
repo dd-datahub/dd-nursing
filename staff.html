@@ -1536,7 +1536,7 @@ function renderCaseSummary() {
       <td style="${TD}">
         <div style="position:relative;width:100%;overflow:hidden;height:22px;display:flex;align-items:center;justify-content:center">
           <div id="dtlbl2-${cid}" onclick="_openDatePicker('dtinp-${cid}')" style="font-size:11px;text-align:center;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:${v.admitDate?'#555':'#bbb'};width:100%">${v.admitDate?_fmtAdmitDate(v.admitDate):'📅 เลือก'}</div>
-          <input type="date" id="dtinp-${cid}" value="${v.admitDate||''}" onchange="updateSummary('${cid}','admitDate',this.value);var _l=document.getElementById('dtlbl2-${cid}');if(_l){_l.textContent=this.value?_fmtAdmitDate(this.value):'📅 เลือก';_l.style.color=this.value?'#555':'#bbb'}" style="position:absolute;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;overflow:hidden;clip:rect(0,0,0,0)">
+          <input type="date" id="dtinp-${cid}" value="${v.admitDate||''}" onchange="updateSummary('${cid}','admitDate',this.value);var _l=document.getElementById('dtlbl2-${cid}');if(_l){_l.textContent=this.value?_fmtAdmitDate(this.value):'📅 เลือก';_l.style.color=this.value?'#555':'#bbb'}" style="position:absolute;top:100%;left:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;overflow:hidden">
         </div>
       </td>
       <td style="${TD}">${txt('adl','0/0',';text-align:center')}</td>
