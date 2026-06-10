@@ -1119,6 +1119,7 @@ window.addEventListener('resize', () => {
         btn.textContent = c ? '▶' : '◀';
       } catch(e){}
     }
+    _resizeApptCalendar();
   }, 150);
 });
 
@@ -1434,6 +1435,18 @@ function setVitalBranch(branch) {
 }
 window.setVitalBranch = setVitalBranch;
 
+function _resizeApptCalendar() {
+  if (_activeVitalSheet !== 'appt') return;
+  const calDiv = document.getElementById('appt-calendar');
+  if (!calDiv) return;
+  const rect = calDiv.getBoundingClientRect();
+  const available = Math.max(300, window.innerHeight - rect.top - 6);
+  calDiv.style.height = available + 'px';
+  const tbl = calDiv.querySelector('table');
+  if (tbl) tbl.style.height = available + 'px';
+}
+window._resizeApptCalendar = _resizeApptCalendar;
+
 function setVitalSheet(sheet) {
   _activeVitalSheet = sheet;
   document.querySelectorAll('.vsheet-btn').forEach(b =>
@@ -1449,6 +1462,7 @@ function setVitalSheet(sheet) {
   if (sheet==='registry' && !window._registryInited) { window._registryInited=true; initRegistry(); }
   if (sheet==='medcheck' && !window._medcheckInited) { window._medcheckInited=true; initMedCheck(); }
   if (sheet==='meddaily' && !window._meddailyInited) { window._meddailyInited=true; initMedDaily(); }
+  if (sheet === 'appt') requestAnimationFrame(_resizeApptCalendar);
 }
 window.setVitalSheet = setVitalSheet;
 
@@ -1636,15 +1650,18 @@ function renderCalendar() {
   const firstDay=new Date(_apptYear,_apptMonth-1,1).getDay();
   const daysInMonth=new Date(_apptYear,_apptMonth,0).getDate();
   const today=new Date(); const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  let html=`<table style="width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed"><thead><tr>`;
+  let html=`<table style="width:100%;height:100%;border-collapse:collapse;font-size:14px;table-layout:fixed"><thead><tr style="height:36px">`;
   TH_DAYS_CAL.forEach((d,i)=>{
     const sun=i===0, sat=i===6;
-    html+=`<th style="padding:10px 4px;border:1px solid #ddd;background:#f0ede8;text-align:center;font-size:13px;font-weight:600;color:${sun?'#c0392b':sat?'#1a5c9e':'#555'}">${d}</th>`;
+    html+=`<th style="padding:8px 4px;border:1px solid #ddd;background:#f0ede8;text-align:center;font-size:13px;font-weight:600;color:${sun?'#c0392b':sat?'#1a5c9e':'#555'}">${d}</th>`;
   });
-  html+='</tr></thead><tbody><tr>';
-  let col=0;
+  html+='</tr></thead><tbody>';
+  let col=0, rowOpen=false;
   const sunCol=0, satCol=6;
-  for(let i=0;i<firstDay;i++){ html+=`<td style="border:1px solid #eee;background:#f8f8f6;height:90px"></td>`; col++; }
+  const startNewRow=()=>{ html+='<tr style="height:1px">'; rowOpen=true; };
+  const closeRow=()=>{ if(rowOpen){html+='</tr>'; rowOpen=false;} };
+  startNewRow();
+  for(let i=0;i<firstDay;i++){ html+=`<td style="border:1px solid #eee;background:#f8f8f6"></td>`; col++; }
   for(let day=1;day<=daysInMonth;day++){
     const ds=`${_apptYear}-${String(_apptMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const text=(_apptData[ds]||{}).text||'';
@@ -1655,16 +1672,18 @@ function renderCalendar() {
     const numColor=isSun?'#c0392b':isSat?'#1a5c9e':'#444';
     const bg=isToday?'#fff9e6':hasNote?'#e8f5ee':'#fff';
     const border=isToday?'2px solid #f0a500':'1px solid #ddd';
-    html+=`<td style="padding:6px 5px;border:${border};vertical-align:top;height:90px;cursor:pointer;background:${bg}" onclick="openApptDay('${ds}')">
+    html+=`<td style="padding:6px 5px;border:${border};vertical-align:top;cursor:pointer;background:${bg}" onclick="openApptDay('${ds}')">
       <div style="font-size:14px;font-weight:700;color:${numColor};margin-bottom:3px${isToday?';background:#f0a500;color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center':''}">${day}</div>
       <div style="font-size:11px;color:#1a6b4a;line-height:1.45;word-break:break-word">${text.replace(/\n/g,'<br>')}</div>
     </td>`;
     col++;
-    if(col%7===0&&day<daysInMonth) html+='</tr><tr>';
+    if(col%7===0&&day<daysInMonth){ closeRow(); startNewRow(); }
   }
-  while(col%7!==0){ html+=`<td style="border:1px solid #eee;background:#f8f8f6;height:90px"></td>`; col++; }
-  html+='</tr></tbody></table>';
+  while(col%7!==0){ html+=`<td style="border:1px solid #eee;background:#f8f8f6"></td>`; col++; }
+  closeRow();
+  html+='</tbody></table>';
   el.innerHTML=html;
+  requestAnimationFrame(_resizeApptCalendar);
 }
 
 function openApptDay(ds) {
