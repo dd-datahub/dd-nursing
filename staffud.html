@@ -1786,64 +1786,54 @@ window.saveRegistry=saveRegistry;
 //  SHEET 5: ใบตรวจสอบยารายวัน
 // ============================================================
 const MED_TIMES=['ก่อนอาหารเช้า','หลังอาหารเช้า','ก่อนอาหารเที่ยง','หลังอาหารเที่ยง','ก่อนอาหารเย็น','หลังอาหารเย็น','ก่อนนอน','ยาฉีด'];
-let _medCheckDate='', _medCheckCust='', _medCheckData={};
+const MED_TIME_KEY_MAP={
+  'ก่อนอาหารเช้า':'bfr_morn','หลังอาหารเช้า':'aft_morn',
+  'ก่อนอาหารเที่ยง':'bfr_noon','หลังอาหารเที่ยง':'aft_noon',
+  'ก่อนอาหารเย็น':'bfr_eve','หลังอาหารเย็น':'aft_eve',
+  'ก่อนนอน':'sleep','ยาฉีด':'weekly'
+};
+let _medCheckDate='';
 
 function initMedCheck() {
   const dateEl=document.getElementById('medcheck-date');
   _medCheckDate=new Date().toISOString().split('T')[0];
   if(dateEl){dateEl.value=_medCheckDate;dateEl.addEventListener('change',()=>{_medCheckDate=dateEl.value;loadMedCheck();});}
-  renderMedCheckCustSelect();
+  loadMedCheck();
 }
-
-function renderMedCheckCustSelect() {
-  const sel=document.getElementById('medcheck-cust-sel');
-  if(!sel) return;
-  const custs=_getVitalCustomers();
-  sel.innerHTML='<option value="">-- เลือกผู้ป่วย --</option>'+custs.map(c=>`<option value="${(c.id||'').replace(/\//g,'_')}">${c.name}</option>`).join('');
-  sel.onchange=()=>{_medCheckCust=sel.value;loadMedCheck();};
-}
+window.renderMedCheckCustSelect=function(){};/* no-op: selector removed */
 
 function loadMedCheck() {
-  if(!_medCheckDate||!_medCheckCust){renderMedCheck();return;}
-  window._get(window._ref(window._db,`med_check/${_medCheckDate}/${_medCheckCust}`)).then(snap=>{
-    _medCheckData=snap.exists()?snap.val():{};renderMedCheck();
-  }).catch(()=>{_medCheckData={};renderMedCheck();});
+  if(!_medCheckDate){renderMedCheck();return;}
+  const msg=document.getElementById('medcheck-status');
+  if(msg){msg.textContent='กำลังโหลด...';msg.style.color='#aaa';}
+  window._get(window._ref(window._db,`med_daily/${_medCheckDate}`)).then(snap=>{
+    _medDailyData=snap.exists()?snap.val():{};
+    renderMedCheck();
+    if(msg){msg.textContent=snap.exists()?'✓ โหลดแล้ว':'ยังไม่มีข้อมูล';msg.style.color=snap.exists()?'#1a6b4a':'#bbb';}
+  }).catch(()=>{_medDailyData={};renderMedCheck();});
 }
 
 function renderMedCheck() {
   const tbody=document.getElementById('medcheck-tbody');
   if(!tbody) return;
+  const custs=_getVitalCustomers();
   tbody.innerHTML=MED_TIMES.map((t,i)=>{
     const bg=i%2===0?'#fff':'#fafaf8';
-    const tk=t.replace(/\s+/g,'_');
+    const key=MED_TIME_KEY_MAP[t]||'';
+    const patients=key?custs.filter(c=>{
+      const cid=(c.id||'').replace(/\//g,'_');
+      return _medDailyData[cid]&&_medDailyData[cid][key]===true;
+    }):[];
+    const chips=patients.length
+      ? patients.map(c=>`<span style="display:inline-block;padding:3px 10px;margin:2px 3px;background:#e8f5ee;color:#1a6b4a;border:1px solid #b2d8c4;border-radius:20px;font-size:12px;font-weight:500">${c.name}</span>`).join('')
+      : `<span style="color:#bbb;font-size:12px">ไม่มีผู้ป่วย</span>`;
     return `<tr style="background:${bg}">
-      <td style="padding:8px 12px;border:1px solid #eee;font-size:13px;font-weight:500;min-width:150px">${t}</td>
-      <td style="padding:6px;border:1px solid #eee">
-        <input type="text" value="${_medCheckData[tk]||''}" placeholder="ชื่อผู้ตรวจสอบ"
-          oninput="updateMedCheck('${tk}',this.value)"
-          style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;font-family:inherit;min-width:200px">
-      </td>
+      <td style="padding:8px 12px;border:1px solid #eee;font-size:13px;font-weight:600;min-width:160px;white-space:nowrap;color:#333">${t}</td>
+      <td style="padding:6px 10px;border:1px solid #eee;vertical-align:middle">${chips}</td>
     </tr>`;
   }).join('');
 }
-
-function updateMedCheck(tk,val){_medCheckData[tk]=val;}
-window.updateMedCheck=updateMedCheck;
-
-async function saveMedCheck() {
-  if(!_medCheckDate||!_medCheckCust){alert('กรุณาเลือกวันที่และผู้ป่วยก่อน');return;}
-  const btn=document.getElementById('medcheck-save-btn');
-  if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
-  const saveObj={};
-  MED_TIMES.forEach(t=>{const k=t.replace(/\s+/g,'_');if(_medCheckData[k])saveObj[k]=_medCheckData[k];});
-  const user=window._currentUser;
-  try {
-    await window._set(window._ref(window._db,`med_check/${_medCheckDate}/${_medCheckCust}`),
-      Object.keys(saveObj).length?{...saveObj,savedBy:user?(user.displayName||user.email):'staff',savedAt:new Date().toISOString()}:null);
-    if(btn){btn.textContent='✓ บันทึกแล้ว';setTimeout(()=>{btn.disabled=false;btn.textContent='💾 บันทึก';},2500);}
-  } catch(e){alert('บันทึกไม่สำเร็จ: '+e.message);if(btn){btn.disabled=false;btn.textContent='💾 บันทึก';}}
-}
-window.saveMedCheck=saveMedCheck;
+window.renderMedCheck=renderMedCheck;
 
 // ============================================================
 //  SHEET 6: ใบตรวจสอบยาแต่ละวัน
@@ -3483,24 +3473,18 @@ if ('serviceWorker' in navigator) {
                 <label style="font-size:12px;color:#888;display:block;margin-bottom:3px">วันที่</label>
                 <input type="date" id="medcheck-date" style="padding:7px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px" />
               </div>
-              <div>
-                <label style="font-size:12px;color:#888;display:block;margin-bottom:3px">ผู้ป่วย</label>
-                <select id="medcheck-cust-sel" style="padding:7px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;min-width:180px">
-                  <option value="">-- เลือกผู้ป่วย --</option>
-                </select>
-              </div>
+              <div id="medcheck-status" style="font-size:12px;color:#888;margin-top:18px"></div>
             </div>
           </div>
           <div class="card" style="padding:0;overflow:hidden">
-            <div style="padding:12px 14px;background:#f8f5f2;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between">
-              <div style="font-weight:600;font-size:13px;color:#333">💊 ใบตรวจเช็คก่อนแจกยา</div>
-              <button id="medcheck-save-btn" onclick="saveMedCheck()" style="padding:7px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
+            <div style="padding:12px 14px;background:#f8f5f2;border-bottom:1px solid #eee">
+              <div style="font-weight:600;font-size:13px;color:#333">💊 รายชื่อผู้ป่วยแยกตามเวลายา</div>
             </div>
             <table style="width:100%;border-collapse:collapse;font-size:13px">
               <thead>
                 <tr style="background:#f0ede8">
-                  <th style="padding:8px 12px;border:1px solid #ddd;text-align:left;min-width:150px">เวลาให้ยา</th>
-                  <th style="padding:8px 12px;border:1px solid #ddd;text-align:left">ชื่อผู้ตรวจสอบ</th>
+                  <th style="padding:8px 12px;border:1px solid #ddd;text-align:left;min-width:160px;white-space:nowrap">เวลาให้ยา</th>
+                  <th style="padding:8px 12px;border:1px solid #ddd;text-align:left">รายชื่อผู้ป่วย</th>
                 </tr>
               </thead>
               <tbody id="medcheck-tbody"></tbody>
