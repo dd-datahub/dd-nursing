@@ -1723,26 +1723,45 @@ function loadRegistryExtra() {
   }).catch(e=>{ if(msg){msg.textContent='โหลดไม่ได้: '+e.message;msg.style.color='#c0392b';} renderRegistry(); });
 }
 
+// วัดความกว้างข้อความเพื่อ auto-resize input
+const _arCtx = document.createElement('canvas').getContext('2d');
+function _autoResizeInput(el, minPx) {
+  _arCtx.font = '11px ' + (el.style.fontFamily || 'sans-serif');
+  const txt = el.value || el.placeholder || '';
+  const w = Math.max(minPx || 50, Math.ceil(_arCtx.measureText(txt).width) + 18);
+  el.style.width = w + 'px';
+}
+window._autoResizeInput = _autoResizeInput;
+
 function renderRegistry() {
   const tbody=document.getElementById('registry-tbody');
   if(!tbody) return;
   const custs=_getVitalCustomers();
   if(!custs.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:#bbb">ไม่มีข้อมูลผู้ป่วย</td></tr>';return;}
+  const IS='padding:3px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit;box-sizing:content-box';
   tbody.innerHTML=custs.map((c,i)=>{
     const cid=(c.id||'').replace(/\//g,'_');
     const e=_registryExtra[cid]||{};
     const bg=i%2===0?'#fff':'#fafaf8';
-    const inp=(f,ph,w,tp='text')=>`<input type="${tp}" value="${e[f]||''}" placeholder="${ph}" oninput="updateRegistry('${cid}','${f}',this.value)" style="width:${w};padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit">`;
+    const inp=(f,ph,minPx,tp='text')=>{
+      const val=(e[f]||'').replace(/"/g,'&quot;');
+      _arCtx.font='11px sans-serif';
+      const txt=val||ph||'';
+      const w=Math.max(minPx,Math.ceil(_arCtx.measureText(txt).width)+18);
+      return `<input type="${tp}" value="${val}" placeholder="${ph}" data-min="${minPx}"
+        oninput="_autoResizeInput(this,${minPx});updateRegistry('${cid}','${f}',this.value)"
+        style="${IS};width:${w}px;min-width:${minPx}px">`;
+    };
     const days=e.admitDate&&e.endDate?Math.max(0,Math.round((new Date(e.endDate)-new Date(e.admitDate))/(864e5)))+' วัน':'-';
     return `<tr style="background:${bg}">
-      <td style="padding:5px 5px;border:1px solid #eee;text-align:center;color:#888;font-size:11px">${i+1}</td>
-      <td style="padding:5px 8px;border:1px solid #eee;font-size:12px">${c.name||''}</td>
-      <td style="padding:3px;border:1px solid #eee">${inp('generalId','เลขที่','78px')}</td>
-      <td style="padding:3px;border:1px solid #eee">${inp('address','ที่อยู่','115px')}</td>
-      <td style="padding:3px;border:1px solid #eee"><input type="date" value="${e.admitDate||''}" onchange="updateRegistryDate('${cid}','admitDate',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px"></td>
-      <td style="padding:3px;border:1px solid #eee"><input type="date" value="${e.endDate||''}" onchange="updateRegistryDate('${cid}','endDate',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px"></td>
-      <td style="padding:5px 8px;border:1px solid #eee;text-align:center;font-size:11px;color:#666">${days}</td>
-      <td style="padding:3px;border:1px solid #eee">${inp('phone','โทรศัพท์','100px','tel')}</td>
+      <td style="padding:5px 5px;border:1px solid #eee;text-align:center;color:#888;font-size:11px;white-space:nowrap">${i+1}</td>
+      <td style="padding:5px 8px;border:1px solid #eee;font-size:12px;white-space:nowrap">${c.name||''}</td>
+      <td style="padding:3px;border:1px solid #eee;white-space:nowrap">${inp('generalId','เลขที่',60)}</td>
+      <td style="padding:3px;border:1px solid #eee;white-space:nowrap">${inp('address','ที่อยู่',80)}</td>
+      <td style="padding:3px;border:1px solid #eee;white-space:nowrap"><input type="date" value="${e.admitDate||''}" onchange="updateRegistryDate('${cid}','admitDate',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px"></td>
+      <td style="padding:3px;border:1px solid #eee;white-space:nowrap"><input type="date" value="${e.endDate||''}" onchange="updateRegistryDate('${cid}','endDate',this.value)" style="font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px"></td>
+      <td style="padding:5px 8px;border:1px solid #eee;text-align:center;font-size:11px;color:#666;white-space:nowrap">${days}</td>
+      <td style="padding:3px;border:1px solid #eee;white-space:nowrap">${inp('phone','โทรศัพท์',80,'tel')}</td>
     </tr>`;
   }).join('');
 }
@@ -3461,17 +3480,17 @@ if ('serviceWorker' in navigator) {
               </div>
             </div>
             <div style="overflow-x:auto">
-              <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:820px">
+              <table style="border-collapse:collapse;font-size:12px;table-layout:auto">
                 <thead>
                   <tr style="background:#f0ede8;text-align:center">
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:36px">ลำดับ</th>
-                    <th style="padding:7px 6px;border:1px solid #ddd;min-width:130px;text-align:left">ชื่อ-สกุล</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:80px">เลขที่ทั่วไป</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:120px">ที่อยู่</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:100px">วันที่เข้ารับ</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:100px">วันที่สิ้นสุด</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:70px">จำนวนวัน</th>
-                    <th style="padding:7px 4px;border:1px solid #ddd;min-width:110px">เบอร์โทรฉุกเฉิน</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">ลำดับ</th>
+                    <th style="padding:7px 8px;border:1px solid #ddd;white-space:nowrap;text-align:left">ชื่อ-สกุล</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">เลขที่ทั่วไป</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">ที่อยู่</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">วันที่เข้ารับ</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">วันที่สิ้นสุด</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">จำนวนวัน</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">เบอร์โทรฉุกเฉิน</th>
                   </tr>
                 </thead>
                 <tbody id="registry-tbody"></tbody>
