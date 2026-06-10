@@ -1970,19 +1970,33 @@ function loadMedDaily() {
   }).catch(()=>{_medDailyData={};renderMedDaily();});
 }
 
+/* วัดความกว้างข้อความใน input ด้วย canvas */
+(function(){
+  let _cvs;
+  window._autoWidthMD=function(el){
+    if(!_cvs) _cvs=document.createElement('canvas');
+    const ctx=_cvs.getContext('2d');
+    const cs=window.getComputedStyle(el);
+    ctx.font=cs.fontSize+' '+cs.fontFamily;
+    const txt=el.value||'';
+    const w=txt?Math.ceil(ctx.measureText(txt).width)+18:38;
+    el.style.width=Math.max(38,w)+'px';
+  };
+})();
+
 function renderMedDaily() {
   const tbody=document.getElementById('meddaily-tbody');
   if(!tbody) return;
   const custs=_getVitalCustomers();
   if(!custs.length){tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:20px;color:#bbb">ไม่มีข้อมูลผู้ป่วย</td></tr>';return;}
-  const IS='width:52px;padding:3px 5px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit;text-align:center;background:#fafafa;color:#333;box-sizing:border-box';
+  const IS='width:38px;padding:3px 5px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit;text-align:center;background:#fafafa;color:#333;box-sizing:border-box;transition:width .1s';
   tbody.innerHTML=custs.map((c,i)=>{
     const cid=(c.id||'').replace(/\//g,'_');
     const v=_medDailyData[cid]||{};
     const bg=i%2===0?'#fff':'#fafaf8';
     const cells=MED_DAILY_COLS.map(col=>`<td style="padding:3px 4px;border:1px solid #eee;text-align:center">
-      <input type="text" value="${(v[col.key]||'').replace(/"/g,'&quot;')}" maxlength="20" placeholder="—"
-        oninput="updateMedDaily('${cid}','${col.key}',this.value)"
+      <input type="text" value="${(v[col.key]||'').replace(/"/g,'&quot;')}" maxlength="30" placeholder="—"
+        oninput="_autoWidthMD(this);updateMedDaily('${cid}','${col.key}',this.value)"
         style="${IS}">
     </td>`).join('');
     return `<tr style="background:${bg}">
@@ -1991,6 +2005,8 @@ function renderMedDaily() {
       ${cells}
     </tr>`;
   }).join('');
+  /* ปรับความกว้างของ input ที่มีข้อมูลอยู่แล้วหลัง render */
+  requestAnimationFrame(()=>tbody.querySelectorAll('input[type=text]').forEach(window._autoWidthMD));
 }
 
 function updateMedDaily(cid,f,val){if(!_medDailyData[cid])_medDailyData[cid]={};_medDailyData[cid][f]=val;}
@@ -3636,11 +3652,11 @@ if ('serviceWorker' in navigator) {
               <button id="meddaily-save-btn" onclick="saveMedDaily()" style="padding:7px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
             </div>
             <div style="overflow-x:auto">
-              <table style="border-collapse:collapse;font-size:12px;table-layout:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:auto">
                 <thead>
                   <tr style="background:#f0ede8;text-align:center">
                     <th rowspan="2" style="padding:6px 6px;border:1px solid #ddd;white-space:nowrap">ลำดับ</th>
-                    <th rowspan="2" style="padding:6px 10px;border:1px solid #ddd;white-space:nowrap;text-align:left">ชื่อ</th>
+                    <th rowspan="2" style="padding:6px 10px;border:1px solid #ddd;width:99%;text-align:left">ชื่อ</th>
                     <th colspan="3" style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap">ก่อนอาหาร</th>
                     <th colspan="3" style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap">หลังอาหาร</th>
                     <th rowspan="2" style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap">ก่อนนอน</th>
