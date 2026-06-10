@@ -1453,9 +1453,10 @@ function setVitalSheet(sheet) {
     b.classList.toggle('active', b.dataset.sheet === sheet));
   document.querySelectorAll('.vsheet-panel').forEach(p =>
     p.classList.toggle('active', p.id === 'vp-' + sheet));
-  // ขยายเต็มจอสำหรับตารางนัด — ลด padding main-content
+  // ขยายเต็มจอสำหรับตารางนัด/ยารายวัน — ลด padding main-content
   const mc = document.querySelector('.main-content');
-  if (mc) mc.style.padding = sheet === 'appt' ? '6px 4px' : '';
+  const _fullSheets=['appt','medcheck'];
+  if (mc) mc.style.padding = _fullSheets.includes(sheet) ? '6px 4px' : '';
   // lazy init each sheet on first visit
   if (sheet==='summary'  && !window._summaryInited)  { window._summaryInited=true;  initCaseSummary(); }
   if (sheet==='appt'     && !window._apptInited)     { window._apptInited=true;     initApptCalendar(); }
@@ -1463,7 +1464,7 @@ function setVitalSheet(sheet) {
   if (sheet==='medcheck' && !window._medcheckInited) { window._medcheckInited=true; initMedCheck(); }
   if (sheet==='meddaily' && !window._meddailyInited) { window._meddailyInited=true; initMedDaily(); }
   if (sheet === 'appt')     requestAnimationFrame(_resizeApptCalendar);
-  if (sheet === 'medcheck') requestAnimationFrame(_resizeMedCheck);
+  if (sheet === 'medcheck') requestAnimationFrame(()=>requestAnimationFrame(_resizeMedCheck));
 }
 window.setVitalSheet = setVitalSheet;
 
@@ -1818,6 +1819,7 @@ function loadMedCheck() {
     _medCheckExtraTimes=snap3.exists()?Object.values(snap3.val()).filter(Boolean):[];
     renderMedCheck();
     if(msg){msg.textContent='✓ โหลดแล้ว';msg.style.color='#1a6b4a';}
+    requestAnimationFrame(()=>requestAnimationFrame(_resizeMedCheck));
   }).catch(()=>{_medDailyData={};_medCheckNotes={};renderMedCheck();if(msg)msg.textContent='';});
 }
 
@@ -1874,11 +1876,14 @@ window.removeExtraMedTime=removeExtraMedTime;
 
 function _resizeMedCheck() {
   if(_activeVitalSheet!=='medcheck') return;
-  const wrap=document.getElementById('medcheck-table-wrap');
-  if(!wrap) return;
-  const rect=wrap.getBoundingClientRect();
+  const panel=document.getElementById('vp-medcheck');
+  if(!panel) return;
+  const cards=panel.querySelectorAll(':scope>.card');
+  const tableCard=cards[cards.length-1];
+  if(!tableCard) return;
+  const rect=tableCard.getBoundingClientRect();
   const available=Math.max(200,window.innerHeight-rect.top-8);
-  wrap.style.height=available+'px';
+  tableCard.style.height=available+'px';
 }
 window._resizeMedCheck=_resizeMedCheck;
 
@@ -1934,10 +1939,7 @@ function renderMedCheck() {
   const defaultRows=MED_TIMES.map((t,i)=>_renderMedCheckRow(t,MED_TIME_KEY_MAP[t]||'',false,-1,totalRows,i));
   const extraRows=_medCheckExtraTimes.map((x,i)=>_renderMedCheckRow(x.name,x.key||_extraTimeKey(x.name),true,i,totalRows,MED_TIMES.length+i));
   tbody.innerHTML=[...defaultRows,...extraRows].join('');
-  requestAnimationFrame(()=>{
-    tbody.querySelectorAll('textarea').forEach(_autoResizeMCTA);
-    _resizeMedCheck();
-  });
+  requestAnimationFrame(()=>tbody.querySelectorAll('textarea').forEach(_autoResizeMCTA));
 }
 window.renderMedCheck=renderMedCheck;
 
