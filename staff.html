@@ -1553,7 +1553,13 @@ function renderCaseSummary() {
         </select></td>
       <td style="${TD}"><input type="number" min="0" max="120" value="${v.age||''}" oninput="updateSummary('${cid}','age',this.value)" style="${I};text-align:center"></td>
       <td style="${TD}">
-        ${(()=>{const dd=v.admitDate||c.admitDate||'';return `<div id="dtlbl2-${cid}" onclick="_openDatePicker('dtlbl2-${cid}','${dd}')" style="font-size:11px;text-align:center;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:${dd?'#555':'#bbb'};padding:2px 1px">${dd?_fmtAdmitDate(dd):'📅 เลือก'}</div>`;})()}
+        ${(()=>{
+          const isoDate=v.admitDate||'';
+          const fallback=c.due_date||'';
+          const dispTxt=isoDate?_fmtAdmitDate(isoDate):(fallback||'📅 เลือก');
+          const dispColor=(isoDate||fallback)?'#555':'#bbb';
+          return `<div id="dtlbl2-${cid}" onclick="_openDatePicker('dtlbl2-${cid}','${isoDate}')" style="font-size:11px;text-align:center;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:${dispColor};padding:2px 1px">${dispTxt}</div>`;
+        })()}
       </td>
       <td style="${TD}">${txt('adl','0/0',';text-align:center')}</td>
       <td style="${TD}">${txt('level','3/1',';text-align:center')}</td>
