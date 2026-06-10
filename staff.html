@@ -1509,13 +1509,13 @@ function renderCaseSummary() {
       <td style="${TD};text-align:center;color:#888;font-size:11px">${i+1}</td>
       <td style="${TD};font-size:12px;white-space:nowrap;text-overflow:ellipsis" title="${c.name||''}">${c.name||''}</td>
       <td style="${TD};text-align:center">
-        <select onchange="updateSummary('${cid}','gender',this.value)" style="width:100%;max-width:100%;box-sizing:border-box;font-size:11px;border:1px solid #ddd;border-radius:4px;padding:2px 1px">
+        <select onchange="updateSummary('${cid}','gender',this.value)" style="width:100%;max-width:100%;box-sizing:border-box;font-size:11px;border:1px solid #ddd;border-radius:4px;padding:2px 1px;text-align:center;text-align-last:center">
           <option value="" ${!v.gender?'selected':''}>-</option>
           <option value="ชาย" ${v.gender==='ชาย'?'selected':''}>ชาย</option>
           <option value="หญิง" ${v.gender==='หญิง'?'selected':''}>หญิง</option>
         </select></td>
       <td style="${TD}"><input type="number" min="0" max="120" value="${v.age||''}" oninput="updateSummary('${cid}','age',this.value)" style="${I};text-align:center"></td>
-      <td style="${TD}"><input type="date" value="${v.admitDate||''}" onchange="updateSummary('${cid}','admitDate',this.value)" style="${I}"></td>
+      <td style="${TD}"><input type="text" value="${v.admitDate||''}" placeholder="วว/ดด/ปปปป" oninput="updateSummary('${cid}','admitDate',this.value)" style="${I};text-align:center"></td>
       <td style="${TD}">${txt('adl','0/0',';text-align:center')}</td>
       <td style="${TD}">${txt('level','3/1',';text-align:center')}</td>
       <td style="${TD}">${txt('feedTube','-')}</td>
