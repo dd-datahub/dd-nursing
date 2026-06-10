@@ -1442,6 +1442,9 @@ function setVitalSheet(sheet) {
     b.classList.toggle('active', b.dataset.sheet === sheet));
   document.querySelectorAll('.vsheet-panel').forEach(p =>
     p.classList.toggle('active', p.id === 'vp-' + sheet));
+  // ขยายเต็มจอสำหรับตารางนัด — ลด padding main-content
+  const mc = document.querySelector('.main-content');
+  if (mc) mc.style.padding = sheet === 'appt' ? '6px 4px' : '';
   // lazy init each sheet on first visit
   if (sheet==='summary'  && !window._summaryInited)  { window._summaryInited=true;  initCaseSummary(); }
   if (sheet==='appt'     && !window._apptInited)     { window._apptInited=true;     initApptCalendar(); }
@@ -3417,15 +3420,13 @@ if ('serviceWorker' in navigator) {
 
         <!-- ===== vp-appt: ตารางนัด ===== -->
         <div id="vp-appt" class="vsheet-panel">
-          <div class="card" style="margin-bottom:8px;padding:10px 14px">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <button onclick="apptPrevMonth()" style="padding:7px 18px;border:1px solid #ddd;border-radius:7px;background:#fff;cursor:pointer;font-size:17px">‹</button>
-              <div id="appt-month-display" style="font-size:17px;font-weight:700;color:#333;min-width:160px;text-align:center"></div>
-              <button onclick="apptNextMonth()" style="padding:7px 18px;border:1px solid #ddd;border-radius:7px;background:#fff;cursor:pointer;font-size:17px">›</button>
-              <span style="font-size:11px;color:#aaa">คลิกที่วันเพื่อเพิ่ม/แก้ไขนัด</span>
-            </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 4px 8px;background:#fff;border-radius:10px;margin-bottom:6px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+            <button onclick="apptPrevMonth()" style="padding:7px 18px;border:1px solid #ddd;border-radius:7px;background:#fff;cursor:pointer;font-size:17px">‹</button>
+            <div id="appt-month-display" style="font-size:17px;font-weight:700;color:#333;min-width:160px;text-align:center"></div>
+            <button onclick="apptNextMonth()" style="padding:7px 18px;border:1px solid #ddd;border-radius:7px;background:#fff;cursor:pointer;font-size:17px">›</button>
+            <span style="font-size:11px;color:#aaa">คลิกที่วันเพื่อเพิ่ม/แก้ไขนัด</span>
           </div>
-          <div class="card" style="padding:4px">
+          <div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden">
             <div id="appt-calendar"></div>
           </div>
         </div>
