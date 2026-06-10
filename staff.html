@@ -1503,11 +1503,30 @@ function _fmtAdmitDate(s) {
 }
 window._fmtAdmitDate = _fmtAdmitDate;
 
-function _openDatePicker(inputId) {
-  const el = document.getElementById(inputId);
-  if (!el) return;
-  if (el.showPicker) { try { el.showPicker(); return; } catch(e){} }
-  el.click();
+function _openDatePicker(labelId, currentVal) {
+  let dp = document.getElementById('_shared_date_picker');
+  if (!dp) {
+    dp = document.createElement('input');
+    dp.type = 'date';
+    dp.id = '_shared_date_picker';
+    dp.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;width:1px;height:1px';
+    dp.addEventListener('change', function() {
+      const val = this.value;
+      if (!this._cid) return;
+      updateSummary(this._cid, 'admitDate', val);
+      const lbl = document.getElementById(this._labelId);
+      if (lbl) {
+        lbl.textContent = val ? _fmtAdmitDate(val) : '📅 เลือก';
+        lbl.style.color = val ? '#555' : '#bbb';
+      }
+    });
+    document.body.appendChild(dp);
+  }
+  dp.value = currentVal || '';
+  dp._labelId = labelId;
+  dp._cid = labelId.replace('dtlbl2-', '');
+  if (dp.showPicker) { try { dp.showPicker(); return; } catch(e){} }
+  dp.click();
 }
 window._openDatePicker = _openDatePicker;
 
@@ -1534,10 +1553,7 @@ function renderCaseSummary() {
         </select></td>
       <td style="${TD}"><input type="number" min="0" max="120" value="${v.age||''}" oninput="updateSummary('${cid}','age',this.value)" style="${I};text-align:center"></td>
       <td style="${TD}">
-        <div style="position:relative;width:100%;overflow:hidden;height:22px;display:flex;align-items:center;justify-content:center">
-          <div id="dtlbl2-${cid}" onclick="_openDatePicker('dtinp-${cid}')" style="font-size:11px;text-align:center;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:${v.admitDate?'#555':'#bbb'};width:100%">${v.admitDate?_fmtAdmitDate(v.admitDate):'📅 เลือก'}</div>
-          <input type="date" id="dtinp-${cid}" value="${v.admitDate||''}" onchange="updateSummary('${cid}','admitDate',this.value);var _l=document.getElementById('dtlbl2-${cid}');if(_l){_l.textContent=this.value?_fmtAdmitDate(this.value):'📅 เลือก';_l.style.color=this.value?'#555':'#bbb'}" style="position:absolute;top:100%;left:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;overflow:hidden">
-        </div>
+        <div id="dtlbl2-${cid}" onclick="_openDatePicker('dtlbl2-${cid}','${v.admitDate||''}')" style="font-size:11px;text-align:center;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:${v.admitDate?'#555':'#bbb'};padding:2px 1px">${v.admitDate?_fmtAdmitDate(v.admitDate):'📅 เลือก'}</div>
       </td>
       <td style="${TD}">${txt('adl','0/0',';text-align:center')}</td>
       <td style="${TD}">${txt('level','3/1',';text-align:center')}</td>
