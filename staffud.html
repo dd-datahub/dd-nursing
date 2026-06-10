@@ -1793,7 +1793,7 @@ const MED_TIME_KEY_MAP={
   'ก่อนอาหารเย็น':'bfr_eve','หลังอาหารเย็น':'aft_eve',
   'ก่อนนอน':'sleep','ยาฉีด':'weekly'
 };
-let _medCheckDate='', _medCheckNotes={};
+let _medCheckDate='', _medCheckNotes={}, _medCheckExtraTimes=[];
 
 function initMedCheck() {
   const dateEl=document.getElementById('medcheck-date');
@@ -1802,7 +1802,7 @@ function initMedCheck() {
   loadMedCheck();
   window.addEventListener('resize',_resizeMedCheck);
 }
-window.renderMedCheckCustSelect=function(){};/* no-op: selector removed */
+window.renderMedCheckCustSelect=function(){};/* no-op */
 
 function loadMedCheck() {
   if(!_medCheckDate){renderMedCheck();return;}
@@ -1810,15 +1810,67 @@ function loadMedCheck() {
   if(msg){msg.textContent='กำลังโหลด...';msg.style.color='#aaa';}
   Promise.all([
     window._get(window._ref(window._db,`med_daily/${_medCheckDate}`)),
-    window._get(window._ref(window._db,`med_check_notes/${_medCheckDate}`))
-  ]).then(([snap1,snap2])=>{
+    window._get(window._ref(window._db,`med_check_notes/${_medCheckDate}`)),
+    window._get(window._ref(window._db,'med_check_extra_times'))
+  ]).then(([snap1,snap2,snap3])=>{
     _medDailyData=snap1.exists()?snap1.val():{};
     _medCheckNotes=snap2.exists()?snap2.val():{};
+    _medCheckExtraTimes=snap3.exists()?Object.values(snap3.val()).filter(Boolean):[];
     renderMedCheck();
     if(msg){msg.textContent='✓ โหลดแล้ว';msg.style.color='#1a6b4a';}
-  }).catch(()=>{_medDailyData={};_medCheckNotes={};renderMedCheck();
-    if(msg){msg.textContent='';} });
+  }).catch(()=>{_medDailyData={};_medCheckNotes={};renderMedCheck();if(msg)msg.textContent='';});
 }
+
+/* ---- extra time-slot helpers ---- */
+function _extraTimeKey(name){
+  return 'extra_'+name.replace(/\s+/g,'_').replace(/[^ก-๙a-zA-Z0-9_]/g,'').slice(0,30)||('extra_'+Date.now());
+}
+
+async function _saveExtraTimes(){
+  await window._set(window._ref(window._db,'med_check_extra_times'),
+    _medCheckExtraTimes.length
+      ? Object.fromEntries(_medCheckExtraTimes.map((x,i)=>[i,x]))
+      : null);
+}
+
+function showAddMedTimeForm(){
+  const row=document.getElementById('medcheck-add-row');
+  if(!row) return;
+  const visible=row.style.display!=='none'&&row.style.display!=='';
+  row.style.display=visible?'none':'flex';
+  if(!visible){
+    const inp=document.getElementById('medcheck-add-inp');
+    if(inp){inp.value='';setTimeout(()=>inp.focus(),50);}
+  }
+}
+window.showAddMedTimeForm=showAddMedTimeForm;
+
+async function confirmAddMedTime(){
+  const inp=document.getElementById('medcheck-add-inp');
+  if(!inp) return;
+  const name=inp.value.trim();
+  if(!name) return;
+  const allNames=[...MED_TIMES,..._medCheckExtraTimes.map(x=>x.name)];
+  if(allNames.includes(name)){alert('เวลานี้มีอยู่แล้ว');return;}
+  _medCheckExtraTimes.push({name,key:_extraTimeKey(name)});
+  await _saveExtraTimes();
+  const row=document.getElementById('medcheck-add-row');
+  if(row) row.style.display='none';
+  renderMedCheck();
+}
+window.confirmAddMedTime=confirmAddMedTime;
+
+function _medcheckAddKeydown(e){if(e.key==='Enter')confirmAddMedTime();if(e.key==='Escape')showAddMedTimeForm();}
+window._medcheckAddKeydown=_medcheckAddKeydown;
+
+async function removeExtraMedTime(idx){
+  if(!confirm('ลบเวลาให้ยานี้?')) return;
+  _medCheckExtraTimes.splice(idx,1);
+  await _saveExtraTimes();
+  renderMedCheck();
+}
+window.removeExtraMedTime=removeExtraMedTime;
+/* --------------------------------- */
 
 function _resizeMedCheck() {
   if(_activeVitalSheet!=='medcheck') return;
@@ -1830,10 +1882,7 @@ function _resizeMedCheck() {
 }
 window._resizeMedCheck=_resizeMedCheck;
 
-function _autoResizeMCTA(el) {
-  el.style.height='auto';
-  el.style.height=(el.scrollHeight)+'px';
-}
+function _autoResizeMCTA(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 window._autoResizeMCTA=_autoResizeMCTA;
 
 function updateMedCheckNote(key,val){_medCheckNotes[key]=val;}
@@ -1853,31 +1902,38 @@ async function saveMedCheckNotes() {
 }
 window.saveMedCheckNotes=saveMedCheckNotes;
 
+function _renderMedCheckRow(t, key, isExtra, extraIdx, totalRows, rowIdx) {
+  const bg=rowIdx%2===0?'#fff':'#fafaf8';
+  const custs=_getVitalCustomers();
+  const patients=key?custs.filter(c=>{
+    const cid=(c.id||'').replace(/\//g,'_');
+    return _medDailyData[cid]&&_medDailyData[cid][key]===true;
+  }):[];
+  const chips=patients.length
+    ? patients.map(c=>`<span style="display:inline-block;padding:3px 10px;margin:2px 3px;background:#e8f5ee;color:#1a6b4a;border:1px solid #b2d8c4;border-radius:20px;font-size:12px;font-weight:500">${c.name}</span>`).join('')
+    : '';
+  const noteVal=(_medCheckNotes[key]||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const delBtn=isExtra?`<button onclick="removeExtraMedTime(${extraIdx})" title="ลบ" style="margin-left:6px;padding:0 5px;border:none;background:transparent;color:#ccc;font-size:15px;cursor:pointer;line-height:1;flex-shrink:0" onmouseover="this.style.color='#e53935'" onmouseout="this.style.color='#ccc'">✕</button>`:'';
+  return `<tr style="background:${bg}">
+    <td style="padding:8px 10px;border:1px solid #eee;font-size:13px;font-weight:600;white-space:nowrap;color:#333;vertical-align:top">
+      <div style="display:flex;align-items:center;gap:0">${t.replace(/</g,'&lt;').replace(/>/g,'&gt;')}${delBtn}</div>
+    </td>
+    <td style="padding:6px 10px;border:1px solid #eee;vertical-align:top">
+      ${chips?`<div style="margin-bottom:5px">${chips}</div>`:''}
+      <textarea rows="1" placeholder="พิมพ์บันทึกเพิ่มเติม..."
+        oninput="_autoResizeMCTA(this);updateMedCheckNote('${key}',this.value)"
+        style="width:100%;padding:5px 8px;border:1px solid #e0e0e0;border-radius:6px;font-size:12px;font-family:inherit;resize:none;overflow:hidden;box-sizing:border-box;background:#fafafa;color:#444;line-height:1.5;min-height:30px">${noteVal}</textarea>
+    </td>
+  </tr>`;
+}
+
 function renderMedCheck() {
   const tbody=document.getElementById('medcheck-tbody');
   if(!tbody) return;
-  const custs=_getVitalCustomers();
-  tbody.innerHTML=MED_TIMES.map((t,i)=>{
-    const bg=i%2===0?'#fff':'#fafaf8';
-    const key=MED_TIME_KEY_MAP[t]||'';
-    const patients=key?custs.filter(c=>{
-      const cid=(c.id||'').replace(/\//g,'_');
-      return _medDailyData[cid]&&_medDailyData[cid][key]===true;
-    }):[];
-    const chips=patients.length
-      ? patients.map(c=>`<span style="display:inline-block;padding:3px 10px;margin:2px 3px;background:#e8f5ee;color:#1a6b4a;border:1px solid #b2d8c4;border-radius:20px;font-size:12px;font-weight:500">${c.name}</span>`).join('')
-      : '';
-    const noteVal=(_medCheckNotes[key]||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    return `<tr style="background:${bg}">
-      <td style="padding:8px 12px;border:1px solid #eee;font-size:13px;font-weight:600;white-space:nowrap;color:#333;vertical-align:top">${t}</td>
-      <td style="padding:6px 10px;border:1px solid #eee;vertical-align:top">
-        ${chips?`<div style="margin-bottom:5px">${chips}</div>`:''}
-        <textarea rows="1" placeholder="พิมพ์บันทึกเพิ่มเติม..."
-          oninput="_autoResizeMCTA(this);updateMedCheckNote('${key}',this.value)"
-          style="width:100%;padding:5px 8px;border:1px solid #e0e0e0;border-radius:6px;font-size:12px;font-family:inherit;resize:none;overflow:hidden;box-sizing:border-box;background:#fafafa;color:#444;line-height:1.5;min-height:30px">${noteVal}</textarea>
-      </td>
-    </tr>`;
-  }).join('');
+  const totalRows=MED_TIMES.length+_medCheckExtraTimes.length;
+  const defaultRows=MED_TIMES.map((t,i)=>_renderMedCheckRow(t,MED_TIME_KEY_MAP[t]||'',false,-1,totalRows,i));
+  const extraRows=_medCheckExtraTimes.map((x,i)=>_renderMedCheckRow(x.name,x.key||_extraTimeKey(x.name),true,i,totalRows,MED_TIMES.length+i));
+  tbody.innerHTML=[...defaultRows,...extraRows].join('');
   requestAnimationFrame(()=>{
     tbody.querySelectorAll('textarea').forEach(_autoResizeMCTA);
     _resizeMedCheck();
@@ -3527,9 +3583,21 @@ if ('serviceWorker' in navigator) {
             </div>
           </div>
           <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
-            <div style="padding:10px 14px;background:#f8f5f2;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+            <div style="padding:10px 14px;background:#f8f5f2;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:6px">
               <div style="font-weight:600;font-size:13px;color:#333">💊 รายชื่อผู้ป่วยแยกตามเวลายา</div>
-              <button id="medcheck-save-btn" onclick="saveMedCheckNotes()" style="padding:6px 16px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
+              <div style="display:flex;align-items:center;gap:6px">
+                <button onclick="showAddMedTimeForm()" style="padding:6px 13px;background:#fff;color:#1a6b4a;border:1.5px solid #1a6b4a;border-radius:7px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:600">➕ เพิ่มเวลาให้ยา</button>
+                <button id="medcheck-save-btn" onclick="saveMedCheckNotes()" style="padding:6px 16px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
+              </div>
+            </div>
+            <!-- inline add-time form -->
+            <div id="medcheck-add-row" style="display:none;align-items:center;gap:8px;padding:8px 14px;background:#f0faf4;border-bottom:1px solid #c8e6c9;flex-shrink:0">
+              <span style="font-size:12px;color:#555;white-space:nowrap">ชื่อเวลาให้ยา:</span>
+              <input id="medcheck-add-inp" type="text" placeholder="เช่น หลังอาหารกลางคืน" maxlength="40"
+                onkeydown="_medcheckAddKeydown(event)"
+                style="flex:1;padding:6px 10px;border:1.5px solid #81c784;border-radius:7px;font-size:13px;font-family:inherit;outline:none;min-width:0" />
+              <button onclick="confirmAddMedTime()" style="padding:6px 14px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:600;white-space:nowrap">✓ เพิ่ม</button>
+              <button onclick="showAddMedTimeForm()" style="padding:6px 10px;background:#eee;color:#666;border:none;border-radius:7px;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap">ยกเลิก</button>
             </div>
             <div id="medcheck-table-wrap" style="overflow-y:auto;flex:1">
               <table style="width:100%;border-collapse:collapse;font-size:13px">
