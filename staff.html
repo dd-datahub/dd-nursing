@@ -1464,6 +1464,7 @@ function setVitalSheet(sheet) {
   const mc = document.querySelector('.main-content');
   const _fullSheets=['appt','medcheck','feedtable','checklist'];
   if (mc) mc.style.padding = _fullSheets.includes(sheet) ? '6px 4px' : '';
+  if (mc) mc.style.overflowY = sheet === 'checklist' ? 'hidden' : '';
   // lazy init each sheet on first visit
   if (sheet==='summary'  && !window._summaryInited)  { window._summaryInited=true;  initCaseSummary(); }
   if (sheet==='appt'     && !window._apptInited)     { window._apptInited=true;     initApptCalendar(); }
@@ -1478,7 +1479,6 @@ function setVitalSheet(sheet) {
   if (sheet === 'appt')      requestAnimationFrame(_resizeApptCalendar);
   if (sheet === 'medcheck')  requestAnimationFrame(()=>requestAnimationFrame(_resizeMedCheck));
   if (sheet === 'feedtable') requestAnimationFrame(()=>requestAnimationFrame(_resizeFeedTable));
-  if (sheet === 'checklist') requestAnimationFrame(()=>requestAnimationFrame(_resizeChkTable));
 }
 window.setVitalSheet = setVitalSheet;
 
@@ -2816,7 +2816,6 @@ function initChecklist(){
   }
   _buildChkTable();
   renderChecklist();
-  window.addEventListener('resize', _resizeChkTable);
 }
 window.initChecklist=initChecklist;
 
@@ -2840,15 +2839,6 @@ function _rebuildChkDayCols(){
   }
 }
 
-function _resizeChkTable(){
-  if(_activeVitalSheet!=='checklist') return;
-  const el=document.getElementById('chk-scroll');
-  if(!el) return;
-  const rect=el.getBoundingClientRect();
-  const h=Math.max(200, window.innerHeight - rect.top - 8);
-  el.style.height=h+'px';
-}
-window._resizeChkTable=_resizeChkTable;
 
 function _buildChkTable(){
   const thead=document.getElementById('chk-thead');
@@ -4092,6 +4082,7 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .vsheet-btn.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a;font-weight:600}
 .vsheet-panel{display:none}
 .vsheet-panel.active{display:block}
+#vp-checklist.active{display:flex;flex-direction:column;height:100%}
 .vbranch-btn.active{background:#f0ede8 !important;border-color:#bbb !important;font-weight:700 !important}
 /* sub-sheet tabs inside ลงบันทึกรายบุคคล */
 /* year/month picker */
@@ -4772,8 +4763,8 @@ if ('serviceWorker' in navigator) {
 
         <!-- ===== vp-checklist: รายการตรวจเช็ค ===== -->
         <div id="vp-checklist" class="vsheet-panel">
-          <!-- control bar -->
-          <div class="card" style="margin-bottom:8px;padding:8px 14px">
+          <!-- control bar: flex-shrink:0 ไม่หด -->
+          <div class="card" style="flex-shrink:0;margin-bottom:8px;padding:8px 14px">
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
               <b style="font-size:14px;color:#1a6b4a">🔧 รายการตรวจเช็คและบำรุงรักษาเครื่องมือทางการแพทย์</b>
               <div id="chk-branch-badge" style="padding:3px 10px;font-size:12px;font-weight:600;border-radius:4px;border:1px solid #a5d6a7;background:#e8f5ee;color:#1a6b4a;white-space:nowrap">ทั้งหมด</div>
@@ -4783,9 +4774,9 @@ if ('serviceWorker' in navigator) {
               <span style="margin-left:auto;font-size:12px;color:#888">กดช่องวันที่เพื่อติ๊ก ✓</span>
             </div>
           </div>
-          <!-- table: height คำนวณโดย _resizeChkTable() -->
-          <div id="chk-scroll" style="overflow:auto;height:400px;border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
-            <table style="border-collapse:collapse">
+          <!-- table: flex:1 กินพื้นที่ที่เหลือ, min-height:0 ให้ flex หดได้ -->
+          <div id="chk-scroll" style="flex:1;min-height:0;overflow:auto;border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+            <table style="border-collapse:collapse;min-width:100%">
               <thead id="chk-thead" style="position:sticky;top:0;z-index:2"></thead>
               <tbody id="chk-tbody"></tbody>
             </table>
