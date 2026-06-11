@@ -2228,6 +2228,22 @@ function loadFeedTable() {
 function _autoResizeFeed(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 window._autoResizeFeed=_autoResizeFeed;
 
+function _resizeFeedRows() {
+  const panel=document.getElementById('vp-feedtable');
+  if(!panel) return;
+  const cards=panel.querySelectorAll(':scope>.card');
+  const tableCard=cards[cards.length-1];
+  if(!tableCard) return;
+  const cardH=tableCard.offsetHeight;
+  const thead=tableCard.querySelector('thead');
+  const theadH=thead?thead.offsetHeight:35;
+  const rows=[...tableCard.querySelectorAll('tbody tr')].filter(tr=>tr.style.display!=='none');
+  if(!rows.length) return;
+  const rowH=Math.max(30,Math.floor((cardH-theadH)/rows.length));
+  rows.forEach(tr=>{tr.style.height=rowH+'px';});
+}
+window._resizeFeedRows=_resizeFeedRows;
+
 function _resizeFeedTable() {
   if(_activeVitalSheet!=='feedtable') return;
   const panel=document.getElementById('vp-feedtable');
@@ -2238,6 +2254,7 @@ function _resizeFeedTable() {
   const rect=tableCard.getBoundingClientRect();
   const available=Math.max(200,window.innerHeight-rect.top-8);
   tableCard.style.height=available+'px';
+  requestAnimationFrame(_resizeFeedRows);
 }
 window._resizeFeedTable=_resizeFeedTable;
 
@@ -2290,7 +2307,10 @@ function renderFeedTable() {
     </tr>`;
   }).join('');
   tbody.innerHTML=html;
-  requestAnimationFrame(()=>tbody.querySelectorAll('textarea').forEach(_autoResizeFeed));
+  requestAnimationFrame(()=>{
+    tbody.querySelectorAll('textarea').forEach(_autoResizeFeed);
+    _resizeFeedRows();
+  });
 }
 window.renderFeedTable=renderFeedTable;
 
