@@ -1434,7 +1434,8 @@ function setVitalBranch(branch) {
   else if (sheet === 'registry') renderRegistry?.();
   else if (sheet === 'meddaily') renderMedDaily?.();
   else if (sheet === 'medcheck') renderMedCheckCustSelect?.();
-  else if (sheet === 'caseinfo') renderCaseInfoPatientSelect?.();
+  else if (sheet === 'caseinfo')   renderCaseInfoPatientSelect?.();
+  else if (sheet === 'feedtable')  renderFeedTable?.();
 }
 window.setVitalBranch = setVitalBranch;
 
@@ -1466,7 +1467,8 @@ function setVitalSheet(sheet) {
   if (sheet==='registry' && !window._registryInited) { window._registryInited=true; initRegistry(); }
   if (sheet==='medcheck' && !window._medcheckInited) { window._medcheckInited=true; initMedCheck(); }
   if (sheet==='meddaily'  && !window._meddailyInited)  { window._meddailyInited=true;  initMedDaily(); }
-  if (sheet==='caseinfo'  && !window._caseinfoInited)  { window._caseinfoInited=true;  initCaseInfo(); }
+  if (sheet==='caseinfo'   && !window._caseinfoInited)   { window._caseinfoInited=true;   initCaseInfo(); }
+  if (sheet==='feedtable'  && !window._feedtableInited)  { window._feedtableInited=true;  initFeedTable(); }
   if (sheet === 'appt')     requestAnimationFrame(_resizeApptCalendar);
   if (sheet === 'medcheck') requestAnimationFrame(()=>requestAnimationFrame(_resizeMedCheck));
 }
@@ -2167,6 +2169,108 @@ async function saveCaseInfo() {
   }
 }
 window.saveCaseInfo=saveCaseInfo;
+
+// ============================================================
+//  ตารางฟีดอาหารและน้ำ SHEET
+// ============================================================
+const FEED_TIME_COLS=[
+  {key:'t0600',label:'6.00น.'},
+  {key:'t1000',label:'10.00น.'},
+  {key:'t1200',label:'12.00น.'},
+  {key:'t1400',label:'14.00น.'},
+  {key:'t1600',label:'16.00น.'},
+  {key:'t1800',label:'18.00น.'},
+  {key:'t2000',label:'20.00น.'},
+  {key:'t2200',label:'22.00น.'},
+];
+let _feedDate='', _feedData={};
+
+function initFeedTable() {
+  const dateEl=document.getElementById('feedtable-date');
+  _feedDate=new Date().toISOString().split('T')[0];
+  if(dateEl){dateEl.value=_feedDate;dateEl.addEventListener('change',()=>{_feedDate=dateEl.value;loadFeedTable();});}
+  loadFeedTable();
+}
+
+function loadFeedTable() {
+  if(!_feedDate) return;
+  const msg=document.getElementById('feedtable-status');
+  if(msg){msg.textContent='กำลังโหลด...';msg.style.color='#aaa';}
+  window._get(window._ref(window._db,`feed_table/${_feedDate}`)).then(snap=>{
+    _feedData=snap.exists()?snap.val():{};
+    renderFeedTable();
+    if(msg){msg.textContent=snap.exists()?'✓ โหลดแล้ว':'ยังไม่มีข้อมูล';msg.style.color=snap.exists()?'#1a6b4a':'#bbb';}
+  }).catch(()=>{_feedData={};renderFeedTable();if(msg)msg.textContent='';});
+}
+
+function renderFeedTable() {
+  const tbody=document.getElementById('feedtable-tbody');
+  if(!tbody) return;
+  const custs=_getVitalCustomers();
+  if(!custs.length){tbody.innerHTML='<tr><td colspan="13" style="padding:20px;text-align:center;color:#aaa;font-size:12px">ไม่มีข้อมูลผู้ป่วย</td></tr>';return;}
+  const IS='width:100%;padding:3px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit;text-align:center;background:#fafafa;color:#333;box-sizing:border-box';
+  tbody.innerHTML=custs.map((c,i)=>{
+    const cid=(c.id||'').replace(/\//g,'_');
+    const v=_feedData[cid]||{};
+    const bg=i%2===0?'#fff':'#fafaf8';
+    const timeCells=FEED_TIME_COLS.map(col=>`<td style="padding:2px 3px;border:1px solid #eee;text-align:center">
+      <input type="text" value="${(v[col.key]||'').replace(/"/g,'&quot;')}" maxlength="20" placeholder="—"
+        oninput="updateFeedTable('${cid}','${col.key}',this.value)"
+        style="${IS}">
+    </td>`).join('');
+    return `<tr style="background:${bg}">
+      <td style="padding:4px 4px;border:1px solid #eee;text-align:center;color:#888;font-size:11px;white-space:nowrap">${i+1}</td>
+      <td style="padding:2px 3px;border:1px solid #eee;text-align:center">
+        <input type="text" value="${(v.bed||'').replace(/"/g,'&quot;')}" maxlength="10" placeholder="—"
+          oninput="updateFeedTable('${cid}','bed',this.value)"
+          style="${IS}">
+      </td>
+      <td style="padding:4px 7px;border:1px solid #eee;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.name||''}</td>
+      <td style="padding:2px 3px;border:1px solid #eee">
+        <input type="text" value="${(v.feed||'').replace(/"/g,'&quot;')}" maxlength="60" placeholder="—"
+          oninput="updateFeedTable('${cid}','feed',this.value)"
+          style="${IS};text-align:left">
+      </td>
+      ${timeCells}
+      <td style="padding:2px 3px;border:1px solid #eee">
+        <input type="text" value="${(v.note||'').replace(/"/g,'&quot;')}" maxlength="100" placeholder="—"
+          oninput="updateFeedTable('${cid}','note',this.value)"
+          style="${IS};text-align:left">
+      </td>
+    </tr>`;
+  }).join('');
+}
+window.renderFeedTable=renderFeedTable;
+
+function updateFeedTable(cid,f,val){if(!_feedData[cid])_feedData[cid]={};_feedData[cid][f]=val;}
+window.updateFeedTable=updateFeedTable;
+
+async function saveFeedTable() {
+  if(!_feedDate) return;
+  const btn=document.getElementById('feedtable-save-btn'),msg=document.getElementById('feedtable-status');
+  if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
+  const user=window._currentUser;
+  const allKeys=['bed','feed',...FEED_TIME_COLS.map(c=>c.key),'note'];
+  const saveObj={};
+  Object.entries(_feedData).forEach(([cid,v])=>{
+    if(allKeys.some(k=>(v[k]||'').trim())){
+      const obj={};
+      allKeys.forEach(k=>{if((v[k]||'').trim())obj[k]=v[k];});
+      obj.savedBy=user?(user.displayName||user.email):'staff';
+      obj.savedAt=new Date().toISOString();
+      saveObj[cid]=obj;
+    }
+  });
+  try {
+    await window._set(window._ref(window._db,`feed_table/${_feedDate}`),Object.keys(saveObj).length?saveObj:null);
+    if(msg){msg.textContent='✓ บันทึกแล้ว';msg.style.color='#1a6b4a';}
+    if(btn){btn.textContent='✓ บันทึกแล้ว';setTimeout(()=>{btn.disabled=false;btn.textContent='💾 บันทึก';},2500);}
+  } catch(e){
+    if(msg){msg.textContent='❌ บันทึกไม่สำเร็จ';msg.style.color='#c0392b';}
+    if(btn){btn.disabled=false;btn.textContent='💾 บันทึก';}
+  }
+}
+window.saveFeedTable=saveFeedTable;
 
 // ============================================================
 //  ลงบันทึกรายบุคคล — INDIVIDUAL PATIENT RECORDS
@@ -3636,7 +3740,8 @@ if ('serviceWorker' in navigator) {
           <button class="vsheet-btn"        data-sheet="registry" onclick="setVitalSheet('registry')">📝 ทะเบียน</button>
           <button class="vsheet-btn"        data-sheet="medcheck" onclick="setVitalSheet('medcheck')">💊 ยารายวัน</button>
           <button class="vsheet-btn"        data-sheet="meddaily" onclick="setVitalSheet('meddaily')">🗒️ ยาแต่ละวัน</button>
-          <button class="vsheet-btn"        data-sheet="caseinfo" onclick="setVitalSheet('caseinfo')">📋 ข้อมูลเคส</button>
+          <button class="vsheet-btn"        data-sheet="caseinfo"   onclick="setVitalSheet('caseinfo')">📋 ข้อมูลเคส</button>
+          <button class="vsheet-btn"        data-sheet="feedtable"  onclick="setVitalSheet('feedtable')">🍽️ ตารางฟีดอาหาร</button>
         </div>
 
         <!-- ===== vp-vs: สัญญาณชีพ ===== -->
@@ -3860,6 +3965,48 @@ if ('serviceWorker' in navigator) {
           <div class="card" style="padding:0;overflow:hidden">
             <div id="caseinfo-table-wrap" style="overflow:auto;max-height:calc(100vh - 210px)">
               <p style="text-align:center;color:#aaa;padding:30px;font-size:13px">กรุณาเลือกวันที่</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== vp-feedtable: ตารางฟีดอาหารและน้ำ ===== -->
+        <div id="vp-feedtable" class="vsheet-panel">
+          <div class="card" style="margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <b style="font-size:14px;color:#1a6b4a">🍽️ ตารางฟีดอาหารและน้ำ</b>
+              <input type="date" id="feedtable-date" style="padding:5px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;font-family:inherit">
+              <button id="feedtable-save-btn" onclick="saveFeedTable()" style="padding:6px 16px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
+              <span id="feedtable-status" style="font-size:12px;color:#aaa"></span>
+            </div>
+          </div>
+          <div class="card" style="padding:0;overflow:hidden">
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
+                <colgroup>
+                  <col style="width:3%">   <!-- ลำดับ -->
+                  <col style="width:4%">   <!-- Bed -->
+                  <col style="width:11%">  <!-- ชื่อ -->
+                  <col><col><col><col><col><col><col><col><col><col>  <!-- รายการฟีด + 8 เวลา + หมายเหตุ -->
+                </colgroup>
+                <thead>
+                  <tr style="background:#f0ede8;text-align:center">
+                    <th style="padding:6px 4px;border:1px solid #ddd;white-space:nowrap">ลำดับ</th>
+                    <th style="padding:6px 4px;border:1px solid #ddd;white-space:nowrap">Bed</th>
+                    <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;white-space:nowrap">ชื่อ</th>
+                    <th style="padding:6px 4px;border:1px solid #ddd;white-space:nowrap">รายการฟีด</th>
+                    <th style="padding:6px 4px;border:1px solid #ddd;white-space:nowrap">6.00น.</th>
+                    <th style="padding:6px 4px;border:1px solid #ddd;white-space:nowrap">10.00น.</th>
+                    <th style="padding:6px 4px;border:1px solid #ddd;white-space:nowrap">12.00น.</th>
+                    <th style="padding:6px 4px;border:1px solid #ddd;white-space:nowrap">14.00น.</th>
+                    <th style="padding:6px 4px;border:1px solid #ddd;white-space:nowrap">16.00น.</th>
+                    <th style="padding:6px 4px;border:1px solid #ddd;white-space:nowrap">18.00น.</th>
+                    <th style="padding:6px 4px;border:1px solid #ddd;white-space:nowrap">20.00น.</th>
+                    <th style="padding:6px 4px;border:1px solid #ddd;white-space:nowrap">22.00น.</th>
+                    <th style="padding:6px 4px;border:1px solid #ddd;white-space:nowrap">หมายเหตุ</th>
+                  </tr>
+                </thead>
+                <tbody id="feedtable-tbody"></tbody>
+              </table>
             </div>
           </div>
         </div>
