@@ -2541,14 +2541,15 @@ const _CARE_DATA=[
   ['I','','การดูแลเคสที่มีปัญหาทางเดินหายใจ'],
 ];
 
-let _careMonth='';
+let _careDate='';
 let _careEvals={};
 
 function _careBranchKey(){
-  return _vitalBranch||'all';
+  const map={'สาขา 1':'dd1','สาขา 2':'dd2','สาขา 3':'dd3'};
+  return map[_vitalBranch]||'all';
 }
 function _careFbPath(){
-  return 'care_standard/'+_careBranchKey()+'/'+_careMonth;
+  return 'care_standard/'+_careBranchKey()+'/'+(_careDate||new Date().toISOString().split('T')[0]);
 }
 
 function _careRenderBtn(idx) {
@@ -2578,9 +2579,7 @@ window._careToggle=_careToggle;
 function _careSaveFb() {
   const st=document.getElementById('carestandard-status');
   if(st){st.textContent='กำลังบันทึก...';st.style.color='#888';}
-  const dEl=document.getElementById('carestandard-date');
   const payload=Object.assign({},_careEvals);
-  if(dEl&&dEl.value) payload['_date']=dEl.value;
   firebase.database().ref(_careFbPath()).set(payload)
     .then(()=>{
       if(st){st.textContent='✓ บันทึกแล้ว';st.style.color='#2e7d32';}
@@ -2594,28 +2593,21 @@ function _careLoadFb() {
   if(st){st.textContent='กำลังโหลด...';st.style.color='#888';}
   firebase.database().ref(_careFbPath()).once('value').then(snap=>{
     const raw=snap.val()||{};
-    const dEl=document.getElementById('carestandard-date');
-    if(dEl) dEl.value=raw['_date']||'';
-    _careEvals=Object.fromEntries(Object.entries(raw).filter(([k])=>k!=='_date'));
+    _careEvals=Object.fromEntries(Object.entries(raw));
     _CARE_DATA.forEach((_,idx)=>_careRenderBtn(idx));
     if(st){st.textContent='';st.style.color='';}
   }).catch(()=>{if(st){st.textContent='❌ โหลดไม่สำเร็จ';st.style.color='#c62828';}});
 }
 
 function initCareStandard() {
-  _careMonth=new Date().toISOString().slice(0,7);
-  const mEl=document.getElementById('carestandard-month');
-  if(mEl){
-    mEl.value=_careMonth;
-    mEl.addEventListener('change',()=>{
-      _careMonth=mEl.value;
-      renderCareStandard();
-    });
-  }
+  _careDate=new Date().toISOString().split('T')[0];
   const dEl=document.getElementById('carestandard-date');
   if(dEl){
-    dEl.value=new Date().toISOString().split('T')[0];
-    dEl.addEventListener('change',_careSaveFb);
+    dEl.value=_careDate;
+    dEl.addEventListener('change',()=>{
+      _careDate=dEl.value||new Date().toISOString().split('T')[0];
+      renderCareStandard();
+    });
   }
   const tbody=document.getElementById('carestandard-tbody');
   if(!tbody) return;
@@ -2664,6 +2656,8 @@ function renderCareStandard() {
     badge.style.color=color;
     badge.style.borderColor=border;
   }
+  _careEvals={};
+  _CARE_DATA.forEach((_,idx)=>_careRenderBtn(idx));
   _careLoadFb();
 }
 window.renderCareStandard=renderCareStandard;
@@ -4506,9 +4500,6 @@ if ('serviceWorker' in navigator) {
               <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
                 <b style="font-size:14px;color:#1a6b4a">📋 มาตรฐานงานดูแล</b>
                 <div id="care-branch-badge" style="padding:3px 10px;font-size:12px;font-weight:600;border-radius:4px;border:1px solid #a5d6a7;background:#e8f5ee;color:#1a6b4a;white-space:nowrap">ทั้งหมด</div>
-                <label style="font-size:13px;color:#555">เดือน:</label>
-                <input type="month" id="carestandard-month"
-                  style="padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit">
                 <label style="font-size:13px;color:#555">วันที่ประเมิน:</label>
                 <input type="date" id="carestandard-date"
                   style="padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit">
