@@ -1457,7 +1457,7 @@ function setVitalSheet(sheet) {
     p.classList.toggle('active', p.id === 'vp-' + sheet));
   // ขยายเต็มจอสำหรับตารางนัด/ยารายวัน — ลด padding main-content
   const mc = document.querySelector('.main-content');
-  const _fullSheets=['appt','medcheck'];
+  const _fullSheets=['appt','medcheck','feedtable'];
   if (mc) mc.style.padding = _fullSheets.includes(sheet) ? '6px 4px' : '';
   // lazy init each sheet on first visit
   if (sheet==='summary'  && !window._summaryInited)  { window._summaryInited=true;  initCaseSummary(); }
@@ -1467,8 +1467,9 @@ function setVitalSheet(sheet) {
   if (sheet==='meddaily'  && !window._meddailyInited)  { window._meddailyInited=true;  initMedDaily(); }
   if (sheet==='caseinfo'   && !window._caseinfoInited)   { window._caseinfoInited=true;   initCaseInfo(); }
   if (sheet==='feedtable'  && !window._feedtableInited)  { window._feedtableInited=true;  initFeedTable(); }
-  if (sheet === 'appt')     requestAnimationFrame(_resizeApptCalendar);
-  if (sheet === 'medcheck') requestAnimationFrame(()=>requestAnimationFrame(_resizeMedCheck));
+  if (sheet === 'appt')      requestAnimationFrame(_resizeApptCalendar);
+  if (sheet === 'medcheck')  requestAnimationFrame(()=>requestAnimationFrame(_resizeMedCheck));
+  if (sheet === 'feedtable') requestAnimationFrame(()=>requestAnimationFrame(_resizeFeedTable));
 }
 window.setVitalSheet = setVitalSheet;
 
@@ -2194,6 +2195,7 @@ function initFeedTable() {
   const dateEl=document.getElementById('feedtable-date');
   _feedDate=new Date().toISOString().split('T')[0];
   if(dateEl){dateEl.value=_feedDate;dateEl.addEventListener('change',()=>{_feedDate=dateEl.value;_feedPage=0;loadFeedTable();});}
+  window.addEventListener('resize',_resizeFeedTable);
   loadFeedTable();
 }
 
@@ -2222,6 +2224,19 @@ function loadFeedTable() {
 
 function _autoResizeFeed(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 window._autoResizeFeed=_autoResizeFeed;
+
+function _resizeFeedTable() {
+  if(_activeVitalSheet!=='feedtable') return;
+  const panel=document.getElementById('vp-feedtable');
+  if(!panel) return;
+  const cards=panel.querySelectorAll(':scope>.card');
+  const tableCard=cards[cards.length-1];
+  if(!tableCard) return;
+  const rect=tableCard.getBoundingClientRect();
+  const available=Math.max(200,window.innerHeight-rect.top-8);
+  tableCard.style.height=available+'px';
+}
+window._resizeFeedTable=_resizeFeedTable;
 
 function renderFeedTable() {
   const tbody=document.getElementById('feedtable-tbody');
@@ -4003,8 +4018,8 @@ if ('serviceWorker' in navigator) {
               <span id="feedtable-status" style="font-size:12px;color:#aaa"></span>
             </div>
           </div>
-          <div class="card" style="padding:0;overflow:hidden">
-            <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 175px)">
+          <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
+            <div style="overflow:auto;flex:1">
               <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
                 <colgroup>
                   <col style="width:3%">   <!-- ลำดับ -->
