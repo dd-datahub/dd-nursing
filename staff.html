@@ -2578,6 +2578,7 @@ function _careToggle(idx) {
 window._careToggle=_careToggle;
 
 function _careSaveFb() {
+  _careLoadGen++; // ยกเลิก load ที่ค้างอยู่ ไม่ให้ทับค่าที่เพิ่งบันทึก
   const st=document.getElementById('carestandard-status');
   if(st){st.textContent='กำลังบันทึก...';st.style.color='#888';}
   const payload=Object.assign({},_careEvals);
