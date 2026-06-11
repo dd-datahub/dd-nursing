@@ -2578,30 +2578,33 @@ function _careToggle(idx) {
 window._careToggle=_careToggle;
 
 function _careSaveFb() {
-  _careLoadGen++; // ยกเลิก load ที่ค้างอยู่ ไม่ให้ทับค่าที่เพิ่งบันทึก
-  const st=document.getElementById('carestandard-status');
-  if(st){st.textContent='กำลังบันทึก...';st.style.color='#888';}
+  _careLoadGen++;
+  const path=_careFbPath();
   const payload=Object.assign({},_careEvals);
-  firebase.database().ref(_careFbPath()).set(payload)
+  const stEl=()=>document.getElementById('carestandard-status');
+  const s0=stEl(); if(s0){s0.textContent='กำลังบันทึก...';s0.style.color='#888';}
+  set(ref(db, path), payload)
     .then(()=>{
-      if(st){st.textContent='✓ บันทึกแล้ว';st.style.color='#2e7d32';}
-      setTimeout(()=>{if(st)st.textContent='';},2500);
+      const s=stEl(); if(s){s.textContent='✓ บันทึกแล้ว';s.style.color='#2e7d32';}
+      setTimeout(()=>{const s2=stEl();if(s2)s2.textContent='';},2500);
     })
-    .catch(()=>{if(st){st.textContent='❌ บันทึกไม่สำเร็จ';st.style.color='#c62828';}});
+    .catch(e=>{
+      console.error('careSaveFb error:',e);
+      const s=stEl(); if(s){s.textContent='❌ บันทึกไม่สำเร็จ';s.style.color='#c62828';}
+    });
 }
 
 function _careLoadFb() {
   const gen=++_careLoadGen;
   const path=_careFbPath();
-  firebase.database().ref(path).once('value').then(snap=>{
-    if(gen!==_careLoadGen) return; // response เก่า ไม่ใช้
+  get(ref(db, path)).then(snap=>{
+    if(gen!==_careLoadGen) return;
     const raw=snap.val()||{};
     _careEvals=Object.fromEntries(Object.entries(raw));
     _CARE_DATA.forEach((_,idx)=>_careRenderBtn(idx));
-    const st=document.getElementById('carestandard-status');
-    if(st){st.textContent='';st.style.color='';}
-  }).catch(()=>{
+  }).catch(e=>{
     if(gen!==_careLoadGen) return;
+    console.error('careLoadFb error:',e);
     const st=document.getElementById('carestandard-status');
     if(st){st.textContent='❌ โหลดไม่สำเร็จ';st.style.color='#c62828';}
   });
