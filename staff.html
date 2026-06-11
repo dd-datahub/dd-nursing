@@ -2272,45 +2272,45 @@ function renderFeedTable() {
   const pageRows=_feedRows.slice(start,start+FEED_PAGE_SIZE);
   const custs=(typeof allCustomers!=='undefined')?allCustomers:[];
   const dlOpts=[...new Set(custs.map(c=>c.name||'').filter(Boolean))].map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join('');
-  const IS='width:100%;padding:3px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit;background:#fafafa;color:#333;box-sizing:border-box';
-  const ISc=IS+';text-align:center';
-  const TASTA='width:100%;border:1px solid #ddd;border-radius:4px;padding:3px 5px;font-size:11px;font-family:inherit;resize:none;background:#fafafa;color:#333;box-sizing:border-box;overflow:hidden;line-height:1.4;min-height:26px;display:block';
+  /* input/textarea เต็ม cell — ไม่มี border ของตัวเอง ใช้ border ของ td */
+  const INP='width:100%;height:100%;padding:4px 6px;border:none;outline:none;font-size:11px;font-family:inherit;background:transparent;color:#333;box-sizing:border-box;display:block';
+  const INPc=INP+';text-align:center';
+  const TA='width:100%;height:100%;padding:4px 6px;border:none;outline:none;font-size:11px;font-family:inherit;resize:none;background:transparent;color:#333;box-sizing:border-box;display:block;line-height:1.4;overflow-y:auto';
+  const TD='padding:0;border:1px solid #eee;height:100%';
+  const TDc=TD+';text-align:center';
   let html=`<tr style="display:none"><td><datalist id="feed-names-dl">${dlOpts}</datalist></td></tr>`;
   html+=pageRows.map((r,pi)=>{
     const gi=start+pi;
     const bg=pi%2===0?'#fff':'#fafaf8';
     const feedVal=(r.feed||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const timeCells=FEED_TIME_COLS.map(col=>`<td style="padding:2px 2px;border:1px solid #eee">
+    const timeCells=FEED_TIME_COLS.map(col=>`<td style="${TD}">
       <input type="text" value="${(r[col.key]||'').replace(/"/g,'&quot;')}" maxlength="20" placeholder="—"
-        oninput="_feedUpdate(${gi},'${col.key}',this.value)" style="${ISc}">
+        oninput="_feedUpdate(${gi},'${col.key}',this.value)" style="${INPc}">
     </td>`).join('');
-    return `<tr style="background:${bg};vertical-align:top">
-      <td style="padding:4px 3px;border:1px solid #eee;text-align:center;color:#888;font-size:11px">${gi+1}</td>
-      <td style="padding:2px 2px;border:1px solid #eee">
+    return `<tr style="background:${bg};vertical-align:middle">
+      <td style="${TDc};color:#888;font-size:11px">${gi+1}</td>
+      <td style="${TD}">
         <input type="text" value="${(r.bed||'').replace(/"/g,'&quot;')}" maxlength="10" placeholder="—"
-          oninput="_feedUpdate(${gi},'bed',this.value)" style="${ISc}">
+          oninput="_feedUpdate(${gi},'bed',this.value)" style="${INPc}">
       </td>
-      <td style="padding:2px 2px;border:1px solid #eee">
+      <td style="${TD}">
         <input type="text" list="feed-names-dl" value="${(r.name||'').replace(/"/g,'&quot;')}" maxlength="80"
           placeholder="พิมพ์ค้นหาชื่อ..."
           oninput="_feedUpdate(${gi},'name',this.value)"
-          style="${IS};text-align:left">
+          style="${INP};text-align:left">
       </td>
-      <td style="padding:2px 2px;border:1px solid #eee">
-        <textarea oninput="_feedUpdate(${gi},'feed',this.value);_autoResizeFeed(this)" style="${TASTA}">${feedVal}</textarea>
+      <td style="${TD};vertical-align:top">
+        <textarea oninput="_feedUpdate(${gi},'feed',this.value)" style="${TA}">${feedVal}</textarea>
       </td>
       ${timeCells}
-      <td style="padding:2px 2px;border:1px solid #eee">
+      <td style="${TD}">
         <input type="text" value="${(r.note||'').replace(/"/g,'&quot;')}" maxlength="120" placeholder="—"
-          oninput="_feedUpdate(${gi},'note',this.value)" style="${IS};text-align:left">
+          oninput="_feedUpdate(${gi},'note',this.value)" style="${INP};text-align:left">
       </td>
     </tr>`;
   }).join('');
   tbody.innerHTML=html;
-  requestAnimationFrame(()=>{
-    tbody.querySelectorAll('textarea').forEach(_autoResizeFeed);
-    _resizeFeedRows();
-  });
+  requestAnimationFrame(_resizeFeedRows);
 }
 window.renderFeedTable=renderFeedTable;
 
