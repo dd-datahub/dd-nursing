@@ -1469,6 +1469,7 @@ function setVitalSheet(sheet) {
   if (sheet==='meddaily'  && !window._meddailyInited)  { window._meddailyInited=true;  initMedDaily(); }
   if (sheet==='caseinfo'   && !window._caseinfoInited)   { window._caseinfoInited=true;   initCaseInfo(); }
   if (sheet==='feedtable'  && !window._feedtableInited)  { window._feedtableInited=true;  initFeedTable(); }
+  if (sheet==='shift'      && !window._shiftInited)      { window._shiftInited=true;      initShift(); }
   if (sheet === 'appt')      requestAnimationFrame(_resizeApptCalendar);
   if (sheet === 'medcheck')  requestAnimationFrame(()=>requestAnimationFrame(_resizeMedCheck));
   if (sheet === 'feedtable') requestAnimationFrame(()=>requestAnimationFrame(_resizeFeedTable));
@@ -2324,6 +2325,83 @@ function _feedPrevPage(){if(_feedPage>0){_feedPage--;renderFeedTable();}}
 function _feedNextPage(){_feedPage++;_ensureFeedRows();renderFeedTable();}
 window._feedPrevPage=_feedPrevPage;
 window._feedNextPage=_feedNextPage;
+
+// ============================================================
+// SHEET: งานเวรเช้าเวรดึก (static reference)
+// ============================================================
+function initShift() {
+  const SHIFT=[
+    ['06.00-07.00น.','รับ-ส่งเวร Quick Round V/S และลงบันทึก  แจกยาก่อนอาหาร','18.00-19.00น.','รับ-ส่งเวร Quick Round V/S และลงบันทึก'],
+    ['','เตรียมอาหารทางสายยาง เตรียมรับประทานอาหารเช้า','','พลิกตัว ตรวจสอบการขับถ่าย ตรวจสอบของใช้แต่ละเคส'],
+    ['07.00-08.00น.','ขยับตัว ยืดเหยียด ก่อนอาหาร','19.00-20.00น.','ดูแลความสะอาดเคาน์เตอร์/เครื่องมือ อุปกรณ์'],
+    ['','ดูแลการรับประทานอาหารเช้า/ทางสายยาง','','ตารางนัด/การเตรียมก่อนนัด อาหารว่างก่อนนอน'],
+    ['','แจกยาหลังอาหารเช้า','','เตรียมตารางกิจกรรมและกายภาพสำหรับวันถัดไป'],
+    ['08.00-09.00น.','ตรวจสอบการขับถ่าย พลิกตัว','20.00-21.00น.','แจกยาก่อนนอน เตรียมพักผ่อน'],
+    ['','กิจกรรมนันทนาการ กายภาพบำบัด','','เตรียมยาสำหรับวันถัดไป พลิกตัว ตรวจสอบการขับถ่าย'],
+    ['09.00-10.00น.','อาหารว่าง กระตุ้นดื่มน้ำ/น้ำระหว่างมื้อ','21.00-22.00น.','Quick Round ลงสรุปเคสในลิ้งค์ อาหารและน้ำทางสายยาง'],
+    ['10.00-11.00น.','ตรวจสอบการขับถ่าย พลิกตัว','22.00-24.00น.','Quick Round'],
+    ['','แจกยาก่อนอาหารเที่ยง','','ตรวจสอบการขับถ่าย พลิกตัว'],
+    ['','เตรียมอาหารทางสายยาง เตรียมรับประทานอาหารเที่ยง','',''],
+    ['11.00-12.00น.','ดูแลการรับประทานอาหารเที่ยง/ทางสายยาง','24.00-02.00น.','Quick Round ตรวจสอบการขับถ่าย'],
+    ['12.00-14.00น.','พนักงานแบ่งพัก ตรวจสอบแพมเพิส พลิกตัว','02.00-04.00น.','Quick Round'],
+    ['','กระตุ้นดื่มน้ำ กายภาพบำบัด สรุปอาการสำหรับญาติประจำวัน','','ตรวจสอบการขับถ่าย'],
+    ['14.00-16.00น.','ดูแลความสะอาดร่างกายช่วงบ่าย เตรียมอาหารทางสายยาง','04.00-05.30น.','ดูแลความสะอาดร่างกายช่วงเช้า'],
+    ['','เตรียมรับประทานอาหารเย็น แจกยาก่อนอาหารเย็น','',''],
+    ['16.00-17.30น.','ดูแลการรับประทานอาหารเย็น/ทางสายยาง','05.30-06.00น.','ลงบันทึก ตรวจสอบความเรียบร้อย'],
+    ['','แจกยาหลังอาหารเย็น ยืดเหยียดหลังอาหารเย็น สวดมนต์','','เตรียมส่งเวร'],
+    ['17.30-18.00น.','ลงบันทึก ตรวจสอบความเรียบร้อย รับ-ส่งเวร ลงสรุปเคสในลิ้งค์','',''],
+    ['','ประเมินผลงานภาพรวมทั้งพนักงานและแม่บ้าน','',''],
+  ];
+  const CLEAN=[
+    ['1','เตียง ตู้หัวเตียง','*','','','','',''],
+    ['','พื้นหน้าบ้าน ข้างบ้าน สวน','','','','','',''],
+    ['','ห้องเตรียมอาหาร','','','','','',''],
+    ['','ห้องครัว ห้องstock โซนซักล้าง','','','','','',''],
+    ['','กาน้ำร้อน ไมโครเวฟ หม้อหุงข้าว','','','','','',''],
+    ['2','พื้นในบ้าน (จำนวน 10 ห้อง)','','*','','','',''],
+    ['','ห้องสี่เตียง  ห้องเดี่ยว1  ห้องสองเตียง','','','','','',''],
+    ['','ห้องรับแขก  โซนสองเตียง 1-2  ห้องโถง','','','','','',''],
+    ['','ห้องพักสองเตียงบน1-2-3','','','','','',''],
+    ['','ห้องน้ำ 8ห้อง','','','','','',''],
+    ['','อ่างล้างหน้า 3','','','','','',''],
+    ['','อ่างล้างเครื่องมือ 1','','','','','',''],
+    ['','ซิ้งค์ล้างจาน 1','','','','','',''],
+    ['3','ถังขยะ ที่พักขยะ','','','อ-ศ','','',''],
+    ['4','พัดลม มุ้งลวด กระจก หยากไย่','','','','','',''],
+    ['','ห้องสี่เตียง  ห้องเดี่ยว1  ห้องสองเตียง','','','','วันที่ 1, 16','',''],
+    ['','ห้องรับแขก  โซนสองเตียง 1-2  ห้องโถง','','','','วันที่ 5, 20','',''],
+    ['','ห้องพักสองเตียงบน1-2-3','','','','วันที่ 7, 22','',''],
+    ['','ห้องครัว ห้องstock โซนซักล้าง หน้าบ้านข้างบ้าน','','','','วันที่ 10, 25','',''],
+    ['5','ตู้เย็น','','','','','วันที่ 30',''],
+    ['','ม่าน ชั้นบน','','','','','วันที่ 2',''],
+    ['','ม่าน ชั้นล่าง','','','','','วันที่ 27',''],
+    ['6','แอร์','','','','','','★'],
+    ['7','เครื่องกรองน้ำ','','','','','','★'],
+  ];
+  const T1='padding:5px 7px;border:1px solid #eee;color:#1a6b4a;font-weight:600;white-space:nowrap;vertical-align:top;font-size:11px';
+  const T2='padding:5px 7px;border:1px solid #eee;color:#3949ab;font-weight:600;white-space:nowrap;vertical-align:top;font-size:11px';
+  const TA='padding:5px 9px;border:1px solid #eee;vertical-align:top;font-size:12px;line-height:1.5';
+  const sb=document.getElementById('shift-tbody');
+  if(sb) sb.innerHTML=SHIFT.map(r=>{
+    const bg=r[0]?'#fff':'#fafaf8';
+    return `<tr style="background:${bg}">
+      <td style="${T1}">${r[0]}</td><td style="${TA}">${r[1]}</td>
+      <td style="${T2}">${r[2]}</td><td style="${TA}">${r[3]}</td>
+    </tr>`;
+  }).join('');
+  const NC='padding:5px 6px;border:1px solid #eee;text-align:center;vertical-align:top;font-size:12px;font-weight:700;color:#7a4f0d';
+  const NR='padding:5px 9px;border:1px solid #eee;vertical-align:top;font-size:12px';
+  const NM='padding:5px 6px;border:1px solid #eee;text-align:center;vertical-align:middle;font-size:12px;color:#333';
+  const cb=document.getElementById('clean-tbody');
+  if(cb) cb.innerHTML=CLEAN.map(r=>{
+    const bg=r[0]?'#fff':'#fafaf8';
+    return `<tr style="background:${bg}">
+      <td style="${NC}">${r[0]}</td><td style="${NR}">${r[1]}</td>
+      ${r.slice(2).map(v=>`<td style="${NM}">${v}</td>`).join('')}
+    </tr>`;
+  }).join('');
+}
+window.initShift=initShift;
 
 async function saveFeedTable() {
   if(!_feedDate) return;
@@ -3823,6 +3901,7 @@ if ('serviceWorker' in navigator) {
           <button class="vsheet-btn"        data-sheet="meddaily" onclick="setVitalSheet('meddaily')">🗒️ ยาแต่ละวัน</button>
           <button class="vsheet-btn"        data-sheet="caseinfo"   onclick="setVitalSheet('caseinfo')">📋 ข้อมูลเคส</button>
           <button class="vsheet-btn"        data-sheet="feedtable"  onclick="setVitalSheet('feedtable')">🍽️ ตารางฟีดอาหาร</button>
+          <button class="vsheet-btn"        data-sheet="shift"      onclick="setVitalSheet('shift')">🌙 งานเวรเช้าเวรดึก</button>
         </div>
 
         <!-- ===== vp-vs: สัญญาณชีพ ===== -->
@@ -4093,6 +4172,61 @@ if ('serviceWorker' in navigator) {
                 </thead>
                 <tbody id="feedtable-tbody"></tbody>
               </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== vp-shift: งานเวรเช้าเวรดึก ===== -->
+        <div id="vp-shift" class="vsheet-panel">
+          <div style="overflow-y:auto;max-height:calc(100vh - 112px)">
+            <!-- shift table -->
+            <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px">
+              <div style="display:flex;border-bottom:1px solid #ddd">
+                <div style="flex:1;background:#e8f5ee;padding:7px 12px;text-align:center;font-size:12px;font-weight:700;color:#1a6b4a;border-right:2px solid #1a6b4a">☀️ เวรเช้า (06.00–18.00น.)</div>
+                <div style="flex:1;background:#e8eaf6;padding:7px 12px;text-align:center;font-size:12px;font-weight:700;color:#3949ab">🌙 เวรดึก (18.00–06.00น.)</div>
+              </div>
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
+                  <colgroup>
+                    <col style="width:13%"><col style="width:37%">
+                    <col style="width:13%"><col style="width:37%">
+                  </colgroup>
+                  <thead>
+                    <tr style="background:#f0ede8">
+                      <th style="padding:5px 7px;border:1px solid #ddd;white-space:nowrap;font-size:11px;text-align:center">เวลา</th>
+                      <th style="padding:5px 9px;border:1px solid #ddd;font-size:11px;text-align:left">กิจกรรมเวรเช้า</th>
+                      <th style="padding:5px 7px;border:1px solid #ddd;white-space:nowrap;font-size:11px;text-align:center">เวลา</th>
+                      <th style="padding:5px 9px;border:1px solid #ddd;font-size:11px;text-align:left">กิจกรรมเวรดึก</th>
+                    </tr>
+                  </thead>
+                  <tbody id="shift-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+            <!-- Quick Round note -->
+            <div class="card" style="margin-bottom:10px;padding:8px 14px;font-size:12px;color:#444;border-left:3px solid #1a6b4a;background:#f5f3ef">
+              <b style="color:#1a6b4a">Quick Round</b> = การตรวจเยี่ยมเคสแบบรวดเร็วและมีแบบแผนเยี่ยมชัดเจน
+            </div>
+            <!-- cleaning table -->
+            <div class="card" style="padding:0;overflow:hidden">
+              <div style="background:#7a4f0d;color:#fff;padding:8px 14px;font-size:13px;font-weight:600">🧹 ตารางการทำความสะอาด DD 1</div>
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                  <thead>
+                    <tr style="background:#f5e8d0;text-align:center">
+                      <th style="padding:5px 6px;border:1px solid #ddd;font-size:11px;width:4%">ที่</th>
+                      <th style="padding:5px 9px;border:1px solid #ddd;font-size:11px;text-align:left">รายการ</th>
+                      <th style="padding:5px 6px;border:1px solid #ddd;font-size:11px;min-width:55px">ทุกวัน</th>
+                      <th style="padding:5px 6px;border:1px solid #ddd;font-size:11px;min-width:45px">ช-ย</th>
+                      <th style="padding:5px 6px;border:1px solid #ddd;font-size:11px;min-width:72px">2ครั้ง/wks</th>
+                      <th style="padding:5px 6px;border:1px solid #ddd;font-size:11px;min-width:68px">ทุก2wks</th>
+                      <th style="padding:5px 6px;border:1px solid #ddd;font-size:11px;min-width:78px">ทุกเดือน</th>
+                      <th style="padding:5px 6px;border:1px solid #ddd;font-size:11px;min-width:78px">ทุก6เดือน</th>
+                    </tr>
+                  </thead>
+                  <tbody id="clean-tbody"></tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
