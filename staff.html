@@ -2871,22 +2871,11 @@ function _sbsBranchKey(){
 }
 function _sbsFbPath(){ return 'sbs/'+_sbsBranchKey()+'/'+(_sbsDate||new Date().toISOString().split('T')[0]); }
 
-function _sbsRender(key){
-  const btn=document.getElementById('sbs-btn-'+key);
-  if(!btn) return;
-  const v=_sbsData[key]||'';
-  const base='cursor:pointer;border:none;border-radius:5px;font-size:14px;font-weight:700;width:46px;height:30px;transition:all .15s;';
-  if(v==='✓'){ btn.textContent='✓'; btn.style.cssText=base+'background:#c8e6c9;color:#1b5e20;'; }
-  else if(v==='✗'){ btn.textContent='✗'; btn.style.cssText=base+'background:#ffcdd2;color:#b71c1c;'; }
-  else { btn.textContent='—'; btn.style.cssText=base+'background:#f0f0f0;color:#bbb;'; }
-}
-function _sbsToggle(key){
-  const cur=_sbsData[key]||'';
-  _sbsData[key]= cur===''?'✓': cur==='✓'?'✗':'';
-  _sbsRender(key);
+function _sbsBlur(key,el){
+  _sbsData[key]=(el.value||'').trim();
   _sbsSaveFb();
 }
-window._sbsToggle=_sbsToggle;
+window._sbsBlur=_sbsBlur;
 
 function _sbsUpdateQHeaders(){
   for(let v=1;v<=4;v++){
@@ -2920,10 +2909,19 @@ function _sbsLoadFb(){
 }
 function _sbsRenderAll(){
   _SBS_ITEMS.forEach(item=>{
-    _sbsRender('s1_'+item.no);
-    item.sub.forEach((_,si)=>_sbsRender('s1s_'+item.no+'_'+si));
+    const e1=document.getElementById('sbs-inp-s1_'+item.no);
+    if(e1) e1.value=_sbsData['s1_'+item.no]||'';
+    item.sub.forEach((_,si)=>{
+      const es=document.getElementById('sbs-inp-s1s_'+item.no+'_'+si);
+      if(es) es.value=_sbsData['s1s_'+item.no+'_'+si]||'';
+    });
   });
-  _SBS_QUALITY.forEach(item=>{ for(let v=1;v<=4;v++) _sbsRender('s2_'+item.no+'_'+v); });
+  _SBS_QUALITY.forEach(item=>{
+    for(let v=1;v<=4;v++){
+      const eq=document.getElementById('sbs-inp-s2_'+item.no+'_'+v);
+      if(eq) eq.value=_sbsData['s2_'+item.no+'_'+v]||'';
+    }
+  });
   _sbsUpdateQHeaders();
 }
 function renderSbs(){
@@ -2940,19 +2938,20 @@ function _buildSbsTable(){
   const sec2=document.getElementById('sbs-tbody2');
   if(!sec1||!sec2) return;
   const B='border:1px solid #e0e0e0;';
+  const INP='width:100%;border:1px solid #ddd;border-radius:4px;padding:5px 7px;font-size:12px;font-family:inherit;outline:none;background:#fff;box-sizing:border-box;color:#222;';
   sec1.innerHTML=_SBS_ITEMS.map((item,ri)=>{
     const bg=ri%2===0?'#fff':'#f9faf9';
     let rows=`<tr>
-      <td rowspan="${1+item.sub.length}" style="${B}text-align:center;padding:6px 4px;font-size:13px;font-weight:600;color:#444;background:#f5f5f5;vertical-align:middle;width:40px">${item.no}</td>
+      <td rowspan="${1+item.sub.length}" style="${B}text-align:center;padding:6px 4px;font-size:13px;font-weight:600;color:#444;background:#f5f5f5;vertical-align:middle">${item.no}</td>
       <td style="${B}padding:7px 12px;font-size:13px;color:#1a1a1a;background:${bg};font-weight:600">${item.name}</td>
-      <td style="${B}text-align:center;padding:4px 6px;background:${bg};vertical-align:middle;width:60px">
-        <button id="sbs-btn-s1_${item.no}" onclick="_sbsToggle('s1_${item.no}')" style="cursor:pointer;border:none;border-radius:5px;font-size:14px;font-weight:700;width:46px;height:30px;background:#f0f0f0;color:#bbb">—</button>
+      <td style="${B}padding:4px 6px;background:${bg};vertical-align:middle">
+        <input id="sbs-inp-s1_${item.no}" onblur="_sbsBlur('s1_${item.no}',this)" style="${INP}" placeholder="ผลการตรวจ">
       </td></tr>`;
     item.sub.forEach((sname,si)=>{
       rows+=`<tr>
         <td style="${B}padding:5px 12px 5px 24px;font-size:12px;color:#666;background:${bg}">└ ${sname}</td>
-        <td style="${B}text-align:center;padding:4px 6px;background:${bg};width:60px">
-          <button id="sbs-btn-s1s_${item.no}_${si}" onclick="_sbsToggle('s1s_${item.no}_${si}')" style="cursor:pointer;border:none;border-radius:5px;font-size:14px;font-weight:700;width:46px;height:30px;background:#f0f0f0;color:#bbb">—</button>
+        <td style="${B}padding:4px 6px;background:${bg}">
+          <input id="sbs-inp-s1s_${item.no}_${si}" onblur="_sbsBlur('s1s_${item.no}_${si}',this)" style="${INP}" placeholder="ผลการตรวจ">
         </td></tr>`;
     });
     return rows;
@@ -2961,12 +2960,12 @@ function _buildSbsTable(){
     const bg=ri%2===0?'#fff':'#f9faf9';
     let vCells='';
     for(let v=1;v<=4;v++){
-      vCells+=`<td style="${B}text-align:center;padding:4px 6px;background:${bg};width:70px">
-        <button id="sbs-btn-s2_${item.no}_${v}" onclick="_sbsToggle('s2_${item.no}_${v}')" style="cursor:pointer;border:none;border-radius:5px;font-size:14px;font-weight:700;width:46px;height:30px;background:#f0f0f0;color:#bbb">—</button>
+      vCells+=`<td style="${B}padding:4px 6px;background:${bg}">
+        <input id="sbs-inp-s2_${item.no}_${v}" onblur="_sbsBlur('s2_${item.no}_${v}',this)" style="${INP}" placeholder="ผล">
       </td>`;
     }
     return `<tr>
-      <td style="${B}text-align:center;padding:6px 4px;font-size:13px;font-weight:600;color:#444;background:#f5f5f5;width:40px">${item.no}</td>
+      <td style="${B}text-align:center;padding:6px 4px;font-size:13px;font-weight:600;color:#444;background:#f5f5f5">${item.no}</td>
       <td style="${B}padding:7px 12px;font-size:13px;color:#1a1a1a;background:${bg}">${item.name}</td>
       ${vCells}
     </tr>`;
@@ -5028,7 +5027,7 @@ if ('serviceWorker' in navigator) {
               <label style="font-size:13px;color:#555">วันที่ตรวจ:</label>
               <input type="date" id="sbs-date" style="padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit">
               <span id="sbs-status" style="font-size:12px;color:#888;margin-left:4px"></span>
-              <span style="margin-left:auto;font-size:12px;color:#888">กดปุ่มเพื่อสลับ: — → ✓ → ✗ → —</span>
+              <span style="margin-left:auto;font-size:12px;color:#888">พิมพ์ผลการตรวจในช่องแต่ละรายการ แล้วคลิกออกเพื่อบันทึก</span>
             </div>
           </div>
           <!-- scroll area เต็มจอ -->
