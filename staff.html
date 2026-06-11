@@ -1438,6 +1438,7 @@ function setVitalBranch(branch) {
   else if (sheet === 'feedtable')    renderFeedTable?.();
   else if (sheet === 'shift')        renderShift?.();
   else if (sheet === 'carestandard') renderCareStandard?.();
+  else if (sheet === 'checklist')   renderChecklist?.();
 }
 window.setVitalBranch = setVitalBranch;
 
@@ -1473,6 +1474,7 @@ function setVitalSheet(sheet) {
   if (sheet==='feedtable'  && !window._feedtableInited)  { window._feedtableInited=true;  initFeedTable(); }
   if (sheet==='shift'          && !window._shiftInited)          { window._shiftInited=true;          initShift(); }
   if (sheet==='carestandard'   && !window._carestandardInited)   { window._carestandardInited=true;   initCareStandard(); }
+  if (sheet==='checklist'      && !window._checklistInited)      { window._checklistInited=true;      initChecklist(); }
   if (sheet === 'appt')      requestAnimationFrame(_resizeApptCalendar);
   if (sheet === 'medcheck')  requestAnimationFrame(()=>requestAnimationFrame(_resizeMedCheck));
   if (sheet === 'feedtable') requestAnimationFrame(()=>requestAnimationFrame(_resizeFeedTable));
@@ -2672,6 +2674,211 @@ function renderCareStandard() {
   _careLoadFb();
 }
 window.renderCareStandard=renderCareStandard;
+
+// ============================================================
+// ===== รายการตรวจเช็คและบำรุงรักษาเครื่องมือทางการแพทย์ =====
+// ============================================================
+const _CHK_ITEMS=[
+  {no:1,  name:'เครื่องวัดความดัน BP'},
+  {no:2,  name:'ปรอทวัดไข้'},
+  {no:3,  name:'เครื่องจับออกซิเจนปลายนิ้ว'},
+  {no:4,  name:'เครื่องเจาะน้ำตาล DTX'},
+  {no:5,  name:'ที่นอนลม'},
+  {no:6,  name:'หูฟัง'},
+  {no:7,  name:'เครื่องผลิตออกซิเจน'},
+  {no:8,  name:'กล่องยาภายนอก / ยากิน'},
+  {no:9,  name:'กล่องฉุกเฉิน'},
+  {no:10, name:'AED'},
+  {no:11, name:'กล่องเวชภัณฑ์จำเป็น'},
+];
+let _chkMonth='';
+let _chkData={};    // key: "{no}_{day}" → '/' | '' ; key: "q_{no}" → quantity string
+let _chkLoadGen=0;
+
+function _chkBranchKey(){
+  const map={'สาขา 1':'dd1','สาขา 2':'dd2','สาขา 3':'dd3'};
+  return map[_vitalBranch]||'all';
+}
+function _chkFbPath(){
+  return 'checklist/'+_chkBranchKey()+'/'+_chkMonth;
+}
+
+function _chkDaysInMonth(){
+  if(!_chkMonth) return 31;
+  const [y,m]=_chkMonth.split('-').map(Number);
+  return new Date(y,m,0).getDate();
+}
+
+function _chkRenderCell(no,day){
+  const td=document.getElementById('chk-'+no+'-'+day);
+  if(!td) return;
+  const v=_chkData[no+'_'+day]||'';
+  const today=new Date();
+  const isToday=(_chkMonth===today.toISOString().slice(0,7))&&(day===today.getDate());
+  if(v==='/'){
+    td.textContent='✓';
+    td.style.cssText='cursor:pointer;text-align:center;padding:0;background:#c8e6c9;color:#1b5e20;font-weight:700;font-size:13px;';
+  } else {
+    td.textContent='';
+    td.style.cssText='cursor:pointer;text-align:center;padding:0;background:'+(isToday?'#fff9c4':'#fff')+';';
+  }
+}
+
+function _chkRenderQty(no){
+  const td=document.getElementById('chkq-'+no);
+  if(!td) return;
+  td.textContent=_chkData['q_'+no]||'';
+}
+
+function _chkToggle(no,day){
+  const key=no+'_'+day;
+  _chkData[key]=(_chkData[key]==='/')?'':'/';
+  _chkRenderCell(no,day);
+  _chkSaveFb();
+}
+window._chkToggle=_chkToggle;
+
+function _chkSaveFb(){
+  _chkLoadGen++;
+  const path=_chkFbPath();
+  // Filter out empty-string values to keep Firebase clean
+  const payload=Object.fromEntries(Object.entries(_chkData).filter(([,v])=>v!==''));
+  const stEl=()=>document.getElementById('checklist-status');
+  const s0=stEl(); if(s0){s0.textContent='กำลังบันทึก...';s0.style.color='#888';}
+  _set(_ref(_db,path),Object.keys(payload).length?payload:null)
+    .then(()=>{
+      const s=stEl(); if(s){s.textContent='✓ บันทึกแล้ว';s.style.color='#2e7d32';}
+      setTimeout(()=>{const s2=stEl();if(s2)s2.textContent='';},2500);
+    })
+    .catch(e=>{
+      console.error('chkSaveFb:',e);
+      const s=stEl(); if(s){s.textContent='❌ บันทึกไม่สำเร็จ';s.style.color='#c62828';}
+    });
+}
+
+function _chkLoadFb(){
+  const gen=++_chkLoadGen;
+  const path=_chkFbPath();
+  _get(_ref(_db,path)).then(snap=>{
+    if(gen!==_chkLoadGen) return;
+    const raw=snap.val()||{};
+    _chkData=Object.fromEntries(Object.entries(raw));
+    const days=_chkDaysInMonth();
+    _CHK_ITEMS.forEach(item=>{
+      _chkRenderQty(item.no);
+      for(let d=1;d<=31;d++) _chkRenderCell(item.no,d);
+    });
+  }).catch(e=>{
+    if(gen!==_chkLoadGen) return;
+    console.error('chkLoadFb:',e);
+    const st=document.getElementById('checklist-status');
+    if(st){st.textContent='❌ โหลดไม่สำเร็จ';st.style.color='#c62828';}
+  });
+}
+
+function renderChecklist(){
+  // branch badge
+  const badge=document.getElementById('chk-branch-badge');
+  if(badge){
+    const b=_vitalBranch||'ทั้งหมด';
+    const colors={
+      'ทั้งหมด':['#e8f5ee','#1a6b4a','#a5d6a7'],
+      'สาขา 1': ['#e8f5ee','#1a6b4a','#a5d6a7'],
+      'สาขา 2': ['#e8eaf6','#3949ab','#9fa8da'],
+      'สาขา 3': ['#fce4ec','#c62828','#ef9a9a'],
+    };
+    const [bg,color,border]=colors[b]||colors['ทั้งหมด'];
+    badge.textContent=b; badge.style.background=bg; badge.style.color=color; badge.style.borderColor=border;
+  }
+  // reset cells
+  _chkData={};
+  _CHK_ITEMS.forEach(item=>{
+    _chkRenderQty(item.no);
+    for(let d=1;d<=31;d++) _chkRenderCell(item.no,d);
+  });
+  _chkLoadFb();
+}
+window.renderChecklist=renderChecklist;
+
+function initChecklist(){
+  _chkMonth=new Date().toISOString().slice(0,7);
+  const mEl=document.getElementById('chk-month');
+  if(mEl){
+    mEl.value=_chkMonth;
+    mEl.addEventListener('change',()=>{
+      _chkMonth=mEl.value||new Date().toISOString().slice(0,7);
+      _rebuildChkDayCols();
+      renderChecklist();
+    });
+  }
+  _buildChkTable();
+  renderChecklist();
+}
+window.initChecklist=initChecklist;
+
+function _rebuildChkDayCols(){
+  // Update header day numbers and hide/show day columns based on month length
+  const days=_chkDaysInMonth();
+  for(let d=1;d<=31;d++){
+    const th=document.getElementById('chkth-'+d);
+    const today=new Date();
+    const isToday=(_chkMonth===today.toISOString().slice(0,7))&&(d===today.getDate());
+    if(th){
+      th.style.display=d<=days?'':'none';
+      th.style.background=isToday?'#fff176':'';
+      th.style.color=isToday?'#e65100':'';
+    }
+    _CHK_ITEMS.forEach(item=>{
+      const td=document.getElementById('chk-'+item.no+'-'+d);
+      if(td) td.style.display=d<=days?'':'none';
+    });
+  }
+}
+
+function _buildChkTable(){
+  const thead=document.getElementById('chk-thead');
+  const tbody=document.getElementById('chk-tbody');
+  if(!thead||!tbody) return;
+
+  const today=new Date();
+  const todayMonth=today.toISOString().slice(0,7);
+  const todayDay=today.getDate();
+
+  // Build header
+  let thDays='';
+  for(let d=1;d<=31;d++){
+    const isToday=(_chkMonth===todayMonth)&&(d===todayDay);
+    thDays+=`<th id="chkth-${d}" style="padding:4px 0;border:1px solid #a5d6a7;font-size:11px;min-width:28px;width:28px;text-align:center;font-weight:600;white-space:nowrap;${isToday?'background:#fff176;color:#e65100;':'background:#e8f5ee;color:#1a6b4a;'}">${d}</th>`;
+  }
+  thead.innerHTML=`<tr style="background:#1a6b4a">
+    <th style="padding:6px 6px;border:1px solid rgba(255,255,255,.25);color:#fff;font-size:12px;text-align:center;min-width:32px;white-space:nowrap">ที่</th>
+    <th style="padding:6px 12px;border:1px solid rgba(255,255,255,.25);color:#fff;font-size:13px;text-align:left;min-width:180px">รายการ</th>
+    <th style="padding:6px 6px;border:1px solid rgba(255,255,255,.25);color:#fff;font-size:12px;text-align:center;min-width:52px;white-space:nowrap">จำนวน</th>
+    ${thDays}
+  </tr>`;
+
+  // Build rows
+  tbody.innerHTML=_CHK_ITEMS.map(item=>{
+    let tdDays='';
+    for(let d=1;d<=31;d++){
+      tdDays+=`<td id="chk-${item.no}-${d}" onclick="_chkToggle(${item.no},${d})" style="cursor:pointer;text-align:center;border:1px solid #e0e0e0;padding:0;min-width:28px;width:28px;height:32px;font-size:13px;font-weight:700;"></td>`;
+    }
+    return `<tr>
+      <td style="text-align:center;border:1px solid #e0e0e0;padding:5px 4px;font-size:13px;color:#555;background:#fafafa;white-space:nowrap">${item.no}</td>
+      <td style="border:1px solid #e0e0e0;padding:5px 10px;font-size:13px;color:#333;white-space:nowrap">${item.name}</td>
+      <td id="chkq-${item.no}" contenteditable="true" onblur="_chkQtyBlur(${item.no},this)" style="text-align:center;border:1px solid #e0e0e0;padding:5px 4px;font-size:13px;color:#333;outline:none;cursor:text"></td>
+      ${tdDays}
+    </tr>`;
+  }).join('');
+
+  _rebuildChkDayCols();
+}
+
+function _chkQtyBlur(no,el){
+  _chkData['q_'+no]=el.textContent.trim();
+  _chkSaveFb();
+}
+window._chkQtyBlur=_chkQtyBlur;
 
 async function saveFeedTable() {
   if(!_feedDate) return;
@@ -4173,6 +4380,7 @@ if ('serviceWorker' in navigator) {
           <button class="vsheet-btn"        data-sheet="feedtable"  onclick="setVitalSheet('feedtable')">🍽️ ตารางฟีดอาหาร</button>
           <button class="vsheet-btn"        data-sheet="shift"      onclick="setVitalSheet('shift')">🌙 งานเวรเช้าเวรดึก</button>
           <button class="vsheet-btn"        data-sheet="carestandard" onclick="setVitalSheet('carestandard')">📋 มาตรฐานงานดูแล</button>
+          <button class="vsheet-btn"        data-sheet="checklist"    onclick="setVitalSheet('checklist')">🔧 รายการตรวจเช็ค</button>
         </div>
 
         <!-- ===== vp-vs: สัญญาณชีพ ===== -->
@@ -4535,6 +4743,37 @@ if ('serviceWorker' in navigator) {
                     </tr>
                   </thead>
                   <tbody id="carestandard-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== vp-checklist: รายการตรวจเช็ค ===== -->
+        <div id="vp-checklist" class="vsheet-panel">
+          <div style="height:calc(100vh - 112px);display:flex;flex-direction:column">
+            <!-- control bar -->
+            <div class="card" style="flex-shrink:0;margin-bottom:8px;padding:8px 14px">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <b style="font-size:14px;color:#1a6b4a">🔧 รายการตรวจเช็คและบำรุงรักษาเครื่องมือทางการแพทย์</b>
+                <div id="chk-branch-badge" style="padding:3px 10px;font-size:12px;font-weight:600;border-radius:4px;border:1px solid #a5d6a7;background:#e8f5ee;color:#1a6b4a;white-space:nowrap">ทั้งหมด</div>
+                <label style="font-size:13px;color:#555">เดือน:</label>
+                <input type="month" id="chk-month" style="padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit">
+                <span id="checklist-status" style="font-size:12px;color:#888;margin-left:4px"></span>
+                <span style="margin-left:auto;font-size:12px;color:#888">กดช่องวันที่เพื่อติ๊ก ✓</span>
+              </div>
+            </div>
+            <!-- table fills remaining height -->
+            <div class="card" style="flex:1;padding:0;overflow:hidden;min-height:0">
+              <div style="overflow:auto;height:100%">
+                <table style="border-collapse:collapse;table-layout:fixed;width:100%">
+                  <colgroup>
+                    <col style="width:36px">
+                    <col style="min-width:180px">
+                    <col style="width:54px">
+                  </colgroup>
+                  <thead id="chk-thead"></thead>
+                  <tbody id="chk-tbody"></tbody>
                 </table>
               </div>
             </div>
