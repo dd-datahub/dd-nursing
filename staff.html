@@ -1465,7 +1465,7 @@ function setVitalSheet(sheet) {
   const mc = document.querySelector('.main-content');
   const _fullSheets=['appt','medcheck','feedtable','checklist','sbs'];
   if (mc) mc.style.padding = _fullSheets.includes(sheet) ? '6px 4px' : '';
-  if (mc) mc.style.overflowY = (sheet==='checklist'||sheet==='sbs') ? 'hidden' : '';
+  if (mc) mc.style.overflowY = sheet==='checklist' ? 'hidden' : '';
   // lazy init each sheet on first visit
   if (sheet==='summary'  && !window._summaryInited)  { window._summaryInited=true;  initCaseSummary(); }
   if (sheet==='appt'     && !window._apptInited)     { window._apptInited=true;     initApptCalendar(); }
@@ -1482,6 +1482,7 @@ function setVitalSheet(sheet) {
   if (sheet === 'medcheck')  requestAnimationFrame(()=>requestAnimationFrame(_resizeMedCheck));
   if (sheet === 'feedtable') requestAnimationFrame(()=>requestAnimationFrame(_resizeFeedTable));
   if (sheet === 'checklist') requestAnimationFrame(()=>requestAnimationFrame(_resizeChkCols));
+  if (sheet === 'sbs')      requestAnimationFrame(()=>requestAnimationFrame(_resizeSbs));
 }
 window.setVitalSheet = setVitalSheet;
 
@@ -2972,12 +2973,22 @@ function _buildSbsTable(){
   }).join('');
 }
 
+function _resizeSbs(){
+  if(_activeVitalSheet!=='sbs') return;
+  const el=document.getElementById('sbs-scroll');
+  if(!el) return;
+  const rect=el.getBoundingClientRect();
+  el.style.height=Math.max(200, window.innerHeight-rect.top-8)+'px';
+}
+window._resizeSbs=_resizeSbs;
+
 function initSbs(){
   _sbsDate=new Date().toISOString().split('T')[0];
   const dEl=document.getElementById('sbs-date');
   if(dEl){ dEl.value=_sbsDate; dEl.addEventListener('change',()=>{ _sbsDate=dEl.value||new Date().toISOString().split('T')[0]; renderSbs(); }); }
   _buildSbsTable();
   renderSbs();
+  window.addEventListener('resize',()=>{ if(_activeVitalSheet==='sbs') _resizeSbs(); });
 }
 window.initSbs=initSbs;
 
@@ -4273,7 +4284,6 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .vsheet-panel{display:none}
 .vsheet-panel.active{display:block}
 #vp-checklist.active{display:flex;flex-direction:column;height:100%}
-#vp-sbs.active{display:flex;flex-direction:column;height:100%}
 .vbranch-btn.active{background:#f0ede8 !important;border-color:#bbb !important;font-weight:700 !important}
 /* sub-sheet tabs inside ลงบันทึกรายบุคคล */
 /* year/month picker */
@@ -4989,7 +4999,7 @@ if ('serviceWorker' in navigator) {
             </div>
           </div>
           <!-- scroll area เต็มจอ -->
-          <div id="sbs-scroll" style="flex:1;min-height:0;overflow:auto;border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+          <div id="sbs-scroll" style="overflow:auto;height:400px;border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
 
             <!-- ── Section 1: รายการตรวจสอบสบส ── -->
             <div style="background:#1a6b4a;color:#fff;font-weight:600;padding:8px 14px;font-size:13px;position:sticky;top:0;z-index:3;letter-spacing:.3px">
