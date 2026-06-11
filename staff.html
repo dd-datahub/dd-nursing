@@ -2973,12 +2973,44 @@ function _buildSbsTable(){
   }).join('');
 }
 
+function _resizeSbsCols(){
+  const scroll=document.getElementById('sbs-scroll');
+  if(!scroll) return;
+  const W=scroll.clientWidth||600;
+
+  // Section 1: ที่=40px, รายการ=50% ที่เหลือ, ผล=50% ที่เหลือ
+  const rem1=Math.max(0, W-40-2);
+  const nameW1=Math.max(80, Math.floor(rem1*0.5));
+  const resultW1=Math.max(60, rem1-nameW1);
+  const tbl1=document.getElementById('sbs-tbody1')?.closest('table');
+  if(tbl1){
+    let cg1=tbl1.querySelector('colgroup');
+    if(!cg1){ cg1=document.createElement('colgroup'); tbl1.insertBefore(cg1,tbl1.firstChild); }
+    cg1.innerHTML=`<col style="width:40px"><col style="width:${nameW1}px"><col style="width:${resultW1}px">`;
+    tbl1.style.tableLayout='fixed'; tbl1.style.width='100%';
+  }
+
+  // Section 2: ที่=40px, รายการ=50% ที่เหลือ, ครั้งที่1-4 เฉลี่ย 50% ที่เหลือ/4
+  const rem2=Math.max(0, W-40-2);
+  const nameW2=Math.max(80, Math.floor(rem2*0.5));
+  const visitW=Math.max(60, Math.floor((rem2-nameW2)/4));
+  const tbl2=document.getElementById('sbs-tbody2')?.closest('table');
+  if(tbl2){
+    let cg2=tbl2.querySelector('colgroup');
+    if(!cg2){ cg2=document.createElement('colgroup'); tbl2.insertBefore(cg2,tbl2.firstChild); }
+    cg2.innerHTML=`<col style="width:40px"><col style="width:${nameW2}px"><col style="width:${visitW}px"><col style="width:${visitW}px"><col style="width:${visitW}px"><col style="width:${visitW}px">`;
+    tbl2.style.tableLayout='fixed'; tbl2.style.width='100%';
+  }
+}
+window._resizeSbsCols=_resizeSbsCols;
+
 function _resizeSbs(){
   if(_activeVitalSheet!=='sbs') return;
   const el=document.getElementById('sbs-scroll');
   if(!el) return;
   const rect=el.getBoundingClientRect();
   el.style.height=Math.max(200, window.innerHeight-rect.top-8)+'px';
+  _resizeSbsCols();
 }
 window._resizeSbs=_resizeSbs;
 
@@ -2988,6 +3020,7 @@ function initSbs(){
   if(dEl){ dEl.value=_sbsDate; dEl.addEventListener('change',()=>{ _sbsDate=dEl.value||new Date().toISOString().split('T')[0]; renderSbs(); }); }
   _buildSbsTable();
   renderSbs();
+  requestAnimationFrame(_resizeSbsCols);
   window.addEventListener('resize',()=>{ if(_activeVitalSheet==='sbs') _resizeSbs(); });
 }
 window.initSbs=initSbs;
