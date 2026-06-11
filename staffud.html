@@ -2180,12 +2180,20 @@ const FEED_TIME_COLS=[
   {key:'t2000',label:'20.00น.'},
   {key:'t2200',label:'22.00น.'},
 ];
-let _feedDate='', _feedData={};
+const FEED_PAGE_SIZE=8;
+let _feedDate='', _feedPage=0, _feedRows=[];
+
+function _emptyFeedRow(){return {name:'',bed:'',feed:'',t0600:'',t1000:'',t1200:'',t1400:'',t1600:'',t1800:'',t2000:'',t2200:'',note:''};}
+
+function _ensureFeedRows(){
+  const needed=(_feedPage+1)*FEED_PAGE_SIZE;
+  while(_feedRows.length<needed)_feedRows.push(_emptyFeedRow());
+}
 
 function initFeedTable() {
   const dateEl=document.getElementById('feedtable-date');
   _feedDate=new Date().toISOString().split('T')[0];
-  if(dateEl){dateEl.value=_feedDate;dateEl.addEventListener('change',()=>{_feedDate=dateEl.value;loadFeedTable();});}
+  if(dateEl){dateEl.value=_feedDate;dateEl.addEventListener('change',()=>{_feedDate=dateEl.value;_feedPage=0;loadFeedTable();});}
   loadFeedTable();
 }
 
@@ -2194,68 +2202,101 @@ function loadFeedTable() {
   const msg=document.getElementById('feedtable-status');
   if(msg){msg.textContent='กำลังโหลด...';msg.style.color='#aaa';}
   window._get(window._ref(window._db,`feed_table/${_feedDate}`)).then(snap=>{
-    _feedData=snap.exists()?snap.val():{};
+    _feedRows=[];
+    if(snap.exists()){
+      const data=snap.val();
+      Object.entries(data).forEach(([k,v])=>{
+        const idx=parseInt(k);
+        if(!isNaN(idx)&&idx>=0){
+          while(_feedRows.length<=idx)_feedRows.push(_emptyFeedRow());
+          _feedRows[idx]={..._emptyFeedRow(),...v};
+        }
+      });
+    }
+    _feedPage=0;
+    _ensureFeedRows();
     renderFeedTable();
     if(msg){msg.textContent=snap.exists()?'✓ โหลดแล้ว':'ยังไม่มีข้อมูล';msg.style.color=snap.exists()?'#1a6b4a':'#bbb';}
-  }).catch(()=>{_feedData={};renderFeedTable();if(msg)msg.textContent='';});
+  }).catch(()=>{_feedRows=[];_ensureFeedRows();renderFeedTable();if(msg)msg.textContent='';});
 }
 
 function renderFeedTable() {
   const tbody=document.getElementById('feedtable-tbody');
   if(!tbody) return;
-  const custs=_getVitalCustomers();
-  if(!custs.length){tbody.innerHTML='<tr><td colspan="13" style="padding:20px;text-align:center;color:#aaa;font-size:12px">ไม่มีข้อมูลผู้ป่วย</td></tr>';return;}
-  const IS='width:100%;padding:3px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit;text-align:center;background:#fafafa;color:#333;box-sizing:border-box';
-  tbody.innerHTML=custs.map((c,i)=>{
-    const cid=(c.id||'').replace(/\//g,'_');
-    const v=_feedData[cid]||{};
-    const bg=i%2===0?'#fff':'#fafaf8';
-    const timeCells=FEED_TIME_COLS.map(col=>`<td style="padding:2px 3px;border:1px solid #eee;text-align:center">
-      <input type="text" value="${(v[col.key]||'').replace(/"/g,'&quot;')}" maxlength="20" placeholder="—"
-        oninput="updateFeedTable('${cid}','${col.key}',this.value)"
-        style="${IS}">
+  _ensureFeedRows();
+  const pageInfo=document.getElementById('feedtable-page-info');
+  if(pageInfo) pageInfo.textContent=`หน้า ${_feedPage+1}`;
+  const prevBtn=document.getElementById('feedtable-prev');
+  const nextBtn=document.getElementById('feedtable-next');
+  if(prevBtn) prevBtn.disabled=_feedPage===0;
+  if(nextBtn) nextBtn.disabled=false;
+  const start=_feedPage*FEED_PAGE_SIZE;
+  const pageRows=_feedRows.slice(start,start+FEED_PAGE_SIZE);
+  const custs=(typeof allCustomers!=='undefined')?allCustomers:[];
+  const dlOpts=[...new Set(custs.map(c=>c.name||'').filter(Boolean))].map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join('');
+  const IS='width:100%;padding:3px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit;background:#fafafa;color:#333;box-sizing:border-box';
+  const ISc=IS+';text-align:center';
+  let html=`<tr style="display:none"><td><datalist id="feed-names-dl">${dlOpts}</datalist></td></tr>`;
+  html+=pageRows.map((r,pi)=>{
+    const gi=start+pi;
+    const bg=pi%2===0?'#fff':'#fafaf8';
+    const timeCells=FEED_TIME_COLS.map(col=>`<td style="padding:2px 2px;border:1px solid #eee">
+      <input type="text" value="${(r[col.key]||'').replace(/"/g,'&quot;')}" maxlength="20" placeholder="—"
+        oninput="_feedUpdate(${gi},'${col.key}',this.value)" style="${ISc}">
     </td>`).join('');
     return `<tr style="background:${bg}">
-      <td style="padding:4px 4px;border:1px solid #eee;text-align:center;color:#888;font-size:11px;white-space:nowrap">${i+1}</td>
-      <td style="padding:2px 3px;border:1px solid #eee;text-align:center">
-        <input type="text" value="${(v.bed||'').replace(/"/g,'&quot;')}" maxlength="10" placeholder="—"
-          oninput="updateFeedTable('${cid}','bed',this.value)"
-          style="${IS}">
+      <td style="padding:4px 3px;border:1px solid #eee;text-align:center;color:#888;font-size:11px">${gi+1}</td>
+      <td style="padding:2px 2px;border:1px solid #eee">
+        <input type="text" value="${(r.bed||'').replace(/"/g,'&quot;')}" maxlength="10" placeholder="—"
+          oninput="_feedUpdate(${gi},'bed',this.value)" style="${ISc}">
       </td>
-      <td style="padding:4px 7px;border:1px solid #eee;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.name||''}</td>
-      <td style="padding:2px 3px;border:1px solid #eee">
-        <input type="text" value="${(v.feed||'').replace(/"/g,'&quot;')}" maxlength="60" placeholder="—"
-          oninput="updateFeedTable('${cid}','feed',this.value)"
+      <td style="padding:2px 2px;border:1px solid #eee">
+        <input type="text" list="feed-names-dl" value="${(r.name||'').replace(/"/g,'&quot;')}" maxlength="80"
+          placeholder="พิมพ์ค้นหาชื่อ..."
+          oninput="_feedUpdate(${gi},'name',this.value)"
           style="${IS};text-align:left">
+      </td>
+      <td style="padding:2px 2px;border:1px solid #eee">
+        <input type="text" value="${(r.feed||'').replace(/"/g,'&quot;')}" maxlength="120" placeholder="—"
+          oninput="_feedUpdate(${gi},'feed',this.value)" style="${IS};text-align:left">
       </td>
       ${timeCells}
-      <td style="padding:2px 3px;border:1px solid #eee">
-        <input type="text" value="${(v.note||'').replace(/"/g,'&quot;')}" maxlength="100" placeholder="—"
-          oninput="updateFeedTable('${cid}','note',this.value)"
-          style="${IS};text-align:left">
+      <td style="padding:2px 2px;border:1px solid #eee">
+        <input type="text" value="${(r.note||'').replace(/"/g,'&quot;')}" maxlength="120" placeholder="—"
+          oninput="_feedUpdate(${gi},'note',this.value)" style="${IS};text-align:left">
       </td>
     </tr>`;
   }).join('');
+  tbody.innerHTML=html;
 }
 window.renderFeedTable=renderFeedTable;
 
-function updateFeedTable(cid,f,val){if(!_feedData[cid])_feedData[cid]={};_feedData[cid][f]=val;}
-window.updateFeedTable=updateFeedTable;
+function _feedUpdate(idx,key,val){
+  while(_feedRows.length<=idx)_feedRows.push(_emptyFeedRow());
+  _feedRows[idx][key]=val;
+}
+window._feedUpdate=_feedUpdate;
+
+function _feedPrevPage(){if(_feedPage>0){_feedPage--;renderFeedTable();}}
+function _feedNextPage(){_feedPage++;_ensureFeedRows();renderFeedTable();}
+window._feedPrevPage=_feedPrevPage;
+window._feedNextPage=_feedNextPage;
 
 async function saveFeedTable() {
   if(!_feedDate) return;
   const btn=document.getElementById('feedtable-save-btn'),msg=document.getElementById('feedtable-status');
   if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
   const user=window._currentUser;
-  const allKeys=['bed','feed',...FEED_TIME_COLS.map(c=>c.key),'note'];
+  const timeKeys=FEED_TIME_COLS.map(c=>c.key);
+  const allKeys=['name','bed','feed',...timeKeys,'note'];
   const saveObj={};
-  Object.entries(_feedData).forEach(([cid,v])=>{
-    if(allKeys.some(k=>(v[k]||'').trim())){
+  _feedRows.forEach((r,idx)=>{
+    if(allKeys.some(k=>(r[k]||'').trim())){
       const obj={};
-      allKeys.forEach(k=>{if((v[k]||'').trim())obj[k]=v[k];});
+      allKeys.forEach(k=>{obj[k]=r[k]||'';});
       obj.savedBy=user?(user.displayName||user.email):'staff';
       obj.savedAt=new Date().toISOString();
-      saveObj[cid]=obj;
+      saveObj[String(idx)]=obj;
     }
   });
   try {
@@ -3947,9 +3988,12 @@ if ('serviceWorker' in navigator) {
         <!-- ===== vp-feedtable: ตารางฟีดอาหารและน้ำ ===== -->
         <div id="vp-feedtable" class="vsheet-panel">
           <div class="card" style="margin-bottom:8px">
-            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
               <b style="font-size:14px;color:#1a6b4a">🍽️ ตารางฟีดอาหารและน้ำ</b>
               <input type="date" id="feedtable-date" style="padding:5px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;font-family:inherit">
+              <button id="feedtable-prev" onclick="_feedPrevPage()" disabled style="padding:5px 12px;border:1px solid #ddd;border-radius:7px;font-size:14px;font-family:inherit;cursor:pointer;background:#fff">‹</button>
+              <span id="feedtable-page-info" style="font-size:13px;color:#555;min-width:50px;text-align:center">หน้า 1</span>
+              <button id="feedtable-next" onclick="_feedNextPage()" style="padding:5px 12px;border:1px solid #ddd;border-radius:7px;font-size:14px;font-family:inherit;cursor:pointer;background:#fff">›</button>
               <button id="feedtable-save-btn" onclick="saveFeedTable()" style="padding:6px 16px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
               <span id="feedtable-status" style="font-size:12px;color:#aaa"></span>
             </div>
@@ -3960,8 +4004,10 @@ if ('serviceWorker' in navigator) {
                 <colgroup>
                   <col style="width:3%">   <!-- ลำดับ -->
                   <col style="width:4%">   <!-- Bed -->
-                  <col style="width:11%">  <!-- ชื่อ -->
-                  <col><col><col><col><col><col><col><col><col><col>  <!-- รายการฟีด + 8 เวลา + หมายเหตุ -->
+                  <col style="width:13%">  <!-- ชื่อ (พิมพ์ค้นหา) -->
+                  <col style="width:16%">  <!-- รายการฟีด (กว้างขึ้น) -->
+                  <col><col><col><col><col><col><col><col>  <!-- 8 เวลา -->
+                  <col>                    <!-- หมายเหตุ -->
                 </colgroup>
                 <thead>
                   <tr style="background:#f0ede8;text-align:center">
