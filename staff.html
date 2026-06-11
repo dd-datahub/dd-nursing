@@ -2543,6 +2543,7 @@ const _CARE_DATA=[
 
 let _careDate='';
 let _careEvals={};
+let _careLoadGen=0;
 
 function _careBranchKey(){
   const map={'สาขา 1':'dd1','สาขา 2':'dd2','สาขา 3':'dd3'};
@@ -2589,14 +2590,17 @@ function _careSaveFb() {
 }
 
 function _careLoadFb() {
+  const gen=++_careLoadGen;
   const path=_careFbPath();
   firebase.database().ref(path).once('value').then(snap=>{
+    if(gen!==_careLoadGen) return; // response เก่า ไม่ใช้
     const raw=snap.val()||{};
     _careEvals=Object.fromEntries(Object.entries(raw));
     _CARE_DATA.forEach((_,idx)=>_careRenderBtn(idx));
     const st=document.getElementById('carestandard-status');
     if(st){st.textContent='';st.style.color='';}
   }).catch(()=>{
+    if(gen!==_careLoadGen) return;
     const st=document.getElementById('carestandard-status');
     if(st){st.textContent='❌ โหลดไม่สำเร็จ';st.style.color='#c62828';}
   });
