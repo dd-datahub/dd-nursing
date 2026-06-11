@@ -2220,6 +2220,9 @@ function loadFeedTable() {
   }).catch(()=>{_feedRows=[];_ensureFeedRows();renderFeedTable();if(msg)msg.textContent='';});
 }
 
+function _autoResizeFeed(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+window._autoResizeFeed=_autoResizeFeed;
+
 function renderFeedTable() {
   const tbody=document.getElementById('feedtable-tbody');
   if(!tbody) return;
@@ -2236,15 +2239,17 @@ function renderFeedTable() {
   const dlOpts=[...new Set(custs.map(c=>c.name||'').filter(Boolean))].map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join('');
   const IS='width:100%;padding:3px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit;background:#fafafa;color:#333;box-sizing:border-box';
   const ISc=IS+';text-align:center';
+  const TASTA='width:100%;border:1px solid #ddd;border-radius:4px;padding:3px 5px;font-size:11px;font-family:inherit;resize:none;background:#fafafa;color:#333;box-sizing:border-box;overflow:hidden;line-height:1.4;min-height:26px;display:block';
   let html=`<tr style="display:none"><td><datalist id="feed-names-dl">${dlOpts}</datalist></td></tr>`;
   html+=pageRows.map((r,pi)=>{
     const gi=start+pi;
     const bg=pi%2===0?'#fff':'#fafaf8';
+    const feedVal=(r.feed||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const timeCells=FEED_TIME_COLS.map(col=>`<td style="padding:2px 2px;border:1px solid #eee">
       <input type="text" value="${(r[col.key]||'').replace(/"/g,'&quot;')}" maxlength="20" placeholder="—"
         oninput="_feedUpdate(${gi},'${col.key}',this.value)" style="${ISc}">
     </td>`).join('');
-    return `<tr style="background:${bg}">
+    return `<tr style="background:${bg};vertical-align:top">
       <td style="padding:4px 3px;border:1px solid #eee;text-align:center;color:#888;font-size:11px">${gi+1}</td>
       <td style="padding:2px 2px;border:1px solid #eee">
         <input type="text" value="${(r.bed||'').replace(/"/g,'&quot;')}" maxlength="10" placeholder="—"
@@ -2257,8 +2262,7 @@ function renderFeedTable() {
           style="${IS};text-align:left">
       </td>
       <td style="padding:2px 2px;border:1px solid #eee">
-        <input type="text" value="${(r.feed||'').replace(/"/g,'&quot;')}" maxlength="120" placeholder="—"
-          oninput="_feedUpdate(${gi},'feed',this.value)" style="${IS};text-align:left">
+        <textarea oninput="_feedUpdate(${gi},'feed',this.value);_autoResizeFeed(this)" style="${TASTA}">${feedVal}</textarea>
       </td>
       ${timeCells}
       <td style="padding:2px 2px;border:1px solid #eee">
@@ -2268,6 +2272,7 @@ function renderFeedTable() {
     </tr>`;
   }).join('');
   tbody.innerHTML=html;
+  requestAnimationFrame(()=>tbody.querySelectorAll('textarea').forEach(_autoResizeFeed));
 }
 window.renderFeedTable=renderFeedTable;
 
@@ -3999,7 +4004,7 @@ if ('serviceWorker' in navigator) {
             </div>
           </div>
           <div class="card" style="padding:0;overflow:hidden">
-            <div style="overflow-x:auto">
+            <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 175px)">
               <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
                 <colgroup>
                   <col style="width:3%">   <!-- ลำดับ -->
@@ -4009,7 +4014,7 @@ if ('serviceWorker' in navigator) {
                   <col><col><col><col><col><col><col><col>  <!-- 8 เวลา -->
                   <col>                    <!-- หมายเหตุ -->
                 </colgroup>
-                <thead>
+                <thead style="position:sticky;top:0;z-index:2">
                   <tr style="background:#f0ede8;text-align:center">
                     <th style="padding:6px 4px;border:1px solid #ddd;white-space:nowrap">ลำดับ</th>
                     <th style="padding:6px 4px;border:1px solid #ddd;white-space:nowrap">Bed</th>
