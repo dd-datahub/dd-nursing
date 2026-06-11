@@ -1470,7 +1470,8 @@ function setVitalSheet(sheet) {
   if (sheet==='meddaily'  && !window._meddailyInited)  { window._meddailyInited=true;  initMedDaily(); }
   if (sheet==='caseinfo'   && !window._caseinfoInited)   { window._caseinfoInited=true;   initCaseInfo(); }
   if (sheet==='feedtable'  && !window._feedtableInited)  { window._feedtableInited=true;  initFeedTable(); }
-  if (sheet==='shift'      && !window._shiftInited)      { window._shiftInited=true;      initShift(); }
+  if (sheet==='shift'          && !window._shiftInited)          { window._shiftInited=true;          initShift(); }
+  if (sheet==='carestandard'   && !window._carestandardInited)   { window._carestandardInited=true;   initCareStandard(); }
   if (sheet === 'appt')      requestAnimationFrame(_resizeApptCalendar);
   if (sheet === 'medcheck')  requestAnimationFrame(()=>requestAnimationFrame(_resizeMedCheck));
   if (sheet === 'feedtable') requestAnimationFrame(()=>requestAnimationFrame(_resizeFeedTable));
@@ -2479,6 +2480,105 @@ window.renderShift=renderShift;
 
 function initShift() { renderShift(); }
 window.initShift=initShift;
+
+// ============================================================
+// SHEET: มาตรฐานงานดูแล (static reference)
+// ============================================================
+function initCareStandard() {
+  // [type, no, text, eval]  S=section  H=sub-header  I=item
+  const CARE=[
+    ['S','1','การประเมินภาวะสุขภาพแบบองค์รวม',''],
+    ['I','','ประเมินอาการแรกรับในเคสรับใหม่ (แบบประเมินแรกรับ V/S ADL IADL เช็คสิ่งของที่นำมา และลงบันทึก','/'],
+    ['I','','ประเมินอาการคนไข้ในเวรตามอาการ (V/S ช/ย ตามอาการ ก่อน-หลังให้ยาความดัน DTX I/O และลงบันทึก','/'],
+    ['I','','ประเมินอาการคนไข้ต่อเนื่อง (ADL / IADL ทุก 3 เดือน) BMI ทุกเดือน','/'],
+    ['I','','การลงบันทึกอาการเปลี่ยนแปลงในแต่ละวัน','/'],
+    ['I','','ส่งแล็ป ตรวจสอบรายการตรวจ เก็บแล็ปให้ถูกตามประเภท ติดต่อแล็บรับสิ่งส่งตรวจ และติดตามผลแล็บ ใส่แฟ้ม','/'],
+    ['S','2','การดูแลช่วยเหลือการรับประทานอาหารและโภชนาการ','/'],
+    ['H','','เคสที่ทานอาหารปกติ',''],
+    ['I','','เตรียมสถานที่ ทำความสะอาดโต๊ะก่อน-หลังทานอาหาร ความสะอาดและเช็ดให้แห้งถาดถ้วยจาน ช้อน (ลวกน้ำร้อน)','/'],
+    ['I','','เตรียมผู้สูงอายุ ล้างมือก่อน-หลังทานอาหารทุกครั้ง','/'],
+    ['I','','ประเมินการรับประทานอาหาร-น้ำ ประเภทอาหาร ปริมาณอาหาร ทานได้เองหรือต้องป้อน กระตุ้นการทานอาหารและดื่มน้ำ','/'],
+    ['I','','ประเมินอาการหลังทานอาหาร เช่น ปวดท้อง ท้องอืด คลื่นไส้ อาเจียน ให้นั่งหลังอาหารอย่างน้อย 30 นาที','/'],
+    ['H','','เคสที่ให้อาหารทางสายยาง',''],
+    ['I','','เตรียมความสะอาดสถานที่การเตรียมอาหารให้ถูกต้องแต่ละเคส ประเภท-ปริมาณตามตารางฟีด (อัพเดทเมื่อเปลี่ยน-ทุกเดือน)','/'],
+    ['I','','แยกอุปกรณ์ของใช้แต่ละบุคคล ชุดให้อาหาร ไซริ้ง ตะกร้า แก้วยา','/'],
+    ['I','','ประเมินอาการก่อน-หลังให้อาหาร เช่น ปวดท้อง ท้องอืด คลื่นไส้อาเจียน ปริมาณอาหารคงค้าง จัดท่านอนหัวสูงขณะให้และหลังให้อย่างน้อย 30 นาที-1 ชั่วโมง','/'],
+    ['I','','ทำความสะอาดปลายสายและชุดให้อาหาร ก่อน-หลังให้อาหาร','X'],
+    ['I','','ลงบันทึกลักษณะ ปริมาณ content ปริมาณอาหารที่ให้','/'],
+    ['I','','เจาะน้ำตาลก่อนอาหารเคสเบาหวานและลงบันทึก','/'],
+    ['I','','ชั่งน้ำหนักและวัด BMI อย่างน้อยทุกเดือน (ถ้ายืนได้)','/'],
+    ['S','3','การดูแลช่วยเหลือการทำกิจวัตรประจำวัน','/'],
+    ['H','','การดูแลความสะอาดร่างกาย',''],
+    ['I','','อาบน้ำเช้า เช็ดตัวช่วงเย็น หรือเมื่อมีกลิ่นหรือไม่สะอาด','/'],
+    ['I','','การตรวจประเมินช่องปากทุกวัน แปรงฟัน ช-ย หรือบ้วนปากทุก 2-4 ชม หลังอาหาร ตามอาการ','/'],
+    ['I','','ตรวจความสะอาด ผม เล็บ หนวด ตัดให้สั้น ขี้หู ช่องหู อย่างน้อยวันเว้นวัน','/'],
+    ['I','','แช่มือ แช่เท้า อย่างน้อย 2 ครั้งต่อสัปดาห์','/'],
+    ['H','','การดูแลความสะอาดสิ่งแวดล้อม',''],
+    ['I','','ทำความสะอาดเตียง ใต้เตียง ตู้หัวเตียง ทุกวัน หรือเมื่อเปื้อน จัดของใช้ภายในตู้หัวเตียงและเติมของใช้ทุกวัน','/'],
+    ['I','','เปลี่ยนผ้าปูเตียง ปลอกหมอน ปลอกหมอนข้าง ทุกวัน หรือเมื่อเปื้อน','/'],
+    ['I','','เช็ดความสะอาดที่นอนลมทุกวัน และเปลี่ยนทุกเดือน','/'],
+    ['I','','เปลี่ยนผ้าห่ม 2 ครั้งต่อสัปดาห์ หรือเมื่อเปื้อน หมอนและหมอนข้างเปลี่ยนทุก 1 เดือน หรือเมื่อเปื้อน',''],
+    ['S','4','การดูแลเรื่องการให้ยา','/'],
+    ['S','5','การดูแลการขับถ่ายปัสสาวะ อุจจาระ','/'],
+    ['I','','เคสที่เดินได้ กระตุ้นเข้าห้องน้ำทุก 2-4 ชม และก่อนนอน แนะนำการทำความสะอาดหลังเสร็จ','/'],
+    ['I','','เคสติดเตียงหรือใส่สายสวนปัสสาวะ การเปลี่ยนแพมเพิส ทำความสะอาดบริเวณขับถ่ายและอวัยวะสืบพันธุ์ด้วยทิชชู่เปียกทุกครั้ง ทุก 2-4 ชม','/'],
+    ['I','','ถ้ายังมีกลิ่นทาครีม ควรพาไปล้างในห้องน้ำ และวาสลีนหลังทำความสะอาด','/'],
+    ['I','','ล้างทำความสะอาดด้วยน้ำยาหรือสบู่ อย่างน้อย ช-ย','/'],
+    ['I','','เคสที่ใส่สายสวนปัสสาวะ ติดสายไว้หน้าขาไม่ให้กดทับ ถุงปัสสาวะแขวนไม่ลากพื้น ก่อน-หลังเทปัสสาวะด้วยแอลกอฮอล์ ตรวจดูลักษณะ สี ปริมาณปัสสาวะทุก 2-4 ชม.','/'],
+    ['I','','ลงบันทึก I/O','/'],
+    ['I','','เคสที่มีปัญหาการขับถ่ายอุจจาระลำบาก ท้องผูก กระตุ้นให้ดื่มน้ำ ออกกำลังกาย ให้ยาระบาย หรือสวนถ้าจำเป็น','/'],
+    ['S','6','การดูแลการนอนหลับพักผ่อน',''],
+    ['I','','ก่อนนอนเคสที่เดินได้พาไปเข้าห้องน้ำก่อนนอน','/'],
+    ['I','','เคสติดเตียงตรวจสอบแพมเพิสและเปลี่ยนให้เรียบร้อยก่อนนอน','/'],
+    ['I','','ดูแลความสะอาดของที่นอน จัดสภาพแวดล้อมให้เหมาะสม ปิดไฟ ปิดทีวี ห่มผ้า','/'],
+    ['I','','ในเคสที่ต้องใช้ยานอนหลับต้องดูแลให้ได้รับยานอนหลับ',''],
+    ['S','7','การดูแลช่วยเหลือการเคลื่อนไหว การออกกำลังกาย การทำกายภาพบำบัด กิจกรรมบำบัด','/'],
+    ['I','','เคสติดเตียง พลิกตะแคงตัวทุก 2 ชั่วโมง','/'],
+    ['I','','จัดตารางกิจกรรม กายภาพ ให้เหมาะสมแต่ละเคส ปรับเปลี่ยนตารางทุกเดือน','/'],
+    ['S','8','ติดต่อประสานงานญาติโดยรายงานอาการที่เป็นปัจจุบันของคนไข้ให้ญาติรับทราบ','/'],
+    ['I','','แนะนำญาติเรื่องการเช็คสิทธิการรักษาให้คนไข้ การติดต่อขอใบส่งตัว การติดต่อเลื่อนนัดพบแพทย์','/'],
+    ['I','','สรุปอาการ รูปภาพ วีดีโอ ประจำวัน ตามความเหมาะสมแต่ละเคส','/'],
+    ['I','','สรุปอาการและประสานงานรถพยาบาลและโรงพยาบาล การไปติดตามการรักษา','/'],
+    ['I','','การดูแลเคสที่มีปัญหาทางเดินหายใจ','/'],
+  ];
+  const tbody=document.getElementById('carestandard-tbody');
+  if(!tbody) return;
+  let iRow=0;
+  tbody.innerHTML=CARE.map(([tp,no,txt,ev])=>{
+    const evalCell=ev==='/'
+      ?'<span style="display:inline-block;min-width:28px;text-align:center;color:#2e7d32;font-size:18px;font-weight:700;line-height:1">✓</span>'
+      :ev==='X'
+      ?'<span style="display:inline-block;min-width:28px;text-align:center;color:#c62828;font-size:18px;font-weight:700;line-height:1">✕</span>'
+      :'';
+    if(tp==='S'){
+      const secBg=ev==='/'?'#1a6b4a':ev==='X'?'#b71c1c':'#37474f';
+      const evCell=ev==='/'
+        ?'<span style="display:inline-block;min-width:28px;text-align:center;color:#a5d6a7;font-size:18px;font-weight:700">✓</span>'
+        :ev==='X'
+        ?'<span style="display:inline-block;min-width:28px;text-align:center;color:#ffcdd2;font-size:18px;font-weight:700">✕</span>'
+        :'';
+      return `<tr style="background:${secBg}">
+        <td style="padding:8px 10px;border:1px solid rgba(255,255,255,.2);color:#fff;font-weight:700;font-size:14px;text-align:center;white-space:nowrap;width:40px">${no}</td>
+        <td style="padding:8px 14px;border:1px solid rgba(255,255,255,.2);color:#fff;font-weight:700;font-size:14px">${txt}</td>
+        <td style="padding:8px 8px;border:1px solid rgba(255,255,255,.2);text-align:center;width:48px">${evCell}</td>
+      </tr>`;
+    } else if(tp==='H'){
+      return `<tr style="background:#e8f5ee">
+        <td style="padding:5px 8px;border:1px solid #c8e6c9"></td>
+        <td style="padding:6px 18px;border:1px solid #c8e6c9;color:#1a6b4a;font-weight:600;font-size:13px;font-style:italic">▸ ${txt}</td>
+        <td style="padding:5px 8px;border:1px solid #c8e6c9"></td>
+      </tr>`;
+    } else {
+      const bg=(iRow++%2===0)?'#fff':'#f9f9f7';
+      return `<tr style="background:${bg}">
+        <td style="padding:5px 8px;border:1px solid #eee"></td>
+        <td style="padding:6px 20px;border:1px solid #eee;font-size:13.5px;line-height:1.55;color:#333">${txt}</td>
+        <td style="padding:5px 8px;border:1px solid #eee;text-align:center">${evalCell}</td>
+      </tr>`;
+    }
+  }).join('');
+}
+window.initCareStandard=initCareStandard;
 
 async function saveFeedTable() {
   if(!_feedDate) return;
@@ -3979,6 +4079,7 @@ if ('serviceWorker' in navigator) {
           <button class="vsheet-btn"        data-sheet="caseinfo"   onclick="setVitalSheet('caseinfo')">📋 ข้อมูลเคส</button>
           <button class="vsheet-btn"        data-sheet="feedtable"  onclick="setVitalSheet('feedtable')">🍽️ ตารางฟีดอาหาร</button>
           <button class="vsheet-btn"        data-sheet="shift"      onclick="setVitalSheet('shift')">🌙 งานเวรเช้าเวรดึก</button>
+          <button class="vsheet-btn"        data-sheet="carestandard" onclick="setVitalSheet('carestandard')">📋 มาตรฐานงานดูแล</button>
         </div>
 
         <!-- ===== vp-vs: สัญญาณชีพ ===== -->
@@ -4303,6 +4404,34 @@ if ('serviceWorker' in navigator) {
                     </tr>
                   </thead>
                   <tbody id="clean-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== vp-carestandard: มาตรฐานงานดูแล ===== -->
+        <div id="vp-carestandard" class="vsheet-panel">
+          <div style="overflow-y:auto;max-height:calc(100vh - 112px)">
+            <div class="card" style="padding:0;overflow:hidden">
+              <div style="background:#1a6b4a;color:#fff;padding:10px 16px;font-size:15px;font-weight:700">
+                📋 มาตรฐานงานดูแลผู้สูงอายุ ดีดี เนอร์สซิ่งโฮม
+              </div>
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:14px">
+                  <colgroup>
+                    <col style="width:40px">
+                    <col>
+                    <col style="width:58px">
+                  </colgroup>
+                  <thead>
+                    <tr style="background:#f0ede8">
+                      <th style="padding:7px 8px;border:1px solid #ddd;font-size:12px;text-align:center">ที่</th>
+                      <th style="padding:7px 14px;border:1px solid #ddd;font-size:13px;text-align:left">มาตรฐานกิจกรรมการดูแล</th>
+                      <th style="padding:7px 8px;border:1px solid #ddd;font-size:12px;text-align:center">ประเมินผล<br><span style="font-weight:400;color:#666;font-size:11px">✓ทำ / ✕ไม่ทำ</span></th>
+                    </tr>
+                  </thead>
+                  <tbody id="carestandard-tbody"></tbody>
                 </table>
               </div>
             </div>
