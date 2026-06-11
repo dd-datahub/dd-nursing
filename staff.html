@@ -2715,12 +2715,14 @@ function _chkRenderCell(no,day){
   const v=_chkData[no+'_'+day]||'';
   const today=new Date();
   const isToday=(_chkMonth===today.toISOString().slice(0,7))&&(day===today.getDate());
+  // cssText ต้องมี border เสมอ มิฉะนั้น border ที่ตั้งไว้ใน _buildChkTable จะถูก replace หาย
+  const base='cursor:pointer;text-align:center;padding:0;border:1px solid #bbb;width:30px;min-width:30px;height:34px;font-size:14px;font-weight:700;box-sizing:border-box;';
   if(v==='/'){
     td.textContent='✓';
-    td.style.cssText='cursor:pointer;text-align:center;padding:0;background:#c8e6c9;color:#1b5e20;font-weight:700;font-size:13px;';
+    td.style.cssText=base+'background:#c8e6c9;color:#1b5e20;';
   } else {
     td.textContent='';
-    td.style.cssText='cursor:pointer;text-align:center;padding:0;background:'+(isToday?'#fff9c4':'#fff')+';';
+    td.style.cssText=base+'background:'+(isToday?'#fff9c4':'inherit')+';color:#333;';
   }
 }
 
@@ -4753,27 +4755,23 @@ if ('serviceWorker' in navigator) {
 
         <!-- ===== vp-checklist: รายการตรวจเช็ค ===== -->
         <div id="vp-checklist" class="vsheet-panel">
-          <div style="height:calc(100vh - 112px);display:flex;flex-direction:column">
-            <!-- control bar -->
-            <div class="card" style="flex-shrink:0;margin-bottom:8px;padding:8px 14px">
-              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-                <b style="font-size:14px;color:#1a6b4a">🔧 รายการตรวจเช็คและบำรุงรักษาเครื่องมือทางการแพทย์</b>
-                <div id="chk-branch-badge" style="padding:3px 10px;font-size:12px;font-weight:600;border-radius:4px;border:1px solid #a5d6a7;background:#e8f5ee;color:#1a6b4a;white-space:nowrap">ทั้งหมด</div>
-                <label style="font-size:13px;color:#555">เดือน:</label>
-                <input type="month" id="chk-month" style="padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit">
-                <span id="checklist-status" style="font-size:12px;color:#888;margin-left:4px"></span>
-                <span style="margin-left:auto;font-size:12px;color:#888">กดช่องวันที่เพื่อติ๊ก ✓</span>
-              </div>
+          <!-- control bar -->
+          <div class="card" style="margin-bottom:8px;padding:8px 14px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <b style="font-size:14px;color:#1a6b4a">🔧 รายการตรวจเช็คและบำรุงรักษาเครื่องมือทางการแพทย์</b>
+              <div id="chk-branch-badge" style="padding:3px 10px;font-size:12px;font-weight:600;border-radius:4px;border:1px solid #a5d6a7;background:#e8f5ee;color:#1a6b4a;white-space:nowrap">ทั้งหมด</div>
+              <label style="font-size:13px;color:#555">เดือน:</label>
+              <input type="month" id="chk-month" style="padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit">
+              <span id="checklist-status" style="font-size:12px;color:#888;margin-left:4px"></span>
+              <span style="margin-left:auto;font-size:12px;color:#888">กดช่องวันที่เพื่อติ๊ก ✓</span>
             </div>
-            <!-- table fills remaining height -->
-            <div class="card" style="flex:1;padding:0;overflow:hidden;min-height:0">
-              <div style="overflow:auto;height:100%">
-                <table style="border-collapse:collapse;width:100%">
-                  <thead id="chk-thead"></thead>
-                  <tbody id="chk-tbody"></tbody>
-                </table>
-              </div>
-            </div>
+          </div>
+          <!-- table: height เต็มจอ ลบความสูง header+controlbar -->
+          <div style="overflow:auto;height:calc(100vh - 170px);border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+            <table style="border-collapse:collapse;width:100%">
+              <thead id="chk-thead" style="position:sticky;top:0;z-index:2"></thead>
+              <tbody id="chk-tbody"></tbody>
+            </table>
           </div>
         </div>
 
