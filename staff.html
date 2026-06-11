@@ -3192,6 +3192,7 @@ let _branchworkMonth='';
 let _branchworkData={};
 let _branchworkLoadGen=0;
 let _branchworkSaveTimer=null;
+const _BW_VISITS=5; // จำนวนครั้ง
 
 function _branchworkBranchKey(){ const map={'สาขา 1':'dd1','สาขา 2':'dd2','สาขา 3':'dd3'}; return map[_vitalBranch]||'all'; }
 function _branchworkFbPath(){ return 'branchwork/'+_branchworkBranchKey()+'/'+(_branchworkMonth||new Date().toISOString().slice(0,7)); }
@@ -3220,62 +3221,65 @@ function _branchworkBlur(key,el){
   _branchworkSaveTimer=setTimeout(_branchworkSaveFb,400);
 }
 window._branchworkBlur=_branchworkBlur;
+window._branchworkSetVisitDate=function(v,val){ _branchworkData['bw_d_'+v]=val; _branchworkSaveFb(); };
+
+function _branchworkUpdateHeaders(){
+  for(let v=1;v<=_BW_VISITS;v++){
+    const h=document.getElementById('bw-vhd-'+v);
+    if(!h) continue;
+    const d=_branchworkData['bw_d_'+v]||'';
+    h.innerHTML=`<div style="font-size:11px;font-weight:600;margin-bottom:4px">ครั้งที่ ${v}</div>`
+      +`<input type="date" value="${d}" onchange="_branchworkSetVisitDate(${v},this.value)" `
+      +`style="font-size:10px;padding:2px 4px;border:1px solid rgba(255,255,255,.5);border-radius:4px;background:rgba(255,255,255,.15);color:#fff;width:108px;font-family:inherit">`;
+  }
+}
 
 function _buildBranchworkTable(){
   const thead=document.getElementById('bw-thead');
   const tbody=document.getElementById('bw-tbody');
   if(!thead||!tbody) return;
   const B='border:1px solid #e0e0e0;';
-  const TH='background:#1a6b4a;color:#fff;padding:6px 4px;font-size:12px;border:1px solid #155c3a;text-align:center;';
-  const INP='width:100%;border:none;border-radius:3px;padding:3px 4px;font-size:11px;font-family:inherit;outline:none;background:#fff;box-sizing:border-box;color:#222;text-align:center;';
-  // header row 1
-  let thDays='';
-  for(let d=1;d<=31;d++) thDays+=`<th id="bwth-${d}" style="${TH}white-space:nowrap">${d}</th>`;
-  thead.innerHTML=`
-    <tr>
-      <th rowspan="2" style="${TH}">ที่</th>
-      <th rowspan="2" style="${TH}text-align:left;padding:6px 10px">รายการ</th>
-      <th rowspan="2" style="${TH}">ความถี่</th>
-      <th rowspan="2" style="${TH}">หมายเหตุ</th>
-      <th colspan="31" style="${TH}">วันที่</th>
-    </tr>
-    <tr>${thDays}</tr>`;
+  const TH_BASE='background:#1a6b4a;color:#fff;padding:10px 6px;font-size:12px;border:1px solid #155c3a;text-align:center;vertical-align:middle;';
+  const TH_VISIT='background:#1a6b4a;color:#fff;padding:8px 6px;font-size:12px;border:1px solid #155c3a;text-align:center;min-width:110px;';
+  const INP='width:100%;border:1px solid #ddd;border-radius:4px;padding:5px 7px;font-size:12px;font-family:inherit;outline:none;background:#fff;box-sizing:border-box;color:#222;';
+  // header — single row
+  let vhds='';
+  for(let v=1;v<=_BW_VISITS;v++) vhds+=`<th id="bw-vhd-${v}" style="${TH_VISIT}">ครั้งที่ ${v}</th>`;
+  thead.innerHTML=`<tr>
+    <th style="${TH_BASE}">ที่</th>
+    <th style="${TH_BASE}text-align:left;padding:10px 12px">รายการ</th>
+    <th style="${TH_BASE}">ความถี่</th>
+    <th style="${TH_BASE}">หมายเหตุ</th>
+    ${vhds}
+  </tr>`;
   // body
   tbody.innerHTML=_BRANCHWORK_ITEMS.map((item,ri)=>{
     const bg=ri%2===0?'#fff':'#f9faf9';
-    let dayCells='';
-    for(let d=1;d<=31;d++){
-      const k=`i${item.no}_${d}`;
-      dayCells+=`<td style="${B}padding:2px;background:${bg}"><input id="bw-inp-${k}" onblur="_branchworkBlur('${k}',this)" style="${INP}"></td>`;
+    let vCells='';
+    for(let v=1;v<=_BW_VISITS;v++){
+      const k=`bw_${item.no}_${v}`;
+      vCells+=`<td style="${B}padding:4px 6px;background:${bg}"><input id="bw-inp-${k}" onblur="_branchworkBlur('${k}',this)" style="${INP}" placeholder="ผล"></td>`;
     }
     const nameHtml=item.name.replace(/\n/g,'<br>');
     return `<tr>
-      <td style="${B}text-align:center;font-size:13px;font-weight:600;color:#444;background:#f5faf7;padding:5px 3px">${item.no}</td>
-      <td style="${B}padding:6px 10px;font-size:12px;color:#1a1a1a;background:${bg};line-height:1.5">${nameHtml}</td>
-      <td style="${B}text-align:center;font-size:11px;color:#555;background:${bg};white-space:nowrap;padding:4px 3px">${item.freq}</td>
-      <td style="${B}font-size:11px;color:#888;background:${bg};padding:4px 5px;line-height:1.4">${item.note}</td>
-      ${dayCells}
+      <td style="${B}text-align:center;font-size:13px;font-weight:600;color:#444;background:#f5faf7;padding:6px 3px">${item.no}</td>
+      <td style="${B}padding:7px 12px;font-size:13px;color:#1a1a1a;background:${bg};line-height:1.5">${nameHtml}</td>
+      <td style="${B}text-align:center;font-size:11px;color:#555;background:${bg};white-space:nowrap;padding:5px 4px">${item.freq}</td>
+      <td style="${B}font-size:11px;color:#888;background:${bg};padding:5px 7px;line-height:1.4">${item.note}</td>
+      ${vCells}
     </tr>`;
   }).join('');
 }
 
 function _branchworkRenderAll(){
-  const today=new Date();
-  const isCurrentMonth=(_branchworkMonth===today.toISOString().slice(0,7));
-  const todayDay=today.getDate();
-  for(let d=1;d<=31;d++){
-    const th=document.getElementById('bwth-'+d);
-    if(th){
-      const isToday=isCurrentMonth&&(d===todayDay);
-      th.style.background=isToday?'#fff176':'#1a6b4a';
-      th.style.color=isToday?'#e65100':'#fff';
-    }
-    _BRANCHWORK_ITEMS.forEach(item=>{
-      const k=`i${item.no}_${d}`;
+  _BRANCHWORK_ITEMS.forEach(item=>{
+    for(let v=1;v<=_BW_VISITS;v++){
+      const k=`bw_${item.no}_${v}`;
       const el=document.getElementById('bw-inp-'+k);
       if(el) el.value=_branchworkData[k]||'';
-    });
-  }
+    }
+  });
+  _branchworkUpdateHeaders();
 }
 
 function renderBranchwork(){
@@ -3287,23 +3291,20 @@ window.renderBranchwork=renderBranchwork;
 
 function _resizeBranchworkCols(){
   const scroll=document.getElementById('bw-scroll');
-  const table=scroll&&scroll.querySelector('table');
-  if(!table||!scroll) return;
-  const containerW=scroll.clientWidth;
-  if(!containerW) return;
-  const canvas=document.createElement('canvas');
-  const ctx=canvas.getContext('2d');
-  ctx.font='12px sans-serif';
-  const maxNameW=Math.ceil(Math.max(..._BRANCHWORK_ITEMS.map(i=>ctx.measureText(i.name.replace(/\n.*/,'')).width)))+22;
-  const freqW=58; const noteW=70; const noW=35;
-  const fixedW=noW+maxNameW+freqW+noteW+2;
-  const remaining=Math.max(0,containerW-fixedW);
-  const dayW=Math.max(22,Math.floor(remaining/31));
-  let cg=table.querySelector('colgroup');
-  if(!cg){ cg=document.createElement('colgroup'); table.insertBefore(cg,table.firstChild); }
-  const dayCols=Array.from({length:31},()=>`<col style="width:${dayW}px">`).join('');
-  cg.innerHTML=`<col style="width:${noW}px"><col style="width:${maxNameW}px"><col style="width:${freqW}px"><col style="width:${noteW}px">${dayCols}`;
-  table.style.tableLayout='fixed'; table.style.width='100%';
+  if(!scroll) return;
+  const W=scroll.clientWidth||700;
+  const noW=40; const freqW=58; const noteW=72;
+  const fixed=noW+freqW+noteW+2;
+  const nameW=Math.max(120, Math.floor((W-fixed)*0.45));
+  const visitW=Math.max(110, Math.floor((W-fixed-nameW)/_BW_VISITS));
+  const tbl=document.getElementById('bw-tbody')?.closest('table');
+  if(tbl){
+    let cg=tbl.querySelector('colgroup');
+    if(!cg){ cg=document.createElement('colgroup'); tbl.insertBefore(cg,tbl.firstChild); }
+    const vCols=Array.from({length:_BW_VISITS},()=>`<col style="width:${visitW}px">`).join('');
+    cg.innerHTML=`<col style="width:${noW}px"><col style="width:${nameW}px"><col style="width:${freqW}px"><col style="width:${noteW}px">${vCols}`;
+    tbl.style.tableLayout='fixed'; tbl.style.width='100%';
+  }
 }
 function _resizeBranchwork(){
   if(_activeVitalSheet!=='branchwork') return;
