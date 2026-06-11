@@ -3241,7 +3241,7 @@ function _buildBranchworkTable(){
   const B='border:1px solid #e0e0e0;';
   const TH_BASE='background:#1a6b4a;color:#fff;padding:10px 6px;font-size:12px;border:1px solid #155c3a;text-align:center;vertical-align:middle;';
   const TH_VISIT='background:#1a6b4a;color:#fff;padding:8px 6px;font-size:12px;border:1px solid #155c3a;text-align:center;min-width:110px;';
-  const INP='width:100%;border:1px solid #ddd;border-radius:4px;padding:5px 7px;font-size:12px;font-family:inherit;outline:none;background:#fff;box-sizing:border-box;color:#222;';
+  const TA='width:100%;border:1px solid #ddd;border-radius:4px;padding:5px 7px;font-size:12px;font-family:inherit;outline:none;background:#fff;box-sizing:border-box;color:#222;resize:none;line-height:1.45;overflow:hidden;';
   // header — single row
   let vhds='';
   for(let v=1;v<=_BW_VISITS;v++) vhds+=`<th id="bw-vhd-${v}" style="${TH_VISIT}">ครั้งที่ ${v}</th>`;
@@ -3258,14 +3258,14 @@ function _buildBranchworkTable(){
     let vCells='';
     for(let v=1;v<=_BW_VISITS;v++){
       const k=`bw_${item.no}_${v}`;
-      vCells+=`<td style="${B}padding:4px 6px;background:${bg}"><input id="bw-inp-${k}" onblur="_branchworkBlur('${k}',this)" style="${INP}" placeholder="ผล"></td>`;
+      vCells+=`<td style="${B}padding:4px 6px;background:${bg};vertical-align:top"><textarea id="bw-inp-${k}" rows="2" onblur="_branchworkBlur('${k}',this)" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="${TA}" placeholder="ผล"></textarea></td>`;
     }
     const nameHtml=item.name.replace(/\n/g,'<br>');
     return `<tr>
-      <td style="${B}text-align:center;font-size:13px;font-weight:600;color:#444;background:#f5faf7;padding:6px 3px">${item.no}</td>
+      <td style="${B}text-align:center;font-size:13px;font-weight:600;color:#444;background:#f5faf7;padding:6px 3px;vertical-align:middle">${item.no}</td>
       <td style="${B}padding:7px 12px;font-size:13px;color:#1a1a1a;background:${bg};line-height:1.5">${nameHtml}</td>
-      <td style="${B}text-align:center;font-size:11px;color:#555;background:${bg};white-space:nowrap;padding:5px 4px">${item.freq}</td>
-      <td style="${B}font-size:11px;color:#888;background:${bg};padding:5px 7px;line-height:1.4">${item.note}</td>
+      <td style="${B}text-align:center;font-size:11px;color:#555;background:${bg};white-space:nowrap;padding:5px 4px;vertical-align:middle">${item.freq}</td>
+      <td style="${B}font-size:11px;color:#555;background:${bg};padding:5px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle">${item.note}</td>
       ${vCells}
     </tr>`;
   }).join('');
@@ -3276,7 +3276,12 @@ function _branchworkRenderAll(){
     for(let v=1;v<=_BW_VISITS;v++){
       const k=`bw_${item.no}_${v}`;
       const el=document.getElementById('bw-inp-'+k);
-      if(el) el.value=_branchworkData[k]||'';
+      if(el){
+        el.value=_branchworkData[k]||'';
+        // คำนวณ height ใหม่สำหรับ textarea ที่มีข้อความหลายบรรทัด
+        el.style.height='auto';
+        el.style.height=el.scrollHeight+'px';
+      }
     }
   });
   _branchworkUpdateHeaders();
@@ -3293,9 +3298,15 @@ function _resizeBranchworkCols(){
   const scroll=document.getElementById('bw-scroll');
   if(!scroll) return;
   const W=scroll.clientWidth||700;
-  const noW=40; const freqW=58; const noteW=72;
+  const noW=40; const freqW=58;
+  // วัดความกว้างข้อความหมายเหตุที่ยาวสุดด้วย Canvas
+  const canvas=document.createElement('canvas');
+  const ctx=canvas.getContext('2d');
+  ctx.font='11px sans-serif';
+  const maxNoteTextW=Math.ceil(Math.max(..._BRANCHWORK_ITEMS.map(i=>ctx.measureText(i.note).width)));
+  const noteW=Math.max(72, maxNoteTextW+20);
   const fixed=noW+freqW+noteW+2;
-  const nameW=Math.max(120, Math.floor((W-fixed)*0.45));
+  const nameW=Math.max(100, Math.floor((W-fixed)*0.35));
   const visitW=Math.max(110, Math.floor((W-fixed-nameW)/_BW_VISITS));
   const tbl=document.getElementById('bw-tbody')?.closest('table');
   if(tbl){
