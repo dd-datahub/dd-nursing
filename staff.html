@@ -2849,36 +2849,49 @@ function _buildChkTable(){
   const todayMonth=today.toISOString().slice(0,7);
   const todayDay=today.getDate();
 
-  // Build header — 2 rows: row1 = ที่/รายการ/จำนวน (rowspan=2) + "วันที่" (colspan=31); row2 = day numbers
+  // ตั้ง table-layout:fixed + colgroup กำหนด width ทุก column ชัดเจน
+  // spacer column สุดท้าย (ไม่มี width) ดูดซับ extra space แทน รายการ
+  const table=thead.closest('table');
+  if(table){
+    table.style.tableLayout='fixed';
+    let cg=table.querySelector('colgroup');
+    if(!cg){ cg=document.createElement('colgroup'); table.insertBefore(cg,thead); }
+    const dayCols=Array.from({length:31},()=>'<col style="width:30px">').join('');
+    cg.innerHTML=`<col style="width:40px"><col style="width:185px"><col style="width:62px">${dayCols}<col>`;
+  }
+
+  // Build header — 2 rows: row1 = ที่/รายการ/จำนวน (rowspan=2) + "วันที่" (colspan=31) + spacer(rowspan=2)
   let thDays2='';
   for(let d=1;d<=31;d++){
     const isToday=(_chkMonth===todayMonth)&&(d===todayDay);
-    thDays2+=`<th id="chkth-${d}" style="padding:4px 2px;border:1px solid #7cb87c;font-size:11px;width:30px;min-width:30px;max-width:30px;text-align:center;font-weight:700;white-space:nowrap;${isToday?'background:#fff176;color:#e65100;':'background:#2e8b57;color:#fff;'}">${d}</th>`;
+    thDays2+=`<th id="chkth-${d}" style="padding:4px 2px;border:1px solid #7cb87c;font-size:11px;text-align:center;font-weight:700;${isToday?'background:#fff176;color:#e65100;':'background:#2e8b57;color:#fff;'}">${d}</th>`;
   }
   thead.innerHTML=`
   <tr>
-    <th rowspan="2" style="padding:7px 6px;border:1px solid #7cb87c;background:#1a6b4a;color:#fff;font-size:12px;text-align:center;width:36px;min-width:36px;white-space:nowrap">ที่</th>
-    <th rowspan="2" style="padding:7px 12px;border:1px solid #7cb87c;background:#1a6b4a;color:#fff;font-size:13px;text-align:left;white-space:nowrap">รายการ</th>
-    <th rowspan="2" style="padding:7px 6px;border:1px solid #7cb87c;background:#1a6b4a;color:#fff;font-size:12px;text-align:center;width:56px;min-width:56px;white-space:nowrap">จำนวน</th>
-    <th colspan="31" style="padding:5px 6px;border:1px solid #7cb87c;background:#1a6b4a;color:#fff;font-size:12px;text-align:center;white-space:nowrap;letter-spacing:.5px">วันที่</th>
+    <th rowspan="2" style="padding:7px 6px;border:1px solid #7cb87c;background:#1a6b4a;color:#fff;font-size:12px;text-align:center;white-space:nowrap;overflow:hidden">ที่</th>
+    <th rowspan="2" style="padding:7px 10px;border:1px solid #7cb87c;background:#1a6b4a;color:#fff;font-size:13px;text-align:left;white-space:nowrap;overflow:hidden">รายการ</th>
+    <th rowspan="2" style="padding:7px 4px;border:1px solid #7cb87c;background:#1a6b4a;color:#fff;font-size:12px;text-align:center;white-space:nowrap;overflow:hidden">จำนวน</th>
+    <th colspan="31" style="padding:5px 6px;border:1px solid #7cb87c;background:#1a6b4a;color:#fff;font-size:12px;text-align:center;letter-spacing:.5px">วันที่</th>
+    <th rowspan="2" style="border:none;background:#f8faf8;padding:0"></th>
   </tr>
   <tr>
     ${thDays2}
   </tr>`;
 
-  // Build rows
+  // Build rows — spacer td ท้ายแต่ละแถว
   const B='border:1px solid #bbb;';
   tbody.innerHTML=_CHK_ITEMS.map((item,ri)=>{
     const rowBg=ri%2===0?'#fff':'#f7faf7';
     let tdDays='';
     for(let d=1;d<=31;d++){
-      tdDays+=`<td id="chk-${item.no}-${d}" onclick="_chkToggle(${item.no},${d})" style="cursor:pointer;text-align:center;${B}padding:0;width:30px;min-width:30px;max-width:30px;height:34px;font-size:14px;font-weight:700;background:${rowBg}"></td>`;
+      tdDays+=`<td id="chk-${item.no}-${d}" onclick="_chkToggle(${item.no},${d})" style="cursor:pointer;text-align:center;${B}padding:0;height:34px;font-size:14px;font-weight:700;background:${rowBg}"></td>`;
     }
     return `<tr>
-      <td style="text-align:center;${B}padding:6px 4px;font-size:13px;color:#555;background:#f5f5f5;white-space:nowrap;width:36px">${item.no}</td>
-      <td style="${B}padding:6px 12px;font-size:13px;color:#222;white-space:nowrap;background:${rowBg}">${item.name}</td>
-      <td id="chkq-${item.no}" contenteditable="true" onblur="_chkQtyBlur(${item.no},this)" style="text-align:center;${B}padding:6px 4px;font-size:13px;color:#333;outline:none;cursor:text;background:${rowBg};width:56px"></td>
+      <td style="text-align:center;${B}padding:6px 4px;font-size:13px;color:#555;background:#f5f5f5;white-space:nowrap;overflow:hidden">${item.no}</td>
+      <td style="${B}padding:6px 10px;font-size:13px;color:#222;white-space:nowrap;overflow:hidden;background:${rowBg}">${item.name}</td>
+      <td id="chkq-${item.no}" contenteditable="true" onblur="_chkQtyBlur(${item.no},this)" style="text-align:center;${B}padding:6px 4px;font-size:13px;color:#333;outline:none;cursor:text;background:${rowBg};overflow:hidden"></td>
       ${tdDays}
+      <td style="border:none;background:${rowBg};padding:0"></td>
     </tr>`;
   }).join('');
 
@@ -4776,7 +4789,7 @@ if ('serviceWorker' in navigator) {
           </div>
           <!-- table: flex:1 กินพื้นที่ที่เหลือ, min-height:0 ให้ flex หดได้ -->
           <div id="chk-scroll" style="flex:1;min-height:0;overflow:auto;border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
-            <table style="border-collapse:collapse;min-width:100%">
+            <table style="border-collapse:collapse;min-width:100%;min-height:100%">
               <thead id="chk-thead" style="position:sticky;top:0;z-index:2"></thead>
               <tbody id="chk-tbody"></tbody>
             </table>
