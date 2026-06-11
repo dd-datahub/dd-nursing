@@ -1441,6 +1441,7 @@ function setVitalBranch(branch) {
   else if (sheet === 'checklist')   renderChecklist?.();
   else if (sheet === 'sbs')         renderSbs?.();
   else if (sheet === 'timesheet')   renderTimesheet?.();
+  else if (sheet === 'branchwork')  renderBranchwork?.();
 }
 window.setVitalBranch = setVitalBranch;
 
@@ -1464,7 +1465,7 @@ function setVitalSheet(sheet) {
     p.classList.toggle('active', p.id === 'vp-' + sheet));
   // ขยายเต็มจอสำหรับตารางนัด/ยารายวัน — ลด padding main-content
   const mc = document.querySelector('.main-content');
-  const _fullSheets=['appt','medcheck','feedtable','checklist','sbs','timesheet'];
+  const _fullSheets=['appt','medcheck','feedtable','checklist','sbs','timesheet','branchwork'];
   if (mc) mc.style.padding = _fullSheets.includes(sheet) ? '6px 4px' : '';
   if (mc) mc.style.overflowY = sheet==='checklist' ? 'hidden' : '';
   // lazy init each sheet on first visit
@@ -1480,12 +1481,14 @@ function setVitalSheet(sheet) {
   if (sheet==='checklist'      && !window._checklistInited)      { window._checklistInited=true;      initChecklist(); }
   if (sheet==='sbs'           && !window._sbsInited)            { window._sbsInited=true;            initSbs(); }
   if (sheet==='timesheet'    && !window._timesheetInited)       { window._timesheetInited=true;       initTimesheet(); }
+  if (sheet==='branchwork'   && !window._branchworkInited)      { window._branchworkInited=true;      initBranchwork(); }
   if (sheet === 'appt')      requestAnimationFrame(_resizeApptCalendar);
   if (sheet === 'medcheck')  requestAnimationFrame(()=>requestAnimationFrame(_resizeMedCheck));
   if (sheet === 'feedtable') requestAnimationFrame(()=>requestAnimationFrame(_resizeFeedTable));
   if (sheet === 'checklist') requestAnimationFrame(()=>requestAnimationFrame(_resizeChkCols));
   if (sheet === 'sbs')       requestAnimationFrame(()=>requestAnimationFrame(_resizeSbs));
-  if (sheet === 'timesheet') requestAnimationFrame(()=>requestAnimationFrame(_resizeTimesheet));
+  if (sheet === 'timesheet')  requestAnimationFrame(()=>requestAnimationFrame(_resizeTimesheet));
+  if (sheet === 'branchwork') requestAnimationFrame(()=>requestAnimationFrame(_resizeBranchwork));
 }
 window.setVitalSheet = setVitalSheet;
 
@@ -3160,6 +3163,169 @@ function initTimesheet(){
 }
 window.initTimesheet=initTimesheet;
 
+// ============================================================
+//  SHEET: งานหัวหน้าสาขา
+// ============================================================
+const _BRANCHWORK_ITEMS=[
+  {no:1,  name:'การต้อนรับและให้ข้อมูลลูกค้าเยี่ยมชมสถานที่', freq:'ทุกวัน', note:''},
+  {no:2,  name:'การทำสัญญาแรกรับ การประเมิน แฟ้ม', freq:'ทุกวัน', note:''},
+  {no:3,  name:'ประเมินการทำงานตามตารางเวรเช้า/ดึก', freq:'ทุกวัน', note:'ตารางงานช/ด'},
+  {no:4,  name:'ประเมินผลกายภาพและกิจกรรมของพนักงาน', freq:'ทุกวัน', note:'ตารางกายภาพ/กิจกรรม'},
+  {no:5,  name:'ประเมินผลกายภาพและกิจกรรม หมอเมย์', freq:'ทุกวัน', note:'ตารางกายภาพ/กิจกรรม'},
+  {no:6,  name:'การตรวจสอบและบำรุงรักษาเครื่องมือ', freq:'ทุกวัน', note:'ตารางตรวจสอบ'},
+  {no:7,  name:'ประเมินการทำงานแม่บ้าน', freq:'ทุกวัน', note:'ตารางงานแม่บ้าน'},
+  {no:8,  name:'การรายงานภาวะฉุกเฉิน/อาการเปลี่ยนแปลง', freq:'ทุกวัน', note:''},
+  {no:9,  name:'การมอบหมายงาน', freq:'ทุกวัน', note:''},
+  {no:10, name:'การรับส่งเวร', freq:'ทุกวัน', note:''},
+  {no:11, name:'การตรวจสอบการเบิกของ\nเวชภัณฑ์ แลป ค่ารถ ออกซิเจน', freq:'ทุกวัน', note:'ตามลิ้งค์'},
+  {no:12, name:'การรับเรื่องร้องเรียนจากลูกค้า', freq:'ทุกวัน', note:''},
+  {no:13, name:'การตรวจสอบบิลค่าใช้จ่ายและการส่งบิล', freq:'ทุกวัน', note:''},
+  {no:14, name:'การติดตามสลิปการโอนค่าใช้จ่าย', freq:'ทุกวัน', note:''},
+  {no:15, name:'การสรุปเคสรายวัน', freq:'ทุกวัน', note:''},
+  {no:16, name:'สรุปปัญหารายวัน', freq:'ทุกวัน', note:''},
+  {no:17, name:'การสรุปเคสรายเดือน', freq:'สิ้นเดือน', note:''},
+  {no:18, name:'ตารางนัด รพ และสรุปผล', freq:'ทุกวัน', note:'ตารางนัด'},
+  {no:19, name:'การดูแลเคสเสียชีวิต', freq:'PRN', note:''},
+  {no:20, name:'การอบรมแต่ละสาขา', freq:'', note:'ตามตาราง'},
+];
+let _branchworkMonth='';
+let _branchworkData={};
+let _branchworkLoadGen=0;
+let _branchworkSaveTimer=null;
+
+function _branchworkBranchKey(){ const map={'สาขา 1':'dd1','สาขา 2':'dd2','สาขา 3':'dd3'}; return map[_vitalBranch]||'all'; }
+function _branchworkFbPath(){ return 'branchwork/'+_branchworkBranchKey()+'/'+(_branchworkMonth||new Date().toISOString().slice(0,7)); }
+
+function _branchworkSaveFb(){
+  _branchworkLoadGen++;
+  const path=_branchworkFbPath();
+  const payload=Object.fromEntries(Object.entries(_branchworkData).filter(([,v])=>v!==''));
+  const stEl=()=>document.getElementById('bw-status');
+  const s0=stEl(); if(s0){s0.textContent='กำลังบันทึก...';s0.style.color='#888';}
+  _set(_ref(_db,path),Object.keys(payload).length?payload:null)
+    .then(()=>{ const s=stEl(); if(s){s.textContent='✓ บันทึกแล้ว';s.style.color='#2e7d32';} setTimeout(()=>{const s2=stEl();if(s2)s2.textContent='';},2500); })
+    .catch(e=>{ console.error('branchworkSaveFb:',e); const s=stEl(); if(s){s.textContent='❌ บันทึกไม่สำเร็จ';s.style.color='#c62828';} });
+}
+function _branchworkLoadFb(){
+  const gen=++_branchworkLoadGen;
+  _get(_ref(_db,_branchworkFbPath())).then(snap=>{
+    if(gen!==_branchworkLoadGen) return;
+    _branchworkData=Object.fromEntries(Object.entries(snap.val()||{}));
+    _branchworkRenderAll();
+  }).catch(e=>{ if(gen!==_branchworkLoadGen) return; console.error('branchworkLoadFb:',e); });
+}
+function _branchworkBlur(key,el){
+  _branchworkData[key]=(el.value||'').trim();
+  clearTimeout(_branchworkSaveTimer);
+  _branchworkSaveTimer=setTimeout(_branchworkSaveFb,400);
+}
+window._branchworkBlur=_branchworkBlur;
+
+function _buildBranchworkTable(){
+  const thead=document.getElementById('bw-thead');
+  const tbody=document.getElementById('bw-tbody');
+  if(!thead||!tbody) return;
+  const B='border:1px solid #e0e0e0;';
+  const TH='background:#1a6b4a;color:#fff;padding:6px 4px;font-size:12px;border:1px solid #155c3a;text-align:center;';
+  const INP='width:100%;border:none;border-radius:3px;padding:3px 4px;font-size:11px;font-family:inherit;outline:none;background:#fff;box-sizing:border-box;color:#222;text-align:center;';
+  // header row 1
+  let thDays='';
+  for(let d=1;d<=31;d++) thDays+=`<th id="bwth-${d}" style="${TH}white-space:nowrap">${d}</th>`;
+  thead.innerHTML=`
+    <tr>
+      <th rowspan="2" style="${TH}">ที่</th>
+      <th rowspan="2" style="${TH}text-align:left;padding:6px 10px">รายการ</th>
+      <th rowspan="2" style="${TH}">ความถี่</th>
+      <th rowspan="2" style="${TH}">หมายเหตุ</th>
+      <th colspan="31" style="${TH}">วันที่</th>
+    </tr>
+    <tr>${thDays}</tr>`;
+  // body
+  tbody.innerHTML=_BRANCHWORK_ITEMS.map((item,ri)=>{
+    const bg=ri%2===0?'#fff':'#f9faf9';
+    let dayCells='';
+    for(let d=1;d<=31;d++){
+      const k=`i${item.no}_${d}`;
+      dayCells+=`<td style="${B}padding:2px;background:${bg}"><input id="bw-inp-${k}" onblur="_branchworkBlur('${k}',this)" style="${INP}"></td>`;
+    }
+    const nameHtml=item.name.replace(/\n/g,'<br>');
+    return `<tr>
+      <td style="${B}text-align:center;font-size:13px;font-weight:600;color:#444;background:#f5faf7;padding:5px 3px">${item.no}</td>
+      <td style="${B}padding:6px 10px;font-size:12px;color:#1a1a1a;background:${bg};line-height:1.5">${nameHtml}</td>
+      <td style="${B}text-align:center;font-size:11px;color:#555;background:${bg};white-space:nowrap;padding:4px 3px">${item.freq}</td>
+      <td style="${B}font-size:11px;color:#888;background:${bg};padding:4px 5px;line-height:1.4">${item.note}</td>
+      ${dayCells}
+    </tr>`;
+  }).join('');
+}
+
+function _branchworkRenderAll(){
+  const today=new Date();
+  const isCurrentMonth=(_branchworkMonth===today.toISOString().slice(0,7));
+  const todayDay=today.getDate();
+  for(let d=1;d<=31;d++){
+    const th=document.getElementById('bwth-'+d);
+    if(th){
+      const isToday=isCurrentMonth&&(d===todayDay);
+      th.style.background=isToday?'#fff176':'#1a6b4a';
+      th.style.color=isToday?'#e65100':'#fff';
+    }
+    _BRANCHWORK_ITEMS.forEach(item=>{
+      const k=`i${item.no}_${d}`;
+      const el=document.getElementById('bw-inp-'+k);
+      if(el) el.value=_branchworkData[k]||'';
+    });
+  }
+}
+
+function renderBranchwork(){
+  const badge=document.getElementById('bw-branch-badge');
+  if(badge) badge.textContent=_vitalBranch||'ทั้งหมด';
+  _branchworkLoadFb();
+}
+window.renderBranchwork=renderBranchwork;
+
+function _resizeBranchworkCols(){
+  const scroll=document.getElementById('bw-scroll');
+  const table=scroll&&scroll.querySelector('table');
+  if(!table||!scroll) return;
+  const containerW=scroll.clientWidth;
+  if(!containerW) return;
+  const canvas=document.createElement('canvas');
+  const ctx=canvas.getContext('2d');
+  ctx.font='12px sans-serif';
+  const maxNameW=Math.ceil(Math.max(..._BRANCHWORK_ITEMS.map(i=>ctx.measureText(i.name.replace(/\n.*/,'')).width)))+22;
+  const freqW=58; const noteW=70; const noW=35;
+  const fixedW=noW+maxNameW+freqW+noteW+2;
+  const remaining=Math.max(0,containerW-fixedW);
+  const dayW=Math.max(22,Math.floor(remaining/31));
+  let cg=table.querySelector('colgroup');
+  if(!cg){ cg=document.createElement('colgroup'); table.insertBefore(cg,table.firstChild); }
+  const dayCols=Array.from({length:31},()=>`<col style="width:${dayW}px">`).join('');
+  cg.innerHTML=`<col style="width:${noW}px"><col style="width:${maxNameW}px"><col style="width:${freqW}px"><col style="width:${noteW}px">${dayCols}`;
+  table.style.tableLayout='fixed'; table.style.width='100%';
+}
+function _resizeBranchwork(){
+  if(_activeVitalSheet!=='branchwork') return;
+  const el=document.getElementById('bw-scroll');
+  if(!el) return;
+  const rect=el.getBoundingClientRect();
+  el.style.height=Math.max(200,window.innerHeight-rect.top-8)+'px';
+  _resizeBranchworkCols();
+}
+window._resizeBranchwork=_resizeBranchwork;
+
+function initBranchwork(){
+  _branchworkMonth=new Date().toISOString().slice(0,7);
+  const mEl=document.getElementById('bw-month');
+  if(mEl){ mEl.value=_branchworkMonth; mEl.addEventListener('change',()=>{ _branchworkMonth=mEl.value||new Date().toISOString().slice(0,7); renderBranchwork(); }); }
+  _buildBranchworkTable();
+  renderBranchwork();
+  requestAnimationFrame(_resizeBranchworkCols);
+  window.addEventListener('resize',()=>{ if(_activeVitalSheet==='branchwork') _resizeBranchwork(); });
+}
+window.initBranchwork=initBranchwork;
+
 function _rebuildChkDayCols(){
   // Update day-header highlight; always show all 31 columns
   const today=new Date();
@@ -4764,6 +4930,7 @@ if ('serviceWorker' in navigator) {
           <button class="vsheet-btn"        data-sheet="checklist"    onclick="setVitalSheet('checklist')">🔧 รายการตรวจเช็ค</button>
           <button class="vsheet-btn"        data-sheet="sbs"          onclick="setVitalSheet('sbs')">🏥 ตรวจสบส</button>
           <button class="vsheet-btn"        data-sheet="timesheet"    onclick="setVitalSheet('timesheet')">📅 ใบลงเวลาทำงาน</button>
+          <button class="vsheet-btn"        data-sheet="branchwork"   onclick="setVitalSheet('branchwork')">📋 งานหัวหน้าสาขา</button>
         </div>
 
         <!-- ===== vp-vs: สัญญาณชีพ ===== -->
@@ -5243,6 +5410,26 @@ if ('serviceWorker' in navigator) {
                 </tr>
               </thead>
               <tbody id="ts-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ===== vp-branchwork: งานหัวหน้าสาขา ===== -->
+        <div id="vp-branchwork" class="vsheet-panel">
+          <div class="card" style="flex-shrink:0;margin-bottom:8px;padding:8px 14px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <b style="font-size:14px;color:#1a6b4a">📋 ตารางตรวจเช็คงานหัวหน้าสาขาประจำวัน</b>
+              <div id="bw-branch-badge" style="padding:3px 10px;font-size:12px;font-weight:600;border-radius:4px;border:1px solid #a5d6a7;background:#e8f5ee;color:#1a6b4a;white-space:nowrap">ทั้งหมด</div>
+              <label style="font-size:13px;color:#555">เดือน:</label>
+              <input type="month" id="bw-month" style="padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit">
+              <span id="bw-status" style="font-size:12px;color:#888;margin-left:4px"></span>
+              <span style="margin-left:auto;font-size:12px;color:#888">พิมพ์ผลในช่องแต่ละวัน แล้วคลิกออกเพื่อบันทึก</span>
+            </div>
+          </div>
+          <div id="bw-scroll" style="overflow:auto;height:400px;border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+            <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+              <thead id="bw-thead" style="position:sticky;top:0;z-index:2"></thead>
+              <tbody id="bw-tbody"></tbody>
             </table>
           </div>
         </div>
