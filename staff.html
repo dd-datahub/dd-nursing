@@ -2405,21 +2405,51 @@ const _CLEAN2=[
   ['6','แอร์','','','','','','★'],
   ['7','เครื่องกรองน้ำ','','','','','','★'],
 ];
+const _CLEAN3=[
+  ['1','เตียง ตู้หัวเตียง','*','','','','',''],
+  ['','พื้นหน้าบ้าน ข้างบ้าน สวน','','','','','',''],
+  ['','ห้องเตรียมอาหาร','','','','','',''],
+  ['','ห้องครัว ห้องstock โซนซักล้าง','','','','','',''],
+  ['','กาน้ำร้อน ไมโครเวฟ หม้อหุงข้าว','','','','','',''],
+  ['2','พื้นในบ้าน (จำนวน 9 ห้อง)','','*','','','',''],
+  ['','ห้องพัก 1-2-ห้องเตรียมอาหาร-ห้องรับแขก-ห้องเล็ก','','','','','',''],
+  ['','ห้องพัก3-4-5-6','','','','','',''],
+  ['','ห้องน้ำ 4ห้อง','','','','','',''],
+  ['','อ่างล้างหน้า 4','','','','','',''],
+  ['','อ่างล้างเครื่องมือ 1','','','','','',''],
+  ['','ซิ้งค์ล้างจาน 1','','','','','',''],
+  ['3','ถังขยะ ที่พักขยะ','','','อ-ศ','','',''],
+  ['4','พัดลม มุ้งลวด กระจก หยากไย่','','','','','',''],
+  ['','ห้องพัก 1-2-ห้องเตรียมอาหาร-ห้องรับแขก-ห้องเล็ก','','','','วันที่ 1, 16','',''],
+  ['','ห้องพัก3-4-5-6','','','','วันที่ 5, 20','',''],
+  ['','โซนซักล้าง หน้าบ้าน ข้างบ้าน','','','','วันที่ 10, 25','',''],
+  ['5','ตู้เย็น','','','','','วันที่ 30',''],
+  ['','ม่าน ชั้นบน','','','','','วันที่ 2',''],
+  ['','ม่าน ชั้นล่าง','','','','','วันที่ 27',''],
+  ['6','แอร์','','','','','','★'],
+  ['7','เครื่องกรองน้ำ','','','','','','★'],
+];
 
 function renderShift() {
   const isDD2=(_vitalBranch==='สาขา 2');
-  const CLEAN=isDD2?_CLEAN2:_CLEAN1;
+  const isDD3=(_vitalBranch==='สาขา 3');
+  const CLEAN=isDD3?_CLEAN3:isDD2?_CLEAN2:_CLEAN1;
+  const ddLabel=isDD3?'DD 3':isDD2?'DD 2':'DD 1';
+  const badgeText=isDD3?'สาขา 3 (DD3)':isDD2?'สาขา 2 (DD2)':'สาขา 1 (DD1)';
+  const badgeBg=isDD3?'#fce4ec':isDD2?'#e8eaf6':'#e8f5ee';
+  const badgeColor=isDD3?'#c62828':isDD2?'#3949ab':'#1a6b4a';
+  const badgeBorder=isDD3?'#ef9a9a':isDD2?'#9fa8da':'#a5d6a7';
   // update branch indicator badge
   const badge=document.getElementById('shift-branch-badge');
   if(badge){
-    badge.textContent=isDD2?'สาขา 2 (DD2)':'สาขา 1 (DD1)';
-    badge.style.background=isDD2?'#e8eaf6':'#e8f5ee';
-    badge.style.color=isDD2?'#3949ab':'#1a6b4a';
-    badge.style.borderColor=isDD2?'#9fa8da':'#a5d6a7';
+    badge.textContent=badgeText;
+    badge.style.background=badgeBg;
+    badge.style.color=badgeColor;
+    badge.style.borderColor=badgeBorder;
   }
   // update cleaning title
   const ct=document.getElementById('clean-title');
-  if(ct) ct.textContent='🧹 ตารางการทำความสะอาด '+(isDD2?'DD 2':'DD 1');
+  if(ct) ct.textContent='🧹 ตารางการทำความสะอาด '+ddLabel;
   // render shift table (only once, data is same)
   const T1='padding:5px 7px;border:1px solid #eee;color:#1a6b4a;font-weight:600;white-space:nowrap;vertical-align:top;font-size:11px';
   const T2='padding:5px 7px;border:1px solid #eee;color:#3949ab;font-weight:600;white-space:nowrap;vertical-align:top;font-size:11px';
