@@ -2589,14 +2589,17 @@ function _careSaveFb() {
 }
 
 function _careLoadFb() {
-  const st=document.getElementById('carestandard-status');
-  if(st){st.textContent='กำลังโหลด...';st.style.color='#888';}
-  firebase.database().ref(_careFbPath()).once('value').then(snap=>{
+  const path=_careFbPath();
+  firebase.database().ref(path).once('value').then(snap=>{
     const raw=snap.val()||{};
     _careEvals=Object.fromEntries(Object.entries(raw));
     _CARE_DATA.forEach((_,idx)=>_careRenderBtn(idx));
+    const st=document.getElementById('carestandard-status');
     if(st){st.textContent='';st.style.color='';}
-  }).catch(()=>{if(st){st.textContent='❌ โหลดไม่สำเร็จ';st.style.color='#c62828';}});
+  }).catch(()=>{
+    const st=document.getElementById('carestandard-status');
+    if(st){st.textContent='❌ โหลดไม่สำเร็จ';st.style.color='#c62828';}
+  });
 }
 
 function initCareStandard() {
