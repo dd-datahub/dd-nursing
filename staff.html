@@ -2451,9 +2451,9 @@ function renderShift() {
   const ct=document.getElementById('clean-title');
   if(ct) ct.textContent='🧹 ตารางการทำความสะอาด '+ddLabel;
   // render shift table (only once, data is same)
-  const T1='padding:5px 7px;border:1px solid #eee;color:#1a6b4a;font-weight:600;white-space:nowrap;vertical-align:top;font-size:11px';
-  const T2='padding:5px 7px;border:1px solid #eee;color:#3949ab;font-weight:600;white-space:nowrap;vertical-align:top;font-size:11px';
-  const TA='padding:5px 9px;border:1px solid #eee;vertical-align:top;font-size:12px;line-height:1.5';
+  const T1='padding:6px 8px;border:1px solid #eee;color:#1a6b4a;font-weight:600;white-space:nowrap;vertical-align:top;font-size:13px';
+  const T2='padding:6px 8px;border:1px solid #eee;color:#3949ab;font-weight:600;white-space:nowrap;vertical-align:top;font-size:13px';
+  const TA='padding:6px 10px;border:1px solid #eee;vertical-align:top;font-size:14px;line-height:1.6';
   const sb=document.getElementById('shift-tbody');
   if(sb&&!sb.children.length) sb.innerHTML=_SHIFT_ROWS.map(r=>{
     const bg=r[0]?'#fff':'#fafaf8';
@@ -2463,9 +2463,9 @@ function renderShift() {
     </tr>`;
   }).join('');
   // render cleaning table
-  const NC='padding:5px 6px;border:1px solid #eee;text-align:center;vertical-align:top;font-size:12px;font-weight:700;color:#7a4f0d';
-  const NR='padding:5px 9px;border:1px solid #eee;vertical-align:top;font-size:12px';
-  const NM='padding:5px 6px;border:1px solid #eee;text-align:center;vertical-align:middle;font-size:12px;color:#333';
+  const NC='padding:6px 7px;border:1px solid #eee;text-align:center;vertical-align:top;font-size:13px;font-weight:700;color:#7a4f0d';
+  const NR='padding:6px 10px;border:1px solid #eee;vertical-align:top;font-size:14px';
+  const NM='padding:6px 7px;border:1px solid #eee;text-align:center;vertical-align:middle;font-size:13px;color:#333';
   const cb=document.getElementById('clean-tbody');
   if(cb) cb.innerHTML=CLEAN.map(r=>{
     const bg=r[0]?'#fff':'#fafaf8';
@@ -4259,22 +4259,22 @@ if ('serviceWorker' in navigator) {
             <!-- shift table -->
             <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px">
               <div style="display:flex;align-items:center;border-bottom:1px solid #ddd">
-                <div style="flex:1;background:#e8f5ee;padding:7px 12px;text-align:center;font-size:12px;font-weight:700;color:#1a6b4a;border-right:2px solid #1a6b4a">☀️ เวรเช้า (06.00–18.00น.)</div>
-                <div style="flex:1;background:#e8eaf6;padding:7px 12px;text-align:center;font-size:12px;font-weight:700;color:#3949ab">🌙 เวรดึก (18.00–06.00น.)</div>
-                <div id="shift-branch-badge" style="padding:4px 10px;font-size:11px;font-weight:600;border-left:1px solid #ddd;white-space:nowrap;background:#e8f5ee;color:#1a6b4a;border:1px solid #a5d6a7;border-radius:4px;margin:4px 8px">สาขา 1 (DD1)</div>
+                <div style="flex:1;background:#e8f5ee;padding:8px 14px;text-align:center;font-size:14px;font-weight:700;color:#1a6b4a;border-right:2px solid #1a6b4a">☀️ เวรเช้า (06.00–18.00น.)</div>
+                <div style="flex:1;background:#e8eaf6;padding:8px 14px;text-align:center;font-size:14px;font-weight:700;color:#3949ab">🌙 เวรดึก (18.00–06.00น.)</div>
+                <div id="shift-branch-badge" style="padding:4px 10px;font-size:12px;font-weight:600;border-left:1px solid #ddd;white-space:nowrap;background:#e8f5ee;color:#1a6b4a;border:1px solid #a5d6a7;border-radius:4px;margin:4px 8px">สาขา 1 (DD1)</div>
               </div>
               <div style="overflow-x:auto">
-                <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
+                <table style="width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed">
                   <colgroup>
                     <col style="width:13%"><col style="width:37%">
                     <col style="width:13%"><col style="width:37%">
                   </colgroup>
                   <thead>
                     <tr style="background:#f0ede8">
-                      <th style="padding:5px 7px;border:1px solid #ddd;white-space:nowrap;font-size:11px;text-align:center">เวลา</th>
-                      <th style="padding:5px 9px;border:1px solid #ddd;font-size:11px;text-align:left">กิจกรรมเวรเช้า</th>
-                      <th style="padding:5px 7px;border:1px solid #ddd;white-space:nowrap;font-size:11px;text-align:center">เวลา</th>
-                      <th style="padding:5px 9px;border:1px solid #ddd;font-size:11px;text-align:left">กิจกรรมเวรดึก</th>
+                      <th style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap;font-size:13px;text-align:center">เวลา</th>
+                      <th style="padding:6px 10px;border:1px solid #ddd;font-size:13px;text-align:left">กิจกรรมเวรเช้า</th>
+                      <th style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap;font-size:13px;text-align:center">เวลา</th>
+                      <th style="padding:6px 10px;border:1px solid #ddd;font-size:13px;text-align:left">กิจกรรมเวรดึก</th>
                     </tr>
                   </thead>
                   <tbody id="shift-tbody"></tbody>
@@ -4282,24 +4282,24 @@ if ('serviceWorker' in navigator) {
               </div>
             </div>
             <!-- Quick Round note -->
-            <div class="card" style="margin-bottom:10px;padding:8px 14px;font-size:12px;color:#444;border-left:3px solid #1a6b4a;background:#f5f3ef">
+            <div class="card" style="margin-bottom:10px;padding:8px 14px;font-size:14px;color:#444;border-left:3px solid #1a6b4a;background:#f5f3ef">
               <b style="color:#1a6b4a">Quick Round</b> = การตรวจเยี่ยมเคสแบบรวดเร็วและมีแบบแผนเยี่ยมชัดเจน
             </div>
             <!-- cleaning table -->
             <div class="card" style="padding:0;overflow:hidden">
-              <div id="clean-title" style="background:#7a4f0d;color:#fff;padding:8px 14px;font-size:13px;font-weight:600">🧹 ตารางการทำความสะอาด DD 1</div>
+              <div id="clean-title" style="background:#7a4f0d;color:#fff;padding:9px 14px;font-size:15px;font-weight:600">🧹 ตารางการทำความสะอาด DD 1</div>
               <div style="overflow-x:auto">
-                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                <table style="width:100%;border-collapse:collapse;font-size:14px">
                   <thead>
                     <tr style="background:#f5e8d0;text-align:center">
-                      <th style="padding:5px 6px;border:1px solid #ddd;font-size:11px;width:4%">ที่</th>
-                      <th style="padding:5px 9px;border:1px solid #ddd;font-size:11px;text-align:left">รายการ</th>
-                      <th style="padding:5px 6px;border:1px solid #ddd;font-size:11px;min-width:55px">ทุกวัน</th>
-                      <th style="padding:5px 6px;border:1px solid #ddd;font-size:11px;min-width:45px">ช-ย</th>
-                      <th style="padding:5px 6px;border:1px solid #ddd;font-size:11px;min-width:72px">2ครั้ง/wks</th>
-                      <th style="padding:5px 6px;border:1px solid #ddd;font-size:11px;min-width:68px">ทุก2wks</th>
-                      <th style="padding:5px 6px;border:1px solid #ddd;font-size:11px;min-width:78px">ทุกเดือน</th>
-                      <th style="padding:5px 6px;border:1px solid #ddd;font-size:11px;min-width:78px">ทุก6เดือน</th>
+                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:13px;width:4%">ที่</th>
+                      <th style="padding:6px 10px;border:1px solid #ddd;font-size:13px;text-align:left">รายการ</th>
+                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:13px;min-width:60px">ทุกวัน</th>
+                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:13px;min-width:50px">ช-ย</th>
+                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:13px;min-width:80px">2ครั้ง/wks</th>
+                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:13px;min-width:75px">ทุก2wks</th>
+                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:13px;min-width:85px">ทุกเดือน</th>
+                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:13px;min-width:85px">ทุก6เดือน</th>
                     </tr>
                   </thead>
                   <tbody id="clean-tbody"></tbody>
