@@ -1439,6 +1439,7 @@ function setVitalBranch(branch) {
   else if (sheet === 'shift')        renderShift?.();
   else if (sheet === 'carestandard') renderCareStandard?.();
   else if (sheet === 'checklist')   renderChecklist?.();
+  else if (sheet === 'sbs')         renderSbs?.();
 }
 window.setVitalBranch = setVitalBranch;
 
@@ -1462,9 +1463,9 @@ function setVitalSheet(sheet) {
     p.classList.toggle('active', p.id === 'vp-' + sheet));
   // ขยายเต็มจอสำหรับตารางนัด/ยารายวัน — ลด padding main-content
   const mc = document.querySelector('.main-content');
-  const _fullSheets=['appt','medcheck','feedtable','checklist'];
+  const _fullSheets=['appt','medcheck','feedtable','checklist','sbs'];
   if (mc) mc.style.padding = _fullSheets.includes(sheet) ? '6px 4px' : '';
-  if (mc) mc.style.overflowY = sheet === 'checklist' ? 'hidden' : '';
+  if (mc) mc.style.overflowY = (sheet==='checklist'||sheet==='sbs') ? 'hidden' : '';
   // lazy init each sheet on first visit
   if (sheet==='summary'  && !window._summaryInited)  { window._summaryInited=true;  initCaseSummary(); }
   if (sheet==='appt'     && !window._apptInited)     { window._apptInited=true;     initApptCalendar(); }
@@ -1476,6 +1477,7 @@ function setVitalSheet(sheet) {
   if (sheet==='shift'          && !window._shiftInited)          { window._shiftInited=true;          initShift(); }
   if (sheet==='carestandard'   && !window._carestandardInited)   { window._carestandardInited=true;   initCareStandard(); }
   if (sheet==='checklist'      && !window._checklistInited)      { window._checklistInited=true;      initChecklist(); }
+  if (sheet==='sbs'           && !window._sbsInited)            { window._sbsInited=true;            initSbs(); }
   if (sheet === 'appt')      requestAnimationFrame(_resizeApptCalendar);
   if (sheet === 'medcheck')  requestAnimationFrame(()=>requestAnimationFrame(_resizeMedCheck));
   if (sheet === 'feedtable') requestAnimationFrame(()=>requestAnimationFrame(_resizeFeedTable));
@@ -2821,6 +2823,164 @@ function initChecklist(){
 }
 window.initChecklist=initChecklist;
 
+// ============================================================
+// ===== ตรวจสบส =====
+// ============================================================
+const _SBS_ITEMS=[
+  {no:1,  name:'ป้ายดีดี และที่อยู่',                              sub:[]},
+  {no:2,  name:'โซนกิจกรรม-ตารางกิจกรรม-จัดอุปกรณ์',             sub:['รูปตัวอย่างกิจกรรม']},
+  {no:3,  name:'พื้นที่ภายใน ระยะห่างระหว่างเตียง 90cm',          sub:['ความสะอาด ความสว่าง ความเรียบร้อย']},
+  {no:4,  name:'โซนป้ายแนวปฎิบัติฉุกเฉิน สายด่วน',               sub:['การประสานงาน อาการฉุกเฉิน','การCPR การใช้AED คู่มือCPR เครื่องAED']},
+  {no:5,  name:'ขยะ-ถังขยะมีฝาปิด ป้ายถังขยะติดเชื้อ',           sub:['ที่พักขยะมีหลังคา MOUการเก็บขยะ ใบเสร็จขยะ','ป้ายการแยกขยะ การจัดการขยะติดเชื้อ','ถังขยะในบ้าน ห้องครัว ห้องนี้ฝาปิด ถังดักไขมัน']},
+  {no:6,  name:'ห้องครัว ห้องเตรียมอาหาร สะอาด',                  sub:[]},
+  {no:7,  name:'ห้องน้ำ มีราวจับ ประตูห้องน้ำ 90cm',              sub:['กริ่งและป้ายกริ่งฉุกเฉินในห้องน้ำ','ห้องน้ำ 1-4']},
+  {no:8,  name:'ตู้ควบคุมไฟ เซฟทีคัท แผนผังหนีไฟ',               sub:['แบบตรวจเช็คระบบไฟ เช็คอุปกรณ์ไฟฟ้า ระบุวันชัดเจน']},
+  {no:9,  name:'กล่องยารับประทาน ยาใช้ภายนอก ไม่หมดอายุ',         sub:[]},
+  {no:10, name:'ป้ายพื้นต่างระดับ แถบติดต่างระดับ เหลืองดำ',       sub:[]},
+  {no:11, name:'การจัดการผ้า แยกถังผ้า ป้ายการจัดการผ้า',          sub:[]},
+  {no:12, name:'สัญญาณเตือนเพลิงไหม้ ที่ดักควัน',                 sub:['Smoke detector 9 จุด']},
+  {no:13, name:'ถังดับเพลิง 2 ชั้น และป้าย',                       sub:[]},
+  {no:14, name:'ไฟสำรอง 2 ชั้น',                                   sub:[]},
+  {no:15, name:'แฟ้มแผนอบรม และรูป',                               sub:[]},
+  {no:16, name:'แฟ้มทะเบียนผู้รับบริการ แฟ้มแนวปฎิบัติ',           sub:[]},
+  {no:17, name:'แฟ้มทะเบียนผู้ดำเนินการ พร้อมใบอนุญาต',           sub:[]},
+  {no:18, name:'แฟ้มทะเบียนผู้ให้บริการ พร้อมใบขึ้นทะเบียน',       sub:[]},
+  {no:19, name:'แบบบันทึก ใบประเมินแรกรับ ตารางสรุปข้อมูลการดูแล', sub:['ADL IADL V/S I/O DTX BMI สัญญา Consent form']},
+  {no:20, name:'การบริหารยา บันทึกการรับยา บันทึกการให้ยา',         sub:[]},
+  {no:21, name:'ป้ายค่าบริการ',                                     sub:[]},
+  {no:22, name:'ตารางเวร ลงเวลาทำงาน',                             sub:[]},
+  {no:23, name:'สิทธิผู้สูงอายุ การรักษาความลับ ข้อปฎิบัติพนักงาน', sub:[]},
+  {no:24, name:'ใบอนุญาต ใบชำระค่าธรรมเนียม',                      sub:[]},
+  {no:25, name:'ป้ายห้ามสูบบุหรี่ ป้ายบันทึกวีดีโอ',               sub:['ป้ายห้องพัก 1-10','ป้ายห้องน้ำ 1-4']},
+];
+const _SBS_QUALITY=[
+  {no:1, name:'ความสะอาดอาคารสถานที่'},
+  {no:2, name:'ความสะอาดแต่ละเคส'},
+  {no:3, name:'การทำงานตามมาตรฐาน'},
+  {no:4, name:'การทำงานตามระบบงานเวร เช้า ดึก'},
+  {no:5, name:'การลงบันทึก'},
+];
+let _sbsDate='';
+let _sbsData={};
+let _sbsLoadGen=0;
+
+function _sbsBranchKey(){
+  const map={'สาขา 1':'dd1','สาขา 2':'dd2','สาขา 3':'dd3'};
+  return map[_vitalBranch]||'all';
+}
+function _sbsFbPath(){ return 'sbs/'+_sbsBranchKey()+'/'+(_sbsDate||new Date().toISOString().split('T')[0]); }
+
+function _sbsRender(key){
+  const btn=document.getElementById('sbs-btn-'+key);
+  if(!btn) return;
+  const v=_sbsData[key]||'';
+  const base='cursor:pointer;border:none;border-radius:5px;font-size:14px;font-weight:700;width:46px;height:30px;transition:all .15s;';
+  if(v==='✓'){ btn.textContent='✓'; btn.style.cssText=base+'background:#c8e6c9;color:#1b5e20;'; }
+  else if(v==='✗'){ btn.textContent='✗'; btn.style.cssText=base+'background:#ffcdd2;color:#b71c1c;'; }
+  else { btn.textContent='—'; btn.style.cssText=base+'background:#f0f0f0;color:#bbb;'; }
+}
+function _sbsToggle(key){
+  const cur=_sbsData[key]||'';
+  _sbsData[key]= cur===''?'✓': cur==='✓'?'✗':'';
+  _sbsRender(key);
+  _sbsSaveFb();
+}
+window._sbsToggle=_sbsToggle;
+
+function _sbsUpdateQHeaders(){
+  for(let v=1;v<=4;v++){
+    const h=document.getElementById('sbs-qhd-'+v);
+    if(!h) continue;
+    const d=_sbsData['s2d_'+v]||'';
+    h.innerHTML=`<div style="font-size:11px;font-weight:600;margin-bottom:3px">ครั้งที่ ${v}</div>`
+      +`<input type="date" value="${d}" onchange="_sbsSetQDate(${v},this.value)" `
+      +`style="font-size:10px;padding:2px 4px;border:1px solid rgba(255,255,255,.5);border-radius:4px;background:rgba(255,255,255,.15);color:#fff;width:108px;font-family:inherit">`;
+  }
+}
+window._sbsSetQDate=function(v,val){ _sbsData['s2d_'+v]=val; _sbsSaveFb(); };
+
+function _sbsSaveFb(){
+  _sbsLoadGen++;
+  const path=_sbsFbPath();
+  const payload=Object.fromEntries(Object.entries(_sbsData).filter(([,v])=>v!==''));
+  const stEl=()=>document.getElementById('sbs-status');
+  const s0=stEl(); if(s0){s0.textContent='กำลังบันทึก...';s0.style.color='#888';}
+  _set(_ref(_db,path),Object.keys(payload).length?payload:null)
+    .then(()=>{ const s=stEl(); if(s){s.textContent='✓ บันทึกแล้ว';s.style.color='#2e7d32';} setTimeout(()=>{const s2=stEl();if(s2)s2.textContent='';},2500); })
+    .catch(e=>{ console.error('sbsSaveFb:',e); const s=stEl(); if(s){s.textContent='❌ บันทึกไม่สำเร็จ';s.style.color='#c62828';} });
+}
+function _sbsLoadFb(){
+  const gen=++_sbsLoadGen;
+  _get(_ref(_db,_sbsFbPath())).then(snap=>{
+    if(gen!==_sbsLoadGen) return;
+    _sbsData=Object.fromEntries(Object.entries(snap.val()||{}));
+    _sbsRenderAll();
+  }).catch(e=>{ if(gen!==_sbsLoadGen) return; console.error('sbsLoadFb:',e); });
+}
+function _sbsRenderAll(){
+  _SBS_ITEMS.forEach(item=>{
+    _sbsRender('s1_'+item.no);
+    item.sub.forEach((_,si)=>_sbsRender('s1s_'+item.no+'_'+si));
+  });
+  _SBS_QUALITY.forEach(item=>{ for(let v=1;v<=4;v++) _sbsRender('s2_'+item.no+'_'+v); });
+  _sbsUpdateQHeaders();
+}
+function renderSbs(){
+  const badge=document.getElementById('sbs-branch-badge');
+  if(badge) badge.textContent=_vitalBranch||'ทั้งหมด';
+  _sbsData={};
+  _sbsRenderAll();
+  _sbsLoadFb();
+}
+window.renderSbs=renderSbs;
+
+function _buildSbsTable(){
+  const sec1=document.getElementById('sbs-tbody1');
+  const sec2=document.getElementById('sbs-tbody2');
+  if(!sec1||!sec2) return;
+  const B='border:1px solid #e0e0e0;';
+  sec1.innerHTML=_SBS_ITEMS.map((item,ri)=>{
+    const bg=ri%2===0?'#fff':'#f9faf9';
+    let rows=`<tr>
+      <td rowspan="${1+item.sub.length}" style="${B}text-align:center;padding:6px 4px;font-size:13px;font-weight:600;color:#444;background:#f5f5f5;vertical-align:middle;width:40px">${item.no}</td>
+      <td style="${B}padding:7px 12px;font-size:13px;color:#1a1a1a;background:${bg};font-weight:600">${item.name}</td>
+      <td style="${B}text-align:center;padding:4px 6px;background:${bg};vertical-align:middle;width:60px">
+        <button id="sbs-btn-s1_${item.no}" onclick="_sbsToggle('s1_${item.no}')" style="cursor:pointer;border:none;border-radius:5px;font-size:14px;font-weight:700;width:46px;height:30px;background:#f0f0f0;color:#bbb">—</button>
+      </td></tr>`;
+    item.sub.forEach((sname,si)=>{
+      rows+=`<tr>
+        <td style="${B}padding:5px 12px 5px 24px;font-size:12px;color:#666;background:${bg}">└ ${sname}</td>
+        <td style="${B}text-align:center;padding:4px 6px;background:${bg};width:60px">
+          <button id="sbs-btn-s1s_${item.no}_${si}" onclick="_sbsToggle('s1s_${item.no}_${si}')" style="cursor:pointer;border:none;border-radius:5px;font-size:14px;font-weight:700;width:46px;height:30px;background:#f0f0f0;color:#bbb">—</button>
+        </td></tr>`;
+    });
+    return rows;
+  }).join('');
+  sec2.innerHTML=_SBS_QUALITY.map((item,ri)=>{
+    const bg=ri%2===0?'#fff':'#f9faf9';
+    let vCells='';
+    for(let v=1;v<=4;v++){
+      vCells+=`<td style="${B}text-align:center;padding:4px 6px;background:${bg};width:70px">
+        <button id="sbs-btn-s2_${item.no}_${v}" onclick="_sbsToggle('s2_${item.no}_${v}')" style="cursor:pointer;border:none;border-radius:5px;font-size:14px;font-weight:700;width:46px;height:30px;background:#f0f0f0;color:#bbb">—</button>
+      </td>`;
+    }
+    return `<tr>
+      <td style="${B}text-align:center;padding:6px 4px;font-size:13px;font-weight:600;color:#444;background:#f5f5f5;width:40px">${item.no}</td>
+      <td style="${B}padding:7px 12px;font-size:13px;color:#1a1a1a;background:${bg}">${item.name}</td>
+      ${vCells}
+    </tr>`;
+  }).join('');
+}
+
+function initSbs(){
+  _sbsDate=new Date().toISOString().split('T')[0];
+  const dEl=document.getElementById('sbs-date');
+  if(dEl){ dEl.value=_sbsDate; dEl.addEventListener('change',()=>{ _sbsDate=dEl.value||new Date().toISOString().split('T')[0]; renderSbs(); }); }
+  _buildSbsTable();
+  renderSbs();
+}
+window.initSbs=initSbs;
+
 function _rebuildChkDayCols(){
   // Update day-header highlight; always show all 31 columns
   const today=new Date();
@@ -4113,6 +4273,7 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .vsheet-panel{display:none}
 .vsheet-panel.active{display:block}
 #vp-checklist.active{display:flex;flex-direction:column;height:100%}
+#vp-sbs.active{display:flex;flex-direction:column;height:100%}
 .vbranch-btn.active{background:#f0ede8 !important;border-color:#bbb !important;font-weight:700 !important}
 /* sub-sheet tabs inside ลงบันทึกรายบุคคล */
 /* year/month picker */
@@ -4423,6 +4584,7 @@ if ('serviceWorker' in navigator) {
           <button class="vsheet-btn"        data-sheet="shift"      onclick="setVitalSheet('shift')">🌙 งานเวรเช้าเวรดึก</button>
           <button class="vsheet-btn"        data-sheet="carestandard" onclick="setVitalSheet('carestandard')">📋 มาตรฐานงานดูแล</button>
           <button class="vsheet-btn"        data-sheet="checklist"    onclick="setVitalSheet('checklist')">🔧 รายการตรวจเช็ค</button>
+          <button class="vsheet-btn"        data-sheet="sbs"          onclick="setVitalSheet('sbs')">🏥 ตรวจสบส</button>
         </div>
 
         <!-- ===== vp-vs: สัญญาณชีพ ===== -->
@@ -4810,6 +4972,60 @@ if ('serviceWorker' in navigator) {
               <thead id="chk-thead" style="position:sticky;top:0;z-index:2"></thead>
               <tbody id="chk-tbody"></tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- ===== vp-sbs: ตรวจสบส ===== -->
+        <div id="vp-sbs" class="vsheet-panel">
+          <!-- control bar -->
+          <div class="card" style="flex-shrink:0;margin-bottom:8px;padding:8px 14px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <b style="font-size:14px;color:#1a6b4a">🏥 รายการตรวจสอบ สบส</b>
+              <div id="sbs-branch-badge" style="padding:3px 10px;font-size:12px;font-weight:600;border-radius:4px;border:1px solid #a5d6a7;background:#e8f5ee;color:#1a6b4a;white-space:nowrap">ทั้งหมด</div>
+              <label style="font-size:13px;color:#555">วันที่ตรวจ:</label>
+              <input type="date" id="sbs-date" style="padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit">
+              <span id="sbs-status" style="font-size:12px;color:#888;margin-left:4px"></span>
+              <span style="margin-left:auto;font-size:12px;color:#888">กดปุ่มเพื่อสลับ: — → ✓ → ✗ → —</span>
+            </div>
+          </div>
+          <!-- scroll area เต็มจอ -->
+          <div id="sbs-scroll" style="flex:1;min-height:0;overflow:auto;border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+
+            <!-- ── Section 1: รายการตรวจสอบสบส ── -->
+            <div style="background:#1a6b4a;color:#fff;font-weight:600;padding:8px 14px;font-size:13px;position:sticky;top:0;z-index:3;letter-spacing:.3px">
+              📋 รายการตรวจสอบแบบประเมิน สบส &nbsp;<span style="font-weight:400;font-size:11px;opacity:.8">(25 รายการ)</span>
+            </div>
+            <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+              <colgroup><col style="width:40px"><col><col style="width:60px"></colgroup>
+              <thead style="position:sticky;top:37px;z-index:2">
+                <tr>
+                  <th style="padding:6px 4px;border:1px solid #7cb87c;background:#2e8b57;color:#fff;font-size:12px;text-align:center">ที่</th>
+                  <th style="padding:6px 12px;border:1px solid #7cb87c;background:#2e8b57;color:#fff;font-size:12px;text-align:left">รายการ</th>
+                  <th style="padding:6px 4px;border:1px solid #7cb87c;background:#2e8b57;color:#fff;font-size:12px;text-align:center">ผล</th>
+                </tr>
+              </thead>
+              <tbody id="sbs-tbody1"></tbody>
+            </table>
+
+            <!-- ── Section 2: ตรวจคุณภาพมาตรฐานงานดูแล ── -->
+            <div style="background:#1565c0;color:#fff;font-weight:600;padding:8px 14px;font-size:13px;position:sticky;top:0;z-index:3;letter-spacing:.3px;margin-top:4px">
+              📊 ตรวจคุณภาพมาตรฐานงานดูแล &nbsp;<span style="font-weight:400;font-size:11px;opacity:.8">(5 รายการ × 4 ครั้ง)</span>
+            </div>
+            <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+              <colgroup><col style="width:40px"><col><col style="width:130px"><col style="width:130px"><col style="width:130px"><col style="width:130px"></colgroup>
+              <thead style="position:sticky;top:37px;z-index:2">
+                <tr>
+                  <th style="padding:6px 4px;border:1px solid #64b5f6;background:#1976d2;color:#fff;font-size:12px;text-align:center">ที่</th>
+                  <th style="padding:6px 12px;border:1px solid #64b5f6;background:#1976d2;color:#fff;font-size:12px;text-align:left">รายการ</th>
+                  <th id="sbs-qhd-1" style="padding:6px 4px;border:1px solid #64b5f6;background:#1976d2;color:#fff;font-size:12px;text-align:center">ครั้งที่ 1</th>
+                  <th id="sbs-qhd-2" style="padding:6px 4px;border:1px solid #64b5f6;background:#1976d2;color:#fff;font-size:12px;text-align:center">ครั้งที่ 2</th>
+                  <th id="sbs-qhd-3" style="padding:6px 4px;border:1px solid #64b5f6;background:#1976d2;color:#fff;font-size:12px;text-align:center">ครั้งที่ 3</th>
+                  <th id="sbs-qhd-4" style="padding:6px 4px;border:1px solid #64b5f6;background:#1976d2;color:#fff;font-size:12px;text-align:center">ครั้งที่ 4</th>
+                </tr>
+              </thead>
+              <tbody id="sbs-tbody2"></tbody>
+            </table>
+
           </div>
         </div>
 
