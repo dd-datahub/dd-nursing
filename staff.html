@@ -1097,6 +1097,12 @@ function initSidebarState() {
 }
 
 let _sbResizeTimer;
+// Re-trigger sheet resize on orientation change (iOS/Android)
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    window.dispatchEvent(new Event('resize'));
+  }, 200);
+});
 window.addEventListener('resize', () => {
   clearTimeout(_sbResizeTimer);
   _sbResizeTimer = setTimeout(() => {
@@ -1485,7 +1491,7 @@ function setVitalSheet(sheet) {
   if (sheet === 'appt')      requestAnimationFrame(_resizeApptCalendar);
   if (sheet === 'medcheck')  requestAnimationFrame(()=>requestAnimationFrame(_resizeMedCheck));
   if (sheet === 'feedtable') requestAnimationFrame(()=>requestAnimationFrame(_resizeFeedTable));
-  if (sheet === 'checklist') requestAnimationFrame(()=>requestAnimationFrame(_resizeChkCols));
+  if (sheet === 'checklist') requestAnimationFrame(()=>requestAnimationFrame(_resizeChecklist));
   if (sheet === 'sbs')       requestAnimationFrame(()=>requestAnimationFrame(_resizeSbs));
   if (sheet === 'timesheet')  requestAnimationFrame(()=>requestAnimationFrame(_resizeTimesheet));
   if (sheet === 'branchwork') requestAnimationFrame(()=>requestAnimationFrame(_resizeBranchwork));
@@ -2826,7 +2832,7 @@ function initChecklist(){
   }
   _buildChkTable();
   renderChecklist();
-  window.addEventListener('resize',()=>{ if(_activeVitalSheet==='checklist') _resizeChkCols(); });
+  window.addEventListener('resize',()=>{ if(_activeVitalSheet==='checklist') _resizeChecklist(); });
 }
 window.initChecklist=initChecklist;
 
@@ -3385,6 +3391,17 @@ function _resizeChkCols(){
   table.style.width='100%';
 }
 window._resizeChkCols=_resizeChkCols;
+
+function _resizeChecklist(){
+  if(_activeVitalSheet!=='checklist') return;
+  const el=document.getElementById('chk-scroll');
+  if(!el) return;
+  const rect=el.getBoundingClientRect();
+  el.style.height=Math.max(200, window.innerHeight-rect.top-8)+'px';
+  el.style.flex='';
+  _resizeChkCols();
+}
+window._resizeChecklist=_resizeChecklist;
 
 function _buildChkTable(){
   const thead=document.getElementById('chk-thead');
@@ -4483,7 +4500,7 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .case-search:focus{border-color:#1a6b4a}
 /* main content */
 .main-wrapper{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
-.main-content{flex:1;padding:14px 16px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;min-width:0}
+.main-content{flex:1;padding:14px 16px;overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;min-width:0;word-break:break-word}
 /* top bar */
 .topbar{background:#fff;border-bottom:1px solid #e8e5e0;padding:10px 16px;display:flex;align-items:center;gap:10px;font-size:15px;flex-shrink:0;z-index:10}
 .topbar .topbar-title{font-weight:600;color:#1a1916;flex:1}
@@ -4535,6 +4552,23 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
   .main-content input[type="number"],
   .main-content select,
   .main-content textarea { max-width:100%; box-sizing:border-box; }
+  /* ลงบันทึกรวม: sheet tab buttons (horizontal scroll row, no wrap) */
+  #vsheet-nav{scrollbar-width:none;-ms-overflow-style:none}
+  #vsheet-nav::-webkit-scrollbar{display:none}
+  .vsheet-btn{font-size:13px;padding:6px 10px}
+  /* hide desktop hints on mobile */
+  .vital-hint{display:none!important}
+  /* control bar: allow wrap + compact */
+  #vp-checklist .card>div,
+  #vp-sbs .card>div,
+  #vp-timesheet .card>div,
+  #vp-branchwork .card>div{gap:8px}
+  /* branch filter label */
+  #page-vital>div:first-child{gap:5px}
+  /* topbar title shorter on mobile */
+  .topbar-title{font-size:16px}
+  /* no white-space overflow on table cells */
+  .main-content td, .main-content th{overflow-wrap:break-word;word-break:break-word}
 }
 /* Landscape phone */
 @media(orientation:landscape) and (max-height:500px){
@@ -4542,6 +4576,11 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
   .card{padding:10px 12px;margin-bottom:8px}
   .card-title{margin-bottom:6px}
   .save-btn{padding:12px}
+  #vsheet-nav{margin-bottom:8px}
+  .vsheet-btn{font-size:12px;padding:5px 9px}
+  .vital-hint{display:none!important}
+  /* compact control bar height in landscape */
+  #vp-checklist .card,#vp-sbs .card,#vp-timesheet .card,#vp-branchwork .card{padding:6px 10px;margin-bottom:6px}
 }
 
 /* Bottom navigation bar (mobile only) */
@@ -4629,6 +4668,10 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .vsheet-btn.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a;font-weight:600}
 .vsheet-panel{display:none}
 .vsheet-panel.active{display:block}
+/* Scroll containers inside panels: cap width to avoid overflow */
+#sbs-scroll,#ts-scroll,#bw-scroll,#chk-scroll{max-width:100%;box-sizing:border-box;width:100%}
+/* Prevent inputs/textareas from overflowing narrow columns */
+#ts-scroll input,#bw-scroll textarea,#bw-scroll input,#sbs-scroll input{min-width:0;width:100%;box-sizing:border-box}
 #vp-checklist.active{display:flex;flex-direction:column;height:100%}
 .vbranch-btn.active{background:#f0ede8 !important;border-color:#bbb !important;font-weight:700 !important}
 /* sub-sheet tabs inside ลงบันทึกรายบุคคล */
@@ -4928,7 +4971,7 @@ if ('serviceWorker' in navigator) {
         </div>
 
         <!-- Sub-sheet navigation -->
-        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">
+        <div id="vsheet-nav" style="display:flex;gap:5px;flex-wrap:nowrap;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;scrollbar-width:thin;scrollbar-color:#ccc transparent">
           <button class="vsheet-btn active" data-sheet="vs"       onclick="setVitalSheet('vs')">📊 สัญญาณชีพ</button>
           <button class="vsheet-btn"        data-sheet="summary"  onclick="setVitalSheet('summary')">📋 สรุปเคส</button>
           <button class="vsheet-btn"        data-sheet="appt"     onclick="setVitalSheet('appt')">📅 ตารางนัด</button>
@@ -5321,11 +5364,11 @@ if ('serviceWorker' in navigator) {
               <label style="font-size:15px;color:#555">เดือน:</label>
               <input type="month" id="chk-month" style="padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:15px;font-family:inherit">
               <span id="checklist-status" style="font-size:14px;color:#888;margin-left:4px"></span>
-              <span style="margin-left:auto;font-size:14px;color:#888">กดช่องวันที่เพื่อติ๊ก ✓</span>
+              <span class="vital-hint" style="margin-left:auto;font-size:14px;color:#888">กดช่องวันที่เพื่อติ๊ก ✓</span>
             </div>
           </div>
           <!-- table: flex:1 กินพื้นที่ที่เหลือ, min-height:0 ให้ flex หดได้ -->
-          <div id="chk-scroll" style="flex:1;min-height:0;overflow:auto;border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+          <div id="chk-scroll" style="overflow:auto;height:clamp(200px,calc(100dvh - 300px),800px);border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
             <table style="border-collapse:collapse;width:100%">
               <thead id="chk-thead" style="position:sticky;top:0;z-index:2"></thead>
               <tbody id="chk-tbody"></tbody>
@@ -5343,11 +5386,11 @@ if ('serviceWorker' in navigator) {
               <label style="font-size:15px;color:#555">วันที่ตรวจ:</label>
               <input type="date" id="sbs-date" style="padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:15px;font-family:inherit">
               <span id="sbs-status" style="font-size:14px;color:#888;margin-left:4px"></span>
-              <span style="margin-left:auto;font-size:14px;color:#888">พิมพ์ผลการตรวจในช่องแต่ละรายการ แล้วคลิกออกเพื่อบันทึก</span>
+              <span class="vital-hint" style="margin-left:auto;font-size:14px;color:#888">พิมพ์ผลการตรวจในช่องแต่ละรายการ แล้วคลิกออกเพื่อบันทึก</span>
             </div>
           </div>
           <!-- scroll area เต็มจอ -->
-          <div id="sbs-scroll" style="overflow:auto;height:400px;border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+          <div id="sbs-scroll" style="overflow:auto;height:clamp(200px,calc(100dvh - 300px),800px);border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
 
             <!-- ── Section 1: รายการตรวจสอบสบส ── -->
             <div style="background:#1a6b4a;color:#fff;font-weight:600;padding:8px 14px;font-size:15px;position:sticky;top:0;z-index:3;letter-spacing:.3px">
@@ -5396,10 +5439,10 @@ if ('serviceWorker' in navigator) {
               <label style="font-size:15px;color:#555">เดือน:</label>
               <input type="month" id="ts-month" style="padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:15px;font-family:inherit">
               <span id="ts-status" style="font-size:14px;color:#888;margin-left:4px"></span>
-              <span style="margin-left:auto;font-size:14px;color:#888">พิมพ์ชื่อพนักงานในช่อง แล้วคลิกออกเพื่อบันทึก</span>
+              <span class="vital-hint" style="margin-left:auto;font-size:14px;color:#888">พิมพ์ชื่อพนักงานในช่อง แล้วคลิกออกเพื่อบันทึก</span>
             </div>
           </div>
-          <div id="ts-scroll" style="overflow:auto;height:400px;border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+          <div id="ts-scroll" style="overflow:auto;height:clamp(200px,calc(100dvh - 300px),800px);border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
             <table style="width:100%;border-collapse:collapse;table-layout:fixed">
               <colgroup>
                 <col style="width:35px"><col style="width:32px"><col style="width:44px">
@@ -5435,10 +5478,10 @@ if ('serviceWorker' in navigator) {
               <label style="font-size:15px;color:#555">เดือน:</label>
               <input type="month" id="bw-month" style="padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:15px;font-family:inherit">
               <span id="bw-status" style="font-size:14px;color:#888;margin-left:4px"></span>
-              <span style="margin-left:auto;font-size:14px;color:#888">พิมพ์ผลในช่องแต่ละวัน แล้วคลิกออกเพื่อบันทึก</span>
+              <span class="vital-hint" style="margin-left:auto;font-size:14px;color:#888">พิมพ์ผลในช่องแต่ละวัน แล้วคลิกออกเพื่อบันทึก</span>
             </div>
           </div>
-          <div id="bw-scroll" style="overflow:auto;height:400px;border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
+          <div id="bw-scroll" style="overflow:auto;height:clamp(200px,calc(100dvh - 300px),800px);border-radius:12px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.07)">
             <table style="width:100%;border-collapse:collapse;table-layout:fixed">
               <thead id="bw-thead" style="position:sticky;top:0;z-index:2"></thead>
               <tbody id="bw-tbody"></tbody>
