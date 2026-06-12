@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover, interactive-widget=resizes-content">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -1056,6 +1056,49 @@ function setBottomNav(page) {
   if (bnav) bnav.classList.add('active');
 }
 
+// ========== DEVICE & OS DETECTION ==========
+(function(){
+  const ua = navigator.userAgent || '';
+  const pl = navigator.platform || '';
+  const html = document.documentElement;
+
+  // OS detection
+  const isIOS = /iPhone|iPad|iPod/.test(ua) ||
+    (pl === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/.test(ua);
+  const isWindows = /Windows NT/.test(ua);
+  const isMacOS  = /Mac OS X/.test(ua) && !isIOS;
+  const isLinux  = /Linux/.test(ua) && !isAndroid;
+
+  // Touch capability
+  const hasTouch = isIOS || isAndroid || navigator.maxTouchPoints > 1;
+
+  // Set OS class (set once, never changes)
+  html.dataset.os = isIOS ? 'ios' : isAndroid ? 'android' : isWindows ? 'windows' : isMacOS ? 'macos' : 'linux';
+  html.dataset.touch = hasTouch ? '1' : '0';
+
+  // Device type + orientation (update on resize/rotation)
+  function _updateDeviceClasses() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const isPortrait = h >= w;
+    // phone  : touch + width ≤ 640
+    // tablet : touch + 641–1100  OR  non-touch + 641–960
+    // desktop: width > 1100  OR  non-touch + > 960
+    const isPhone   = hasTouch && w <= 640;
+    const isTablet  = !isPhone && (hasTouch ? w <= 1100 : w <= 960);
+    const isDesktop = !isPhone && !isTablet;
+
+    html.dataset.device = isPhone ? 'phone' : isTablet ? 'tablet' : 'desktop';
+    html.dataset.orient = isPortrait ? 'portrait' : 'landscape';
+
+    window._deviceInfo = { isIOS, isAndroid, isWindows, isMacOS, isLinux,
+      hasTouch, isPhone, isTablet, isDesktop, isPortrait, w, h };
+  }
+
+  _updateDeviceClasses();
+  window._updateDeviceClasses = _updateDeviceClasses;
+})();
+
 // ========== SIDEBAR TOGGLE ==========
 function _isMobile() { return window.innerWidth <= 640; }
 
@@ -1097,13 +1140,16 @@ function initSidebarState() {
 }
 
 let _sbResizeTimer;
-// Re-trigger sheet resize on orientation change (iOS/Android)
+// Re-trigger resize on orientation change — delay 300ms for iOS to finish rotation
 window.addEventListener('orientationchange', () => {
   setTimeout(() => {
+    if (window._updateDeviceClasses) window._updateDeviceClasses();
     window.dispatchEvent(new Event('resize'));
-  }, 200);
+  }, 300);
 });
 window.addEventListener('resize', () => {
+  // Update device/orientation classes immediately
+  if (window._updateDeviceClasses) window._updateDeviceClasses();
   clearTimeout(_sbResizeTimer);
   _sbResizeTimer = setTimeout(() => {
     const sb  = document.getElementById('app-sidebar');
@@ -1122,11 +1168,22 @@ window.addEventListener('resize', () => {
         btn.textContent = c ? '▶' : '◀';
       } catch(e){}
     }
+    // Resize all active sheets
     _resizeApptCalendar();
+    const activeSheet = window._activeVitalSheet;
+    if (activeSheet === 'feedtable') { if(window._resizeFeedTable) window._resizeFeedTable(); }
+    if (activeSheet === 'checklist') { if(window._resizeChecklist) window._resizeChecklist(); }
+    if (activeSheet === 'sbs')       { if(window._resizeSbs)       window._resizeSbs(); }
+    if (activeSheet === 'timesheet') { if(window._resizeTimesheet) window._resizeTimesheet(); }
+    if (activeSheet === 'branchwork'){ if(window._resizeBranchwork)window._resizeBranchwork(); }
+    if (activeSheet === 'medcheck')  { if(window._resizeMedCheck)  window._resizeMedCheck(); }
   }, 150);
 });
 
-document.addEventListener('DOMContentLoaded', initSidebarState);
+document.addEventListener('DOMContentLoaded', () => {
+  initSidebarState();
+  if (window._updateDeviceClasses) window._updateDeviceClasses();
+});
 // ========== END SIDEBAR TOGGLE ==========
 
 function setPage(page) {
@@ -4793,6 +4850,154 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .ss-sum-tag{display:inline-block;margin:1px 2px;font-size:13px;color:#555;white-space:nowrap}
 .ss-sum-tag b{margin-left:1px;color:#333}
 @media(max-width:640px){.ss-wrap{max-height:calc(100vh - 140px)}}
+
+/* ============================================================
+   CROSS-DEVICE ADAPTIVE SYSTEM
+   ใช้ html[data-device] / html[data-os] / html[data-orient]
+   ที่ตั้งค่าโดย JavaScript _updateDeviceClasses()
+   ============================================================ */
+
+/* ── Global foundation ─────────────────────────────────────── */
+*{box-sizing:border-box}
+img,video,canvas,svg{max-width:100%;height:auto}
+
+/* iOS: ป้องกัน Safari auto-zoom ข้อความ */
+html[data-os="ios"]{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+/* iOS: momentum scroll บน container */
+html[data-os="ios"] .main-content,
+html[data-os="ios"] [id$="-scroll"],
+html[data-os="ios"] [style*="overflow-y:auto"],
+html[data-os="ios"] [style*="overflow:auto"]{-webkit-overflow-scrolling:touch}
+/* iOS: ป้องกัน auto-zoom เมื่อ focus input (ต้อง font-size ≥ 16px) */
+html[data-os="ios"] input,
+html[data-os="ios"] select,
+html[data-os="ios"] textarea{font-size:max(16px,1em)!important}
+/* ยกเว้น inline table inputs ที่ override font-size ด้วย style — ไม่ต้องยกเว้น
+   เพราะ iOS จะ auto-zoom เมื่อ font < 16px และทำให้หน้าจอกระโดด */
+
+/* Android: smooth scrolling */
+html[data-os="android"] *{scroll-behavior:smooth}
+/* Android: ซ่อน scrollbar ใน WebView */
+html[data-os="android"] ::-webkit-scrollbar{width:0;height:0}
+
+/* ── Touch devices: ปรับ tap target และลด delay ────────────── */
+html[data-touch="1"] a,
+html[data-touch="1"] button,
+html[data-touch="1"] [onclick],
+html[data-touch="1"] .nav-item,
+html[data-touch="1"] .vsheet-btn,
+html[data-touch="1"] .bnav-item,
+html[data-touch="1"] .case-item{
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation   /* ยกเลิก double-tap zoom, ลด delay 300ms */
+}
+/* Minimum tap target 44px (Apple HIG / Material) */
+html[data-touch="1"] .nav-item{min-height:44px}
+html[data-touch="1"] .bnav-item{min-height:50px}
+html[data-touch="1"] .vsheet-btn{min-height:40px}
+
+/* ── PHONE (≤640px) ─────────────────────────────────────────── */
+html[data-device="phone"] .main-content{
+  padding:10px 10px calc(72px + env(safe-area-inset-bottom,0px)) 10px
+}
+html[data-device="phone"] .card{padding:10px 12px;border-radius:10px;margin-bottom:10px}
+html[data-device="phone"] .topbar{
+  padding:8px 12px;
+  padding-left:max(12px,env(safe-area-inset-left,0px));
+  padding-right:max(12px,env(safe-area-inset-right,0px))
+}
+/* Phone portrait: ตาราง font เล็กลงนิดเดียวเพื่อให้อ่านได้ แต่ไม่เกิน 14px */
+html[data-device="phone"][data-orient="portrait"] .main-content table{font-size:clamp(12px,3.5vw,14px)}
+html[data-device="phone"][data-orient="portrait"] .main-content th,
+html[data-device="phone"][data-orient="portrait"] .main-content td{padding:4px 5px!important}
+/* Phone landscape: compact ยิ่งขึ้น */
+html[data-device="phone"][data-orient="landscape"] .main-content{padding:6px 10px 64px}
+html[data-device="phone"][data-orient="landscape"] .card{padding:7px 10px;margin-bottom:6px}
+html[data-device="phone"][data-orient="landscape"] .card-title{margin-bottom:4px;font-size:11px}
+html[data-device="phone"][data-orient="landscape"] .vsheet-btn{font-size:12px;padding:5px 9px}
+
+/* ── TABLET (641–1100px touch) ──────────────────────────────── */
+html[data-device="tablet"] .main-content{padding:12px 16px 16px}
+html[data-device="tablet"] .card{padding:13px 16px;border-radius:11px}
+html[data-device="tablet"] .vsheet-btn{font-size:14px;padding:7px 13px}
+html[data-device="tablet"] .topbar{padding:10px 18px}
+/* Tablet portrait: sidebar ยังคงอยู่ (ไม่ซ่อน) แต่อาจ collapsed */
+html[data-device="tablet"][data-orient="portrait"] .sidebar{min-width:54px;width:54px}
+html[data-device="tablet"][data-orient="portrait"] .sidebar .nav-text{opacity:0;width:0;overflow:hidden}
+html[data-device="tablet"][data-orient="portrait"] .sidebar .sidebar-section,
+html[data-device="tablet"][data-orient="portrait"] .sidebar .sidebar-footer,
+html[data-device="tablet"][data-orient="portrait"] .sidebar .sidebar-cases,
+html[data-device="tablet"][data-orient="portrait"] .sidebar .case-search{display:none!important}
+html[data-device="tablet"][data-orient="portrait"] .sidebar .nav-item{justify-content:center;padding:11px 0;gap:0}
+html[data-device="tablet"][data-orient="portrait"] .sidebar .nav-icon{width:22px;font-size:18px}
+html[data-device="tablet"][data-orient="portrait"] .sidebar .sidebar-header{padding:12px 0;justify-content:center}
+html[data-device="tablet"][data-orient="portrait"] .sidebar .sidebar-logo-text{opacity:0;width:0;overflow:hidden}
+/* Tablet landscape: full sidebar */
+html[data-device="tablet"][data-orient="landscape"] .sidebar{position:relative;transform:none!important}
+
+/* ── DESKTOP (>960px non-touch / >1100px any) ───────────────── */
+html[data-device="desktop"] .bottom-nav{display:none!important}
+html[data-device="desktop"] .sidebar{position:relative;transform:none!important}
+html[data-device="desktop"] .main-content{padding:14px 18px}
+
+/* ── Global text safety ──────────────────────────────────────── */
+.main-content,.card{overflow-wrap:break-word;word-break:break-word}
+/* ป้องกัน input/textarea overflow */
+.main-content input,
+.main-content select,
+.main-content textarea{max-width:100%;min-width:0;box-sizing:border-box}
+/* ป้องกัน content เด้งออกนอก card */
+.card>*{max-width:100%;min-width:0}
+/* ทุก scroll container: ใช้ dvh เพื่อรองรับ mobile browser chrome */
+[id$="-scroll"]{max-height:calc(100dvh - 180px)}
+
+/* ── Safe area (notch / home indicator) ──────────────────────── */
+.bottom-nav{padding-bottom:env(safe-area-inset-bottom,0px)}
+body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+
+/* ── Topbar title: ตัดสั้นตามขนาดหน้าจอ ──────────────────────── */
+.topbar-title{
+  font-size:clamp(14px,4vw,18px);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  flex:1;min-width:0
+}
+
+/* ── vsheet-panel scroll heights: ปรับตาม dvh ─────────────────── */
+.vsheet-panel.active{display:block}
+html[data-device="phone"][data-orient="portrait"] #sbs-scroll,
+html[data-device="phone"][data-orient="portrait"] #ts-scroll,
+html[data-device="phone"][data-orient="portrait"] #bw-scroll,
+html[data-device="phone"][data-orient="portrait"] #chk-scroll{
+  height:clamp(160px,calc(100dvh - 310px),600px)
+}
+html[data-device="phone"][data-orient="landscape"] #sbs-scroll,
+html[data-device="phone"][data-orient="landscape"] #ts-scroll,
+html[data-device="phone"][data-orient="landscape"] #bw-scroll,
+html[data-device="phone"][data-orient="landscape"] #chk-scroll{
+  height:clamp(120px,calc(100dvh - 220px),400px)
+}
+html[data-device="tablet"] #sbs-scroll,
+html[data-device="tablet"] #ts-scroll,
+html[data-device="tablet"] #bw-scroll,
+html[data-device="tablet"] #chk-scroll{
+  height:clamp(200px,calc(100dvh - 260px),900px)
+}
+
+/* ── Table overflow safety ───────────────────────────────────── */
+/* table-layout:fixed จำเป็นต้องมี overflow:hidden บน td เพื่อกัน content เด้ง
+   ใช้เฉพาะบน phone/tablet เพื่อไม่กระทบ desktop */
+html[data-device="phone"] .main-content table td,
+html[data-device="phone"] .main-content table th,
+html[data-device="tablet"] .main-content table td,
+html[data-device="tablet"] .main-content table th{
+  overflow:hidden;overflow-wrap:break-word;word-break:break-word
+}
+/* Desktop: text-overflow:ellipsis บน cell ที่กว้างเกิน */
+html[data-device="desktop"] .main-content table td,
+html[data-device="desktop"] .main-content table th{
+  overflow:hidden;text-overflow:ellipsis
+}
+
 </style>
 <script>
 // ล้าง Service Worker cache — บังคับโหลดไฟล์ใหม่จาก server ทุกครั้ง
