@@ -2123,9 +2123,9 @@ function renderCaseInfoTable() {
     wrap.innerHTML='<p style="text-align:center;color:#aaa;padding:30px;font-size:15px">ไม่มีข้อมูลผู้ป่วย</p>';
     return;
   }
-  // colgroup: # and label = fixed pixel (fit content), patient cols = no width → equal share
+  // colgroup: # and label = fixed pixel, patient cols = at least 120px each
   const cols='<col style="width:36px"><col style="width:170px">'+
-    pageCusts.map(()=>'<col>').join('');
+    pageCusts.map(()=>'<col style="min-width:120px">').join('');
   // header
   const hdr=`<tr style="background:#f0ede8;text-align:center">
     <th style="padding:6px 4px;border:1px solid #ddd;font-size:14px;white-space:nowrap">#</th>
@@ -2221,7 +2221,7 @@ function initFeedTable() {
   const dateEl=document.getElementById('feedtable-date');
   _feedDate=new Date().toISOString().split('T')[0];
   if(dateEl){dateEl.value=_feedDate;dateEl.addEventListener('change',()=>{_feedDate=dateEl.value;_feedPage=0;loadFeedTable();});}
-  window.addEventListener('resize',_resizeFeedTable);
+  window.addEventListener('resize',()=>{ _resizeFeedTable(); _resizeFeedCols(); });
   loadFeedTable();
 }
 
@@ -2251,6 +2251,28 @@ function loadFeedTable() {
 function _autoResizeFeed(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 window._autoResizeFeed=_autoResizeFeed;
 
+function _resizeFeedCols(){
+  const panel=document.getElementById('vp-feedtable');
+  if(!panel) return;
+  const wrap=panel.querySelector('div[style*="overflow:auto"]');
+  if(!wrap) return;
+  const W=wrap.clientWidth||700;
+  const table=wrap.querySelector('table');
+  if(!table) return;
+  // กำหนด min width ให้แต่ละคอลัมน์ เพื่อไม่ให้บีบบน portrait
+  const noW=30, bedW=40;
+  const nameW=Math.max(82, Math.floor(W*0.13));
+  const feedW=Math.max(92, Math.floor(W*0.16));
+  const timeW=Math.max(52, Math.floor((W-noW-bedW-nameW-feedW)/9)); // 8 เวลา + 1 หมายเหตุ
+  const totalW=noW+bedW+nameW+feedW+9*timeW;
+  let cg=table.querySelector('colgroup');
+  if(!cg){cg=document.createElement('colgroup');table.insertBefore(cg,table.firstChild);}
+  cg.innerHTML=`<col style="width:${noW}px"><col style="width:${bedW}px"><col style="width:${nameW}px"><col style="width:${feedW}px">${Array.from({length:8},()=>`<col style="width:${timeW}px">`).join('')}<col style="width:${timeW}px">`;
+  table.style.tableLayout='fixed';
+  table.style.width=Math.max(W,totalW)+'px';
+}
+window._resizeFeedCols=_resizeFeedCols;
+
 function _resizeFeedRows() {
   const panel=document.getElementById('vp-feedtable');
   if(!panel) return;
@@ -2278,6 +2300,7 @@ function _resizeFeedTable() {
   const available=Math.max(200,window.innerHeight-rect.top-8);
   tableCard.style.height=available+'px';
   requestAnimationFrame(_resizeFeedRows);
+  requestAnimationFrame(_resizeFeedCols);
 }
 window._resizeFeedTable=_resizeFeedTable;
 
@@ -2991,26 +3014,28 @@ function _resizeSbsCols(){
 
   // Section 1: ที่=40px, รายการ=50% ที่เหลือ, ผล=50% ที่เหลือ
   const rem1=Math.max(0, W-40-2);
-  const nameW1=Math.max(80, Math.floor(rem1*0.5));
-  const resultW1=Math.max(60, rem1-nameW1);
+  const nameW1=Math.max(120, Math.floor(rem1*0.55));
+  const resultW1=Math.max(80, rem1-nameW1);
+  const total1W=40+nameW1+resultW1;
   const tbl1=document.getElementById('sbs-tbody1')?.closest('table');
   if(tbl1){
     let cg1=tbl1.querySelector('colgroup');
     if(!cg1){ cg1=document.createElement('colgroup'); tbl1.insertBefore(cg1,tbl1.firstChild); }
     cg1.innerHTML=`<col style="width:40px"><col style="width:${nameW1}px"><col style="width:${resultW1}px">`;
-    tbl1.style.tableLayout='fixed'; tbl1.style.width='100%';
+    tbl1.style.tableLayout='fixed'; tbl1.style.width=Math.max(W,total1W)+'px';
   }
 
-  // Section 2: ที่=40px, รายการ=50% ที่เหลือ, ครั้งที่1-4 เฉลี่ย 50% ที่เหลือ/4
+  // Section 2: ที่=40px, รายการ=50% ที่เหลือ, ครั้งที่1-4 อย่างน้อย 100px
   const rem2=Math.max(0, W-40-2);
-  const nameW2=Math.max(80, Math.floor(rem2*0.5));
-  const visitW=Math.max(60, Math.floor((rem2-nameW2)/4));
+  const nameW2=Math.max(120, Math.floor(rem2*0.4));
+  const visitW=Math.max(100, Math.floor((rem2-nameW2)/4));
+  const total2W=40+nameW2+4*visitW;
   const tbl2=document.getElementById('sbs-tbody2')?.closest('table');
   if(tbl2){
     let cg2=tbl2.querySelector('colgroup');
     if(!cg2){ cg2=document.createElement('colgroup'); tbl2.insertBefore(cg2,tbl2.firstChild); }
     cg2.innerHTML=`<col style="width:40px"><col style="width:${nameW2}px"><col style="width:${visitW}px"><col style="width:${visitW}px"><col style="width:${visitW}px"><col style="width:${visitW}px">`;
-    tbl2.style.tableLayout='fixed'; tbl2.style.width='100%';
+    tbl2.style.tableLayout='fixed'; tbl2.style.width=Math.max(W,total2W)+'px';
   }
 }
 window._resizeSbsCols=_resizeSbsCols;
@@ -3138,14 +3163,15 @@ function _resizeTimesheetCols(){
   const W=scroll.clientWidth||700;
   const fixedW=35+32+44+90+2;
   const remaining=Math.max(0,W-fixedW);
-  const pW=Math.max(55,Math.floor(remaining/7));
+  const pW=Math.max(85,Math.floor(remaining/7));   // อย่างน้อย 85px ต่อพนักงาน 1 คน
+  const totalTsW=35+32+44+7*pW+90;
   const tbl=document.getElementById('ts-tbody')?.closest('table');
   if(tbl){
     let cg=tbl.querySelector('colgroup');
     if(!cg){ cg=document.createElement('colgroup'); tbl.insertBefore(cg,tbl.firstChild); }
     const pCols=Array.from({length:7},()=>`<col style="width:${pW}px">`).join('');
     cg.innerHTML=`<col style="width:35px"><col style="width:32px"><col style="width:44px">${pCols}<col style="width:90px">`;
-    tbl.style.tableLayout='fixed'; tbl.style.width='100%';
+    tbl.style.tableLayout='fixed'; tbl.style.width=Math.max(W,totalTsW)+'px';
   }
 }
 function _resizeTimesheet(){
@@ -3314,15 +3340,16 @@ function _resizeBranchworkCols(){
   const maxNoteTextW=Math.ceil(Math.max(..._BRANCHWORK_ITEMS.map(i=>ctx.measureText(i.note).width)));
   const noteW=Math.max(72, maxNoteTextW+22);
   const fixed=noW+freqW+noteW+2;
-  const nameW=Math.max(100, Math.floor((W-fixed)*0.35));
-  const visitW=Math.max(110, Math.floor((W-fixed-nameW)/_BW_VISITS));
+  const nameW=Math.max(160, Math.floor((W-fixed)*0.38));  // อย่างน้อย 160px สำหรับชื่อรายการ
+  const visitW=Math.max(120, Math.floor((W-fixed-nameW)/_BW_VISITS)); // อย่างน้อย 120px ต่อครั้ง
+  const totalBwW=noW+nameW+freqW+noteW+_BW_VISITS*visitW;
   const tbl=document.getElementById('bw-tbody')?.closest('table');
   if(tbl){
     let cg=tbl.querySelector('colgroup');
     if(!cg){ cg=document.createElement('colgroup'); tbl.insertBefore(cg,tbl.firstChild); }
     const vCols=Array.from({length:_BW_VISITS},()=>`<col style="width:${visitW}px">`).join('');
     cg.innerHTML=`<col style="width:${noW}px"><col style="width:${nameW}px"><col style="width:${freqW}px"><col style="width:${noteW}px">${vCols}`;
-    tbl.style.tableLayout='fixed'; tbl.style.width='100%';
+    tbl.style.tableLayout='fixed'; tbl.style.width=Math.max(W,totalBwW)+'px';
   }
 }
 function _resizeBranchwork(){
@@ -3383,14 +3410,15 @@ function _resizeChkCols(){
   // fixed columns: ที่=40 + รายการ=maxNameW + จำนวน=62
   const fixedW=40+maxNameW+62;
   const remaining=Math.max(0,containerW-fixedW-2); // -2 border
-  const dayW=Math.max(24,Math.floor(remaining/31));
+  const dayW=Math.max(26,Math.floor(remaining/31));
+  const totalChkW=40+maxNameW+62+31*dayW;
   // อัพเดต colgroup
   let cg=table.querySelector('colgroup');
   if(!cg){ cg=document.createElement('colgroup'); table.insertBefore(cg,table.firstChild); }
   const dayCols=Array.from({length:31},()=>`<col style="width:${dayW}px">`).join('');
   cg.innerHTML=`<col style="width:40px"><col style="width:${maxNameW}px"><col style="width:62px">${dayCols}`;
   table.style.tableLayout='fixed';
-  table.style.width='100%';
+  table.style.width=Math.max(containerW,totalChkW)+'px';
 }
 window._resizeChkCols=_resizeChkCols;
 
@@ -5164,13 +5192,13 @@ if ('serviceWorker' in navigator) {
               <button id="meddaily-save-btn" onclick="saveMedDaily()" style="padding:7px 18px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:15px;font-family:inherit;cursor:pointer;font-weight:600">💾 บันทึก</button>
             </div>
             <div style="overflow-x:auto">
-              <table style="width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed">
+              <table style="min-width:100%;border-collapse:collapse;font-size:14px">
                 <colgroup>
-                  <col style="width:3%">   <!-- ลำดับ -->
-                  <col style="width:15%">  <!-- ชื่อ -->
-                  <col><col><col>          <!-- ก่อนอาหาร เช้า/เที่ยง/เย็น -->
-                  <col><col><col>          <!-- หลังอาหาร เช้า/เที่ยง/เย็น -->
-                  <col><col><col>          <!-- ก่อนนอน / ยารายสัปดาห์ / อื่นๆ -->
+                  <col style="width:28px">  <!-- ลำดับ -->
+                  <col style="width:90px">  <!-- ชื่อ -->
+                  <col style="min-width:44px"><col style="min-width:44px"><col style="min-width:44px">   <!-- ก่อนอาหาร เช้า/เที่ยง/เย็น -->
+                  <col style="min-width:44px"><col style="min-width:44px"><col style="min-width:44px">   <!-- หลังอาหาร เช้า/เที่ยง/เย็น -->
+                  <col style="min-width:44px"><col style="min-width:44px"><col style="min-width:44px">   <!-- ก่อนนอน / ยารายสัปดาห์ / อื่นๆ -->
                 </colgroup>
                 <thead>
                   <tr style="background:#f0ede8;text-align:center">
@@ -5232,14 +5260,14 @@ if ('serviceWorker' in navigator) {
           </div>
           <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
             <div style="overflow:auto;flex:1">
-              <table style="width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed">
-                <colgroup>
-                  <col style="width:3%">   <!-- ลำดับ -->
-                  <col style="width:4%">   <!-- Bed -->
-                  <col style="width:13%">  <!-- ชื่อ (พิมพ์ค้นหา) -->
-                  <col style="width:16%">  <!-- รายการฟีด (กว้างขึ้น) -->
-                  <col><col><col><col><col><col><col><col>  <!-- 8 เวลา -->
-                  <col>                    <!-- หมายเหตุ -->
+              <table style="min-width:100%;border-collapse:collapse;font-size:14px">
+                <colgroup id="feedtable-colgroup">
+                  <col style="width:30px">   <!-- ลำดับ -->
+                  <col style="width:40px">   <!-- Bed -->
+                  <col style="width:82px">   <!-- ชื่อ -->
+                  <col style="width:92px">   <!-- รายการฟีด -->
+                  <col style="width:52px"><col style="width:52px"><col style="width:52px"><col style="width:52px"><col style="width:52px"><col style="width:52px"><col style="width:52px"><col style="width:52px">  <!-- 8 เวลา -->
+                  <col style="width:52px">   <!-- หมายเหตุ -->
                 </colgroup>
                 <thead style="position:sticky;top:0;z-index:2">
                   <tr style="background:#f0ede8;text-align:center">
