@@ -1106,48 +1106,13 @@ function setBottomNav(page) {
   window._updateDeviceClasses = _updateDeviceClasses;
 })();
 
-// ========== SIDEBAR TOGGLE ==========
+// ========== NAVIGATION (no sidebar) ==========
 function _isMobile() { return window.innerWidth <= 640; }
-
-function toggleSidebar() {
-  const sb  = document.getElementById('app-sidebar');
-  const ov  = document.getElementById('sidebar-overlay');
-  const btn = document.getElementById('sidebar-toggle-btn');
-  if (_isMobile()) {
-    const open = sb.classList.toggle('open');
-    ov.classList.toggle('open', open);
-    btn.textContent = open ? '✕' : '☰';
-  } else {
-    const collapsed = sb.classList.toggle('collapsed');
-    btn.textContent = collapsed ? '▶' : '◀';
-    try { localStorage.setItem('staff_sidebar_collapsed', collapsed ? '1' : '0'); } catch(e){}
-  }
-}
-
-function closeSidebar() {
-  const sb  = document.getElementById('app-sidebar');
-  const ov  = document.getElementById('sidebar-overlay');
-  const btn = document.getElementById('sidebar-toggle-btn');
-  if (_isMobile()) {
-    sb.classList.remove('open');
-    ov.classList.remove('open');
-    btn.textContent = '☰';
-  }
-}
-
-function initSidebarState() {
-  if (_isMobile()) return;
-  try {
-    const collapsed = localStorage.getItem('staff_sidebar_collapsed') === '1';
-    const sb  = document.getElementById('app-sidebar');
-    const btn = document.getElementById('sidebar-toggle-btn');
-    if (collapsed && sb) { sb.classList.add('collapsed'); if(btn) btn.textContent = '▶'; }
-    else { if(btn) btn.textContent = '◀'; }
-  } catch(e){}
-}
+function toggleSidebar() {}   // no-op — sidebar ถูกลบออกแล้ว
+function closeSidebar()  {}   // no-op
+function initSidebarState() {}// no-op
 
 let _sbResizeTimer;
-// Re-trigger resize on orientation change — delay 300ms for iOS to finish rotation
 window.addEventListener('orientationchange', () => {
   setTimeout(() => {
     if (window._updateDeviceClasses) window._updateDeviceClasses();
@@ -1155,27 +1120,10 @@ window.addEventListener('orientationchange', () => {
   }, 300);
 });
 window.addEventListener('resize', () => {
-  // Update device/orientation classes immediately
   if (window._updateDeviceClasses) window._updateDeviceClasses();
   clearTimeout(_sbResizeTimer);
   _sbResizeTimer = setTimeout(() => {
-    const sb  = document.getElementById('app-sidebar');
-    const ov  = document.getElementById('sidebar-overlay');
-    const btn = document.getElementById('sidebar-toggle-btn');
-    if (_isMobile()) {
-      ov.classList.remove('open');
-      sb.classList.remove('open');
-      btn.textContent = '☰';
-    } else {
-      ov.classList.remove('open');
-      sb.classList.remove('open');
-      try {
-        const c = localStorage.getItem('staff_sidebar_collapsed') === '1';
-        sb.classList.toggle('collapsed', c);
-        btn.textContent = c ? '▶' : '◀';
-      } catch(e){}
-    }
-    // Resize all active sheets
+    // Resize all active sheets on orientation/size change
     _resizeApptCalendar();
     const activeSheet = window._activeVitalSheet;
     if (activeSheet === 'feedtable') { if(window._resizeFeedTable) window._resizeFeedTable(); }
@@ -1188,10 +1136,9 @@ window.addEventListener('resize', () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-  initSidebarState();
   if (window._updateDeviceClasses) window._updateDeviceClasses();
 });
-// ========== END SIDEBAR TOGGLE ==========
+// ========== END NAVIGATION ==========
 
 function setPage(page) {
   // nav active state
@@ -1205,13 +1152,11 @@ function setPage(page) {
 
   // ======= TOPBAR: home ↔ sub-page =======
   const isHome = (page === 'home');
-  const toggleBtn  = document.getElementById('sidebar-toggle-btn');
-  const backBtn    = document.getElementById('topbar-back-btn');
-  const tb         = document.getElementById('topbar-title');
-  const titles     = {home:'DD Nursing', dashboard:'รายชื่อเคส', req:'บันทึกเบิกของ', vital:'ลงบันทึกรวม', indiv:'ลงบันทึกรายบุคคล', sched:'ตารางเวร'};
+  const backBtn = document.getElementById('topbar-back-btn');
+  const tb      = document.getElementById('topbar-title');
+  const titles  = {home:'DD Nursing', dashboard:'รายชื่อเคส', req:'บันทึกเบิกของ', vital:'ลงบันทึกรวม', indiv:'ลงบันทึกรายบุคคล', sched:'ตารางเวร'};
   if (tb) tb.textContent = isHome ? 'DD Nursing Home' : (titles[page] || page);
-  if (toggleBtn) toggleBtn.style.display = isHome ? 'flex' : (_isMobile() ? 'none' : 'flex');
-  if (backBtn)   backBtn.style.display   = isHome ? 'none' : 'flex';
+  if (backBtn) backBtn.style.display = isHome ? 'none' : 'flex';
 
   // Body class สำหรับ CSS padding
   document.body.classList.toggle('on-home', isHome);
@@ -5171,55 +5116,11 @@ if ('serviceWorker' in navigator) {
   </div>
 </div>
 
-<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 <div class="app-layout">
-
-  <!-- ===== SIDEBAR ===== -->
-  <aside class="sidebar" id="app-sidebar">
-    <div class="sidebar-header">
-      <span style="font-size:20px;flex-shrink:0">🏥</span>
-      <div class="sidebar-logo-text" style="overflow:hidden;transition:opacity .2s,width .28s">
-        <div class="sidebar-logo">DD Nursing</div>
-        <div class="sidebar-sub">ระบบพนักงาน</div>
-      </div>
-    </div>
-    <nav class="sidebar-nav">
-      <div class="sidebar-section">เมนู</div>
-      <div class="nav-item active" id="nav-home" onclick="setPage('home')" title="หน้าหลัก">
-        <span class="nav-icon">🏠</span><span class="nav-text">หน้าหลัก</span>
-      </div>
-      <div class="nav-item" id="nav-dashboard" onclick="setPage('dashboard')" title="รายชื่อเคส">
-        <span class="nav-icon">📋</span><span class="nav-text">รายชื่อเคส</span>
-      </div>
-      <div class="nav-item" id="nav-req" onclick="setPage('req')" title="บันทึกเบิกของ">
-        <span class="nav-icon">📦</span><span class="nav-text">บันทึกเบิกของ</span>
-      </div>
-      <div class="nav-item" id="nav-vital" onclick="setPage('vital')" title="ลงบันทึกรวม">
-        <span class="nav-icon">📝</span><span class="nav-text">ลงบันทึกรวม</span>
-      </div>
-      <div class="nav-item" id="nav-indiv" onclick="setPage('indiv')" title="ลงบันทึกรายบุคคล">
-        <span class="nav-icon">👤</span><span class="nav-text">ลงบันทึกรายบุคคล</span>
-      </div>
-      <div class="nav-item" id="nav-sched" onclick="setPage('sched')" title="ตารางเวร">
-        <span class="nav-icon">📅</span><span class="nav-text">ตารางเวร</span>
-      </div>
-    </nav>
-
-    <!-- รายชื่อเคส -->
-    <div class="sidebar-cases" id="sidebar-cases-list" style="display:none"></div>
-    <div class="sidebar-footer" style="padding:10px 14px;border-top:1px solid #f0ede8;margin-top:auto;flex-shrink:0">
-      <div id="staff-sidebar-user" style="display:flex;align-items:center;gap:8px;font-size:14px;color:#666;margin-bottom:6px">
-        <img id="staff-user-photo" style="width:24px;height:24px;border-radius:50%;display:none;flex-shrink:0" src="">
-        <span id="staff-user-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></span>
-      </div>
-      <button onclick="window._signOut && window._signOut()" style="width:100%;padding:7px;background:#fff5f5;color:#c0392b;border:1px solid #f5c6cb;border-radius:6px;font-size:14px;font-family:inherit;cursor:pointer;font-weight:500">🚪 ออกจากระบบ</button>
-    </div>
-  </aside>
 
   <!-- ===== MAIN ===== -->
   <div class="main-wrapper">
     <div class="topbar">
-      <div class="sidebar-toggle" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="ย่อ/ขยาย เมนู">☰</div>
       <div id="topbar-back-btn" onclick="setPage('home')" title="หน้าหลัก">←</div>
       <span class="topbar-title" id="topbar-title">DD Nursing</span>
       <div id="status" style="display:none;padding:5px 12px;border-radius:6px;font-size:14px;border:1px solid"></div>
