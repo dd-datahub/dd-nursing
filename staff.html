@@ -3270,7 +3270,7 @@ function _buildBranchworkTable(){
     return `<tr>
       <td style="${B}text-align:center;font-size:16px;font-weight:600;color:#444;background:#f5faf7;padding:6px 3px;vertical-align:middle">${item.no}</td>
       <td style="${B}padding:7px 12px;font-size:16px;color:#1a1a1a;background:${bg};line-height:1.5">${nameHtml}</td>
-      <td style="${B}text-align:center;font-size:14px;color:#555;background:${bg};white-space:nowrap;padding:5px 4px;vertical-align:middle">${item.freq}</td>
+      <td style="${B}text-align:center;font-size:14px;color:#555;background:${bg};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:5px 4px;vertical-align:middle" title="${item.freq}">${item.freq}</td>
       <td style="${B}font-size:14px;color:#555;background:${bg};padding:5px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle">${item.note}</td>
       ${vCells}
     </tr>`;
@@ -3304,13 +3304,15 @@ function _resizeBranchworkCols(){
   const scroll=document.getElementById('bw-scroll');
   if(!scroll) return;
   const W=scroll.clientWidth||700;
-  const noW=40; const freqW=58;
-  // วัดความกว้างข้อความหมายเหตุที่ยาวสุดด้วย Canvas
+  const noW=40;
+  // วัดความกว้างข้อความด้วย Canvas — ใช้ font ที่ตรงกับ rendered font จริง
   const canvas=document.createElement('canvas');
   const ctx=canvas.getContext('2d');
-  ctx.font='11px sans-serif';
+  ctx.font='15px "IBM Plex Sans Thai", sans-serif';
+  const maxFreqTextW=Math.ceil(Math.max(..._BRANCHWORK_ITEMS.map(i=>ctx.measureText(i.freq).width)));
+  const freqW=Math.max(58, maxFreqTextW+16);
   const maxNoteTextW=Math.ceil(Math.max(..._BRANCHWORK_ITEMS.map(i=>ctx.measureText(i.note).width)));
-  const noteW=Math.max(72, maxNoteTextW+20);
+  const noteW=Math.max(72, maxNoteTextW+22);
   const fixed=noW+freqW+noteW+2;
   const nameW=Math.max(100, Math.floor((W-fixed)*0.35));
   const visitW=Math.max(110, Math.floor((W-fixed-nameW)/_BW_VISITS));
@@ -3376,8 +3378,8 @@ function _resizeChkCols(){
   // วัด max text width ของ รายการ ด้วย canvas
   const canvas=document.createElement('canvas');
   const ctx=canvas.getContext('2d');
-  ctx.font='13px sans-serif';
-  const maxNameW=Math.ceil(Math.max(..._CHK_ITEMS.map(i=>ctx.measureText(i.name).width)))+22; // +padding 10px×2+2
+  ctx.font='16px "IBM Plex Sans Thai", sans-serif';
+  const maxNameW=Math.ceil(Math.max(..._CHK_ITEMS.map(i=>ctx.measureText(i.name).width)))+28; // +padding+safety
   // fixed columns: ที่=40 + รายการ=maxNameW + จำนวน=62
   const fixedW=40+maxNameW+62;
   const remaining=Math.max(0,containerW-fixedW-2); // -2 border
@@ -4552,9 +4554,9 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
   .main-content input[type="number"],
   .main-content select,
   .main-content textarea { max-width:100%; box-sizing:border-box; }
-  /* ลงบันทึกรวม: sheet tab buttons (horizontal scroll row, no wrap) */
-  #vsheet-nav{scrollbar-width:none;-ms-overflow-style:none}
-  #vsheet-nav::-webkit-scrollbar{display:none}
+  /* sheet tab buttons (horizontal scroll row, no wrap) */
+  #vsheet-nav,#isheet-nav{scrollbar-width:none;-ms-overflow-style:none}
+  #vsheet-nav::-webkit-scrollbar,#isheet-nav::-webkit-scrollbar{display:none}
   .vsheet-btn{font-size:13px;padding:6px 10px}
   /* hide desktop hints on mobile */
   .vital-hint{display:none!important}
@@ -4672,6 +4674,8 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 #sbs-scroll,#ts-scroll,#bw-scroll,#chk-scroll{max-width:100%;box-sizing:border-box;width:100%}
 /* Prevent inputs/textareas from overflowing narrow columns */
 #ts-scroll input,#bw-scroll textarea,#bw-scroll input,#sbs-scroll input{min-width:0;width:100%;box-sizing:border-box}
+/* Safety: all table cells clip content — prevents text visually spilling into adjacent cells */
+.main-content table td,.main-content table th{overflow:hidden}
 #vp-checklist.active{display:flex;flex-direction:column;height:100%}
 .vbranch-btn.active{background:#f0ede8 !important;border-color:#bbb !important;font-weight:700 !important}
 /* sub-sheet tabs inside ลงบันทึกรายบุคคล */
@@ -5129,7 +5133,7 @@ if ('serviceWorker' in navigator) {
               <button onclick="confirmAddMedTime()" style="padding:6px 14px;background:#1a6b4a;color:#fff;border:none;border-radius:7px;font-size:14px;font-family:inherit;cursor:pointer;font-weight:600;white-space:nowrap">✓ เพิ่ม</button>
               <button onclick="showAddMedTimeForm()" style="padding:6px 10px;background:#eee;color:#666;border:none;border-radius:7px;font-size:14px;font-family:inherit;cursor:pointer;white-space:nowrap">ยกเลิก</button>
             </div>
-            <div id="medcheck-table-wrap" style="overflow-y:auto;flex:1">
+            <div id="medcheck-table-wrap" style="overflow-y:auto;overflow-x:auto;flex:1">
               <table style="width:100%;border-collapse:collapse;font-size:15px">
                 <thead>
                   <tr style="background:#f0ede8;position:sticky;top:0;z-index:1">
@@ -5515,7 +5519,7 @@ if ('serviceWorker' in navigator) {
         <!-- Year/Month picker -->
         <div id="indiv-ym-picker"></div>
         <!-- Sub-sheet tabs -->
-        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
+        <div id="isheet-nav" style="display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:10px;padding-bottom:4px;scrollbar-width:thin;scrollbar-color:#ccc transparent">
           <button class="isheet-btn active" data-sheet="ivs"      onclick="setIndivSheet('ivs')">📊 VS รายบุคคล</button>
           <button class="isheet-btn"        data-sheet="iio"      onclick="setIndivSheet('iio')">💧 IO/DTX/BMI</button>
           <button class="isheet-btn"        data-sheet="icare"    onclick="setIndivSheet('icare')">✅ กิจกรรมการดูแล</button>
