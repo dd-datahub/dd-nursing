@@ -1787,7 +1787,7 @@ function renderRegistry() {
       <td style="${TDnw};text-align:center;color:#888;font-size:13px">${i+1}</td>
       <td style="${TDnw};font-size:14px">${c.name||''}</td>
       <td style="${TDnw}">${inp('generalId','เลขที่')}</td>
-      <td style="${TD}">${inp('address','ที่อยู่')}</td>
+      <td style="${TD};min-width:180px">${inp('address','ที่อยู่')}</td>
       <td style="${TDnw}"><input type="date" value="${e.admitDate||''}" onchange="updateRegistryDate('${cid}','admitDate',this.value)" style="${DIS}"></td>
       <td style="${TDnw}"><input type="date" value="${e.endDate||''}" onchange="updateRegistryDate('${cid}','endDate',this.value)" style="${DIS}"></td>
       <td style="${TDnw};text-align:center;font-size:13px;color:#666">${days}</td>
@@ -2123,14 +2123,19 @@ function renderCaseInfoTable() {
     wrap.innerHTML='<p style="text-align:center;color:#aaa;padding:30px;font-size:15px">ไม่มีข้อมูลผู้ป่วย</p>';
     return;
   }
-  // colgroup: # and label = fixed pixel, patient cols = at least 120px each
+  // colgroup: # fixed, label fixed, patient cols = 160px each (explicit, min-width ignored by fixed layout)
+  const PAT_W=160;
   const cols='<col style="width:36px"><col style="width:170px">'+
-    pageCusts.map(()=>'<col style="min-width:120px">').join('');
+    pageCusts.map(()=>`<col style="width:${PAT_W}px">`).join('');
+  // คำนวณความกว้างตารางให้ไม่แคบกว่าผลรวมคอลัมน์ขั้นต่ำ
+  const minTblW=36+170+pageCusts.length*PAT_W;
+  const containerW=wrap.clientWidth||375;
+  const tblW=Math.max(containerW, minTblW);
   // header
   const hdr=`<tr style="background:#f0ede8;text-align:center">
     <th style="padding:6px 4px;border:1px solid #ddd;font-size:14px;white-space:nowrap">#</th>
     <th style="padding:6px 8px;border:1px solid #ddd;text-align:left;font-size:15px;white-space:nowrap">รายการประเมิน</th>
-    ${pageCusts.map(c=>`<th style="padding:6px 5px;border:1px solid #ddd;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name||''}</th>`).join('')}
+    ${pageCusts.map(c=>`<th style="padding:6px 5px;border:1px solid #ddd;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.name||''}">${c.name||''}</th>`).join('')}
   </tr>`;
   const TA='width:100%;border:1px solid #ddd;border-radius:4px;padding:4px 5px;font-size:15px;font-family:inherit;resize:none;background:#fafafa;color:#333;box-sizing:border-box;overflow:hidden;line-height:1.4;min-height:30px';
   const rows=CASE_INFO_ITEMS.map((item,i)=>{
@@ -2148,7 +2153,7 @@ function renderCaseInfoTable() {
       ${cells}
     </tr>`;
   }).join('');
-  wrap.innerHTML=`<table style="width:100%;border-collapse:collapse;table-layout:fixed">
+  wrap.innerHTML=`<table style="width:${tblW}px;border-collapse:collapse;table-layout:fixed">
     <colgroup>${cols}</colgroup>
     <thead>${hdr}</thead>
     <tbody>${rows}</tbody>
@@ -5120,7 +5125,7 @@ if ('serviceWorker' in navigator) {
                     <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">ลำดับ</th>
                     <th style="padding:7px 8px;border:1px solid #ddd;white-space:nowrap;text-align:left">ชื่อ-สกุล</th>
                     <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">เลขที่ทั่วไป</th>
-                    <th style="padding:7px 6px;border:1px solid #ddd;width:99%">ที่อยู่</th>
+                    <th style="padding:7px 6px;border:1px solid #ddd;min-width:180px">ที่อยู่</th>
                     <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">วันที่เข้ารับ</th>
                     <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">วันที่สิ้นสุด</th>
                     <th style="padding:7px 6px;border:1px solid #ddd;white-space:nowrap">จำนวนวัน</th>
@@ -5303,10 +5308,10 @@ if ('serviceWorker' in navigator) {
                 <div id="shift-branch-badge" style="padding:4px 10px;font-size:14px;font-weight:600;border-left:1px solid #ddd;white-space:nowrap;background:#e8f5ee;color:#1a6b4a;border:1px solid #a5d6a7;border-radius:4px;margin:4px 8px">สาขา 1 (DD1)</div>
               </div>
               <div style="overflow-x:auto">
-                <table style="width:100%;border-collapse:collapse;font-size:16px;table-layout:fixed">
+                <table style="width:100%;border-collapse:collapse;font-size:16px;table-layout:auto">
                   <colgroup>
-                    <col style="width:13%"><col style="width:37%">
-                    <col style="width:13%"><col style="width:37%">
+                    <col style="width:100px"><col>
+                    <col style="width:100px"><col>
                   </colgroup>
                   <thead>
                     <tr style="background:#f0ede8">
@@ -5328,17 +5333,17 @@ if ('serviceWorker' in navigator) {
             <div class="card" style="padding:0;overflow:hidden">
               <div id="clean-title" style="background:#7a4f0d;color:#fff;padding:9px 14px;font-size:17px;font-weight:600">🧹 ตารางการทำความสะอาด DD 1</div>
               <div style="overflow-x:auto">
-                <table style="width:100%;border-collapse:collapse;font-size:16px">
+                <table style="min-width:100%;border-collapse:collapse;font-size:16px">
                   <thead>
                     <tr style="background:#f5e8d0;text-align:center">
-                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:15px;width:4%">ที่</th>
-                      <th style="padding:6px 10px;border:1px solid #ddd;font-size:15px;text-align:left">รายการ</th>
-                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:15px;min-width:60px">ทุกวัน</th>
-                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:15px;min-width:50px">ช-ย</th>
-                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:15px;min-width:80px">2ครั้ง/wks</th>
-                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:15px;min-width:75px">ทุก2wks</th>
-                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:15px;min-width:85px">ทุกเดือน</th>
-                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:15px;min-width:85px">ทุก6เดือน</th>
+                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:15px;white-space:nowrap;width:32px">ที่</th>
+                      <th style="padding:6px 10px;border:1px solid #ddd;font-size:15px;text-align:left;min-width:120px">รายการ</th>
+                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:15px;white-space:nowrap;min-width:60px">ทุกวัน</th>
+                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:15px;white-space:nowrap;min-width:50px">ช-ย</th>
+                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:15px;white-space:nowrap;min-width:80px">2ครั้ง/wks</th>
+                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:15px;white-space:nowrap;min-width:75px">ทุก2wks</th>
+                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:15px;white-space:nowrap;min-width:85px">ทุกเดือน</th>
+                      <th style="padding:6px 7px;border:1px solid #ddd;font-size:15px;white-space:nowrap;min-width:85px">ทุก6เดือน</th>
                     </tr>
                   </thead>
                   <tbody id="clean-tbody"></tbody>
