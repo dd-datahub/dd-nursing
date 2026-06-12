@@ -1056,12 +1056,7 @@ function fmtDueForMonth(due_date, ym) {
   return `${d} ${thaiM[m]} ${y+543}`;
 }
 
-function setBottomNav(page) {
-  document.querySelectorAll('.bnav-item').forEach(b => b.classList.remove('active'));
-  // bottom nav แสดงเฉพาะ home button ซึ่งทำหน้าที่เป็น back-to-home
-  const homeBtn = document.getElementById('bnav-home');
-  if (homeBtn) homeBtn.classList.toggle('active', page === 'home');
-}
+
 
 // ========== DEVICE & OS DETECTION ==========
 (function(){
@@ -1161,8 +1156,7 @@ function setPage(page) {
   // Body class สำหรับ CSS padding
   document.body.classList.toggle('on-home', isHome);
   // Bottom nav: show on sub-pages (mobile), hide on home
-  const bnav = document.getElementById('bottom-nav');
-  if (bnav) bnav.style.display = isHome ? 'none' : (_isMobile() ? 'flex' : 'none');
+
 
   // Home page padding (no bottom nav offset needed on home)
   const mc = document.querySelector('.main-content');
@@ -1181,7 +1175,6 @@ function setPage(page) {
   if (mc) mc.scrollTop = 0;
 
   // sync bottom nav active
-  setBottomNav(page);
 }
 
 // อัพเดท user info บน home page
@@ -4533,53 +4526,8 @@ function staffSchedInit() {
 img,video,canvas,svg,iframe{max-width:100%}
 input,select,textarea{max-width:100%}
 body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a1916;font-size:16px;height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
-/* ===== SIDEBAR LAYOUT ===== */
+/* ===== APP LAYOUT ===== */
 .app-layout{display:flex;flex:1;min-height:0;overflow:hidden}
-.sidebar{width:220px;min-width:220px;background:#fff;border-right:1px solid #e8e5e0;display:flex;flex-direction:column;flex-shrink:0;height:100%;overflow:hidden;transition:width .28s cubic-bezier(.4,0,.2,1),min-width .28s cubic-bezier(.4,0,.2,1),transform .28s cubic-bezier(.4,0,.2,1)}
-/* Collapsed state */
-.sidebar.collapsed{width:54px;min-width:54px}
-.sidebar.collapsed .nav-text{opacity:0;width:0;overflow:hidden;white-space:nowrap;transition:opacity .2s,width .28s}
-.sidebar.collapsed .nav-badge{display:none}
-.sidebar.collapsed .sidebar-logo-text{opacity:0;width:0;overflow:hidden;white-space:nowrap}
-.sidebar.collapsed .sidebar-section{display:none}
-.sidebar.collapsed .nav-item{justify-content:center;padding:11px 0;gap:0}
-.sidebar.collapsed .nav-icon{width:22px;font-size:17px}
-.sidebar.collapsed .sidebar-cases,.sidebar.collapsed .case-search{display:none}
-.sidebar.collapsed .sidebar-footer{display:none}
-.sidebar.collapsed .sidebar-header{padding:14px 0;justify-content:center}
-/* Sidebar overlay */
-.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:199}
-.sidebar-overlay.open{display:block}
-/* Toggle button */
-.sidebar-toggle{display:flex;align-items:center;justify-content:center;width:34px;height:34px;cursor:pointer;border-radius:8px;background:#f5f3ef;border:1px solid #e8e5e0;flex-shrink:0;font-size:17px;-webkit-tap-highlight-color:transparent;transition:background .15s;user-select:none}
-.sidebar-toggle:hover{background:#e8f5ee;color:#1a6b4a}
-.sidebar-header{padding:14px 14px 10px;border-bottom:1px solid #f0ede8;display:flex;align-items:center;gap:8px}
-.sidebar-logo{font-size:17px;font-weight:700;color:#c45570;margin-bottom:2px}
-.sidebar-sub{font-size:13px;color:#999}
-.sidebar-section{padding:10px 10px 4px;font-size:12px;font-weight:600;color:#bbb;text-transform:uppercase;letter-spacing:.5px}
-.sidebar-nav{flex:1;overflow-y:auto;overflow-x:hidden}
-.nav-item{display:flex;align-items:center;gap:8px;padding:9px 14px;cursor:pointer;font-size:15px;color:#555;transition:background .12s;border-radius:0;position:relative}
-.nav-item:hover{background:#f5fbf7;color:#1a6b4a}
-.nav-item.active{background:#e8f5ee;color:#1a6b4a;font-weight:600}
-.nav-item .nav-icon{font-size:17px;width:20px;text-align:center;flex-shrink:0}
-.nav-badge{font-size:12px;background:#c45570;color:#fff;border-radius:10px;padding:1px 6px;margin-left:auto;font-weight:600}
-/* case list in sidebar */
-.sidebar-cases{padding:0 0 12px}
-.branch-group{}
-.branch-header{display:flex;align-items:center;gap:6px;padding:8px 14px 6px;cursor:pointer;user-select:none;transition:background .1s;border-top:1px solid #f0ede8}
-.branch-header:hover{background:#f9f7f4}
-.branch-header .bh-icon{font-size:14px;color:#bbb;transition:transform .2s;flex-shrink:0}
-.branch-header.open .bh-icon{transform:rotate(90deg)}
-.branch-header .bh-label{font-size:13px;font-weight:700;color:#888;flex:1;text-transform:uppercase;letter-spacing:.4px}
-.branch-header .bh-count{font-size:12px;background:#f0ede8;color:#999;border-radius:10px;padding:1px 6px}
-.branch-body{overflow:hidden;transition:max-height .25s ease}
-.branch-body.closed{max-height:0!important}
-.case-item{display:flex;align-items:center;gap:6px;padding:7px 14px 7px 20px;cursor:pointer;font-size:14px;color:#555;transition:background .1s;border-left:3px solid transparent}
-.case-item:hover{background:#f5fbf7;color:#1a6b4a}
-.case-item.selected{background:#e8f5ee;color:#1a6b4a;border-left-color:#1a6b4a;font-weight:600}
-.case-due{font-size:12px;color:#bbb;white-space:nowrap;flex-shrink:0}
-.case-search{margin:6px 10px;padding:6px 10px;width:calc(100% - 20px);border:1px solid #e0dbd2;border-radius:7px;font-size:14px;font-family:inherit;outline:none}
-.case-search:focus{border-color:#1a6b4a}
 /* main content */
 .main-wrapper{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
 .main-content{flex:1;padding:14px 16px;overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;min-width:0;word-break:break-word}
@@ -4596,27 +4544,9 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
   .main-content{padding:12px 14px 14px}
 }
 
-/* Mobile: sidebar as overlay drawer, show bottom nav */
+/* Mobile layout */
 @media(max-width:640px){
-  .sidebar{
-    position:fixed;top:0;left:0;height:100%;height:100dvh;
-    transform:translateX(-100%);width:240px!important;min-width:240px!important;
-    z-index:200;box-shadow:4px 0 20px rgba(0,0,0,.18)
-  }
-  .sidebar.open{transform:translateX(0)}
-  /* restore collapsed overrides on mobile */
-  .sidebar .nav-text{opacity:1!important;width:auto!important}
-  .sidebar .nav-badge{display:flex!important}
-  .sidebar .sidebar-logo-text{opacity:1!important;width:auto!important}
-  .sidebar .sidebar-section{display:block!important}
-  .sidebar .nav-item{justify-content:flex-start!important;padding:9px 14px!important;gap:8px!important}
-  .sidebar .nav-icon{width:20px!important;font-size:17px!important}
-  .sidebar .sidebar-footer{display:flex!important}
-  .sidebar .sidebar-header{padding:14px 14px 10px!important;justify-content:flex-start!important}
-  /* sub-pages มี bottom nav → padding bottom */
-  body:not(.on-home) .main-content{padding:10px 12px 76px;padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
-  /* home page ไม่มี bottom nav → ไม่ต้อง offset */
-  body.on-home .main-content{padding:10px 12px 16px}
+  .main-content{padding-bottom:16px}
   .topbar{padding:10px 14px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
   .card{padding:12px 14px;border-radius:10px}
   .dash-grid{grid-template-columns:1fr;gap:10px}
@@ -4668,27 +4598,7 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
   #vp-checklist .card,#vp-sbs .card,#vp-timesheet .card,#vp-branchwork .card{padding:6px 10px;margin-bottom:6px}
 }
 
-/* Bottom navigation bar (mobile only) */
-.bottom-nav{
-  display:none;
-  position:fixed;bottom:0;left:0;right:0;
-  background:#fff;border-top:1.5px solid #e8e5e0;
-  z-index:200;padding:env(safe-area-inset-bottom,0) 0 0;
-  box-shadow:0 -2px 12px rgba(0,0,0,.08);
-}
-@media(max-width:640px){
-  .bottom-nav{display:flex}
-}
-.bnav-item{
-  flex:1;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;padding:8px 0 10px;cursor:pointer;
-  color:#aaa;font-size:12px;gap:3px;border:none;
-  background:none;font-family:inherit;transition:color .15s;
-  -webkit-tap-highlight-color:transparent;
-}
-.bnav-item.active{color:#1a6b4a}
-.bnav-icon{font-size:22px;line-height:1}
-.bnav-label{font-size:12px;font-weight:500}
+
 .branch-btn{padding:8px 16px;border:1px solid #e0dbd2;border-radius:20px;cursor:pointer;font-size:15px;color:#666;background:#fff;font-family:inherit;transition:all .15s;-webkit-tap-highlight-color:transparent}
 .branch-btn:hover{border-color:#1a6b4a;color:#1a6b4a}
 .branch-btn.active{background:#1a6b4a;color:#fff;border-color:#1a6b4a}
@@ -4919,7 +4829,6 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 #topbar-back-btn:hover{background:#e8f5ee;color:#1a6b4a}
 
 /* ซ่อน bottom nav เมื่อใช้ home navigation */
-.bottom-nav-hidden .bottom-nav{display:none!important}
 
 /* ============================================================
    CROSS-DEVICE ADAPTIVE SYSTEM
@@ -4956,14 +4865,13 @@ html[data-touch="1"] button,
 html[data-touch="1"] [onclick],
 html[data-touch="1"] .nav-item,
 html[data-touch="1"] .vsheet-btn,
-html[data-touch="1"] .bnav-item,
 html[data-touch="1"] .case-item{
   -webkit-tap-highlight-color:transparent;
   touch-action:manipulation   /* ยกเลิก double-tap zoom, ลด delay 300ms */
 }
 /* Minimum tap target 44px (Apple HIG / Material) */
 html[data-touch="1"] .nav-item{min-height:44px}
-html[data-touch="1"] .bnav-item{min-height:50px}
+
 html[data-touch="1"] .vsheet-btn{min-height:40px}
 
 /* ── PHONE (≤640px) ─────────────────────────────────────────── */
@@ -4991,23 +4899,9 @@ html[data-device="tablet"] .main-content{padding:12px 16px 16px}
 html[data-device="tablet"] .card{padding:13px 16px;border-radius:11px}
 html[data-device="tablet"] .vsheet-btn{font-size:14px;padding:7px 13px}
 html[data-device="tablet"] .topbar{padding:10px 18px}
-/* Tablet portrait: sidebar ยังคงอยู่ (ไม่ซ่อน) แต่อาจ collapsed */
-html[data-device="tablet"][data-orient="portrait"] .sidebar{min-width:54px;width:54px}
-html[data-device="tablet"][data-orient="portrait"] .sidebar .nav-text{opacity:0;width:0;overflow:hidden}
-html[data-device="tablet"][data-orient="portrait"] .sidebar .sidebar-section,
-html[data-device="tablet"][data-orient="portrait"] .sidebar .sidebar-footer,
-html[data-device="tablet"][data-orient="portrait"] .sidebar .sidebar-cases,
-html[data-device="tablet"][data-orient="portrait"] .sidebar .case-search{display:none!important}
-html[data-device="tablet"][data-orient="portrait"] .sidebar .nav-item{justify-content:center;padding:11px 0;gap:0}
-html[data-device="tablet"][data-orient="portrait"] .sidebar .nav-icon{width:22px;font-size:18px}
-html[data-device="tablet"][data-orient="portrait"] .sidebar .sidebar-header{padding:12px 0;justify-content:center}
-html[data-device="tablet"][data-orient="portrait"] .sidebar .sidebar-logo-text{opacity:0;width:0;overflow:hidden}
-/* Tablet landscape: full sidebar */
-html[data-device="tablet"][data-orient="landscape"] .sidebar{position:relative;transform:none!important}
+
 
 /* ── DESKTOP (>960px non-touch / >1100px any) ───────────────── */
-html[data-device="desktop"] .bottom-nav{display:none!important}
-html[data-device="desktop"] .sidebar{position:relative;transform:none!important}
 html[data-device="desktop"] .main-content{padding:14px 18px}
 
 /* ── Global text safety ──────────────────────────────────────── */
@@ -5022,7 +4916,6 @@ html[data-device="desktop"] .main-content{padding:14px 18px}
 [id$="-scroll"]{max-height:calc(100dvh - 180px)}
 
 /* ── Safe area (notch / home indicator) ──────────────────────── */
-.bottom-nav{padding-bottom:env(safe-area-inset-bottom,0px)}
 body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 
 /* ── Topbar title: ตัดสั้นตามขนาดหน้าจอ ──────────────────────── */
@@ -5927,13 +5820,6 @@ if ('serviceWorker' in navigator) {
   </div><!-- end main column -->
 </div><!-- end app-layout -->
 
-  <!-- Bottom Navigation (mobile only) -->
-  <nav class="bottom-nav" id="bottom-nav" style="justify-content:center">
-    <button class="bnav-item" id="bnav-home" onclick="setPage('home')" style="flex:0 0 auto;padding:8px 28px 10px">
-      <span class="bnav-icon">🏠</span>
-      <span class="bnav-label">หน้าหลัก</span>
-    </button>
-  </nav>
 
 <!-- ===== Thai Calendar Date Picker (popup) ===== -->
 <div id="tdp-overlay" onclick="closeTdp()"
