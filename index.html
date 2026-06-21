@@ -388,6 +388,22 @@ function _mergeFirebaseCustomers(customersData) {
 }
 window._mergeFirebaseCustomers = _mergeFirebaseCustomers;
 
+// คืนค่า key ที่ถูก sanitize (replace "/" → "_") ตอนบันทึกลง Firebase กลับเป็นรูปแบบเดิม
+// ใช้วิธีจับคู่กับรหัสลูกค้าจริงในระบบ (ไม่ผูกกับรูปแบบ "DD#" ตายตัว) เพื่อให้รองรับ
+// รหัสลูกค้าทุกสาขา รวมถึงสาขาอุดรที่อาจใช้รูปแบบรหัสต่างไปจากสาขาหลัก
+function _restoreCustKey(k) {
+  for (const c of customers) {
+    if (!c.id || !c.id.includes('/')) continue;
+    const sanitized = c.id.replace(/\//g, '_');
+    if (k === sanitized || k.startsWith(sanitized + '_')) {
+      return c.id + k.slice(sanitized.length);
+    }
+  }
+  // fallback heuristic เดิม เผื่อรหัสนั้นไม่อยู่ใน customers แล้ว (เช่นถูกลบไปแล้ว)
+  return k.replace(/^(DD\d+)_(\d+)_?/, (m, a, b) => `${a}/${b}${m.endsWith('_') ? '_' : ''}`);
+}
+window._restoreCustKey = _restoreCustKey;
+
 // ===== LOAD from Firebase on start =====
 async function fbLoad() {
   try {
@@ -403,15 +419,27 @@ async function fbLoad() {
       const s = _fbSnaps[i];
       if (s && s.exists()) d[p] = s.val();
     });
+    // merge ลูกค้าจาก Firebase ก่อนเพื่อให้ _restoreCustKey() จับคู่รหัสลูกค้าได้ครบ
+    // ทุกสาขา (รวมสาขาอุดร) ก่อนที่จะ restore key ของ payments/discharged ด้านล่าง
+    if (d.customers) {
+      // ลูกค้าที่เพิ่มใหม่ (ไม่อยู่ใน RAW seed) → ดึงกลับมาแสดง / อัปเดตลูกค้าเดิม
+      _mergeFirebaseCustomers(d.customers);
+    }
+    if (d.customers_extra) {
+      // Merge extra customer data (edits) back
+      Object.entries(d.customers_extra).forEach(([id, extra]) => {
+        const c = customers.find(x=>x.id===id);
+        if (c) Object.assign(c, extra);
+      });
+    }
     if (d.payHistory && Array.isArray(d.payHistory)) {
       payHistory = d.payHistory;
     }
     if (d.payments) {
-      // Restore keys: _ back to / where needed (DD1_03 → DD1/03)
+      // Restore keys: _ back to / where needed (DD1_03 → DD1/03, อิงตามรหัสลูกค้าจริง)
       payments = {};
       Object.entries(d.payments).forEach(([k,v]) => {
-        const restored = k.replace(/^(DD\d)_(\d+)_/, '$1/$2_');
-        payments[restored] = v;
+        payments[_restoreCustKey(k)] = v;
       });
     }
     // ถ้า payHistory ว่าง ให้สร้างจาก payments ที่โหลดมา
@@ -443,9 +471,8 @@ async function fbLoad() {
     if (d.discharged) {
       discharged = {};
       Object.entries(d.discharged).forEach(([k,v]) => {
-        // Restore key: DD1_03 → DD1/03
-        const restored = k.replace(/^(DD\d+)_(\d+)/, '$1/$2');
-        discharged[restored] = v;
+        // Restore key: DD1_03 → DD1/03 (อิงตามรหัสลูกค้าจริง)
+        discharged[_restoreCustKey(k)] = v;
       });
     }
     if (d.invoiced)     { invoiced     = d.invoiced;     }
@@ -462,17 +489,7 @@ async function fbLoad() {
       // Merge Firebase cat_meta with defaults (keep defaults as fallback)
       Object.assign(CAT_META, d.cat_meta);
     }
-    if (d.customers) {
-      // ลูกค้าที่เพิ่มใหม่ (ไม่อยู่ใน RAW seed) → ดึงกลับมาแสดง / อัปเดตลูกค้าเดิม
-      _mergeFirebaseCustomers(d.customers);
-    }
-    if (d.customers_extra) {
-      // Merge extra customer data (edits) back
-      Object.entries(d.customers_extra).forEach(([id, extra]) => {
-        const c = customers.find(x=>x.id===id);
-        if (c) Object.assign(c, extra);
-      });
-    }
+    // (merge ลูกค้า/customers_extra ทำไปแล้วด้านบนแล้ว ก่อนการ restore key ของ payments/discharged)
     // Render after load
     updateDashboard();
     renderTable();
@@ -506,8 +523,7 @@ function listenAllData() {
     if (snap.exists()) {
       payments = {};
       Object.entries(snap.val()).forEach(([k, v]) => {
-        const restored = k.replace(/^(DD\d)_(\d+)_/, '$1/$2_');
-        payments[restored] = v;
+        payments[_restoreCustKey(k)] = v;
       });
     } else { payments = {}; }
     updateDashboard?.();
@@ -528,8 +544,7 @@ function listenAllData() {
     if (snap.exists()) {
       discharged = {};
       Object.entries(snap.val()).forEach(([k, v]) => {
-        const restored = k.replace(/^(DD\d+)_(\d+)/, '$1/$2');
-        discharged[restored] = v;
+        discharged[_restoreCustKey(k)] = v;
       });
     } else { discharged = {}; }
     updateDashboard?.();
