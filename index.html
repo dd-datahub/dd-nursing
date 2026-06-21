@@ -27,6 +27,7 @@
   --b1: #1a5c9e; --b1l: #deeaf8;
   --b2: #1a6b4a; --b2l: #ddf0e8;
   --b3: #7a4f0d; --b3l: #f5e8d0;
+  --b4: #7c3aed; --b4l: #ede9fe;
   --paid: #1a6b4a; --paid-bg: #e8f5ee;
   --unpaid: #c0392b; --unpaid-bg: #fdf0ee;
   --partial: #b8620a; --partial-bg: #fef6ed;
@@ -151,6 +152,7 @@ td { padding: 10px 12px; font-size: 13px; vertical-align: middle; }
 .b1-tag { background: var(--b1l); color: var(--b1); }
 .b2-tag { background: var(--b2l); color: var(--b2); }
 .b3-tag { background: var(--b3l); color: var(--b3); }
+.b4-tag { background: var(--b4l); color: var(--b4); }
 .status-badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; white-space: nowrap; }
 .status-paid { background: var(--paid-bg); color: var(--paid); }
 .status-unpaid { background: var(--unpaid-bg); color: var(--unpaid); }
@@ -688,7 +690,7 @@ window._fbSave = fbSave;
         <div class="stat-card">
           <div class="stat-label">ลูกค้าทั้งหมด</div>
           <div class="stat-value" id="s-total">0</div>
-          <div class="stat-sub">3 สาขา</div>
+          <div class="stat-sub">4 สาขา</div>
         </div>
         <div class="stat-card green">
           <div class="stat-label" id="s-revenue-label">รายได้/เดือน</div>
@@ -740,6 +742,7 @@ window._fbSave = fbSave;
         <button class="month-tab"        id="rbf-b1"   onclick="setReminderBranch('สาขา 1')">สาขา 1</button>
         <button class="month-tab"        id="rbf-b2"   onclick="setReminderBranch('สาขา 2')">สาขา 2</button>
         <button class="month-tab"        id="rbf-b3"   onclick="setReminderBranch('สาขา 3')">สาขา 3</button>
+        <button class="month-tab"        id="rbf-b4"   onclick="setReminderBranch('สาขาอุดร')">สาขาอุดร</button>
       </div>
       <div id="billing-reminders"></div>
 
@@ -756,7 +759,7 @@ window._fbSave = fbSave;
         <div class="filter-row">
           <select id="f-branch" onchange="renderTable()">
             <option value="">ทุกสาขา</option>
-            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option>
+            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
           </select>
           <select id="f-bank" onchange="renderTable()">
             <option value="">ทุกธนาคาร</option>
@@ -803,7 +806,7 @@ window._fbSave = fbSave;
         <div class="filter-row">
           <select id="df-branch" onchange="renderDischarged()">
             <option value="">ทุกสาขา</option>
-            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option>
+            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
           </select>
           <input type="text" id="df-search" placeholder="ค้นหาชื่อ / รหัส..." oninput="renderDischarged()" style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;color:var(--text);background:var(--surface);outline:none;width:200px">
         </div>
@@ -904,7 +907,7 @@ window._fbSave = fbSave;
         <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
           <select id="rsum-month" onchange="renderReqSummary()" style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;outline:none;background:var(--surface);color:var(--text)"></select>
           <select id="rsum-branch" onchange="renderReqSummary()" style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;outline:none;background:var(--surface);color:var(--text)">
-            <option value="">ทุกสาขา</option><option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option>
+            <option value="">ทุกสาขา</option><option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
           </select>
           <!-- customer name search -->
           <div style="position:relative;flex:1;min-width:180px;max-width:280px">
@@ -1009,7 +1012,7 @@ window._fbSave = fbSave;
         <div class="filter-row">
           <select id="bf-branch" onchange="renderBilling()">
             <option value="">ทุกสาขา</option>
-            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option>
+            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
           </select>
           <select id="bf-status" onchange="renderBilling()">
             <option value="">ทุกสถานะ</option>
@@ -1065,7 +1068,7 @@ window._fbSave = fbSave;
       <!-- Filter bar -->
       <div class="filter-row" style="margin-bottom:12px;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border)">
         <select id="rf-branch" onchange="renderRefundList()" style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px">
-          <option value="">ทุกสาขา</option><option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option>
+          <option value="">ทุกสาขา</option><option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
         </select>
         <input type="text" id="rf-search" placeholder="ค้นหาชื่อ / รหัส..." oninput="renderRefundList()"
           style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;width:200px">
@@ -1179,7 +1182,7 @@ window._fbSave = fbSave;
       <div class="form-section">ข้อมูลส่วนตัว</div>
       <div class="form-row">
         <div class="form-group"><label>รหัสลูกค้า</label><input type="text" id="add-id" placeholder="DD1/48"></div>
-        <div class="form-group"><label>สาขา</label><select id="add-branch"><option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option></select></div>
+        <div class="form-group"><label>สาขา</label><select id="add-branch"><option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option></select></div>
       </div>
       <div class="form-group"><label>ชื่อลูกค้า</label><input type="text" id="add-name" placeholder="คุณ ชื่อ นามสกุล"></div>
       <div class="form-group"><label>ที่อยู่</label><textarea id="add-address" rows="2"></textarea></div>
@@ -1302,7 +1305,7 @@ window._fbSave = fbSave;
         <div class="form-group">
           <label>สาขา</label>
           <select id="edit-branch">
-            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option>
+            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
           </select>
         </div>
       </div>
@@ -1825,8 +1828,8 @@ let _reminderBranch = '';
 function setReminderBranch(branch) {
   _reminderBranch = branch;
   // Update active tab
-  ['','สาขา 1','สาขา 2','สาขา 3'].forEach((b, i) => {
-    const ids = ['rbf-all','rbf-b1','rbf-b2','rbf-b3'];
+  ['','สาขา 1','สาขา 2','สาขา 3','สาขาอุดร'].forEach((b, i) => {
+    const ids = ['rbf-all','rbf-b1','rbf-b2','rbf-b3','rbf-b4'];
     const el  = document.getElementById(ids[i]);
     if (el) el.classList.toggle('active', b === branch);
   });
@@ -2036,7 +2039,9 @@ function fmt(n) { return n.toLocaleString('th-TH'); }
 function branchTag(b) {
   if(b==='สาขา 1') return '<span class="b1-tag">สาขา 1</span>';
   if(b==='สาขา 2') return '<span class="b2-tag">สาขา 2</span>';
-  return '<span class="b3-tag">สาขา 3</span>';
+  if(b==='สาขา 3') return '<span class="b3-tag">สาขา 3</span>';
+  if(b==='สาขาอุดร') return '<span class="b4-tag">สาขาอุดร</span>';
+  return `<span class="b3-tag">${b||'-'}</span>`;
 }
 function payKey(id, month) { return `${id}_${month}`; }
 
