@@ -1,0 +1,25 @@
+{
+  "name": "DD Nursing อุดร — Staff",
+  "short_name": "DD อุดร",
+  "description": "ระบบบันทึกพนักงาน DD Nursing Home สาขาอุดร",
+  "start_url": "./staffud.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "icons/icon-ud-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-ud-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
