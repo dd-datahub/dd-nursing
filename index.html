@@ -807,6 +807,21 @@ window._fbSave = fbSave;
 .login-google-btn:hover { box-shadow:0 2px 6px rgba(0,0,0,.15); background:#f8f8f8; }
 .login-err { color:#c0392b;font-size:12px;margin-top:10px;display:none; }
 </style>
+<script>
+// ลงทะเบียน sw.js (Service Worker เปล่า ไม่แคชอะไร) — มีไว้แค่ให้ Android/Chrome จัดเป็น PWA ติดตั้งได้
+// (ไอคอนหน้าโฮมเปิดแบบไม่มี URL bar) ไฟล์ยังโหลดจาก server ใหม่ทุกครั้งเหมือนเดิม ไม่มีการแคชใดๆ
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => {
+      if (!r.active || !r.active.scriptURL.endsWith('/sw.js')) r.unregister();
+    });
+  });
+  if ('caches' in window) {
+    caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+  }
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
 </head>
 <body>
 

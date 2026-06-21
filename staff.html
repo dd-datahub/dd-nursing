@@ -4963,14 +4963,19 @@ html[data-device="desktop"] .main-content table th{
 
 </style>
 <script>
-// ล้าง Service Worker cache — บังคับโหลดไฟล์ใหม่จาก server ทุกครั้ง
+// ลบ Service Worker "เก่า" ที่ไม่ใช่ sw.js ของเรา + ล้างแคชทั้งหมด แล้วลงทะเบียน sw.js (เปล่า ไม่แคชอะไร)
+// — มีไว้แค่ให้ Android/Chrome จัดเป็น PWA ติดตั้งได้ (ไอคอนหน้าโฮมเปิดแบบไม่มี URL bar)
+// ไฟล์ยังโหลดจาก server ใหม่ทุกครั้งเหมือนเดิม ไม่มีการแคชหน้าเว็บ/สคริปต์ใดๆ
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(regs => {
-    regs.forEach(r => r.unregister());
+    regs.forEach(r => {
+      if (!r.active || !r.active.scriptURL.endsWith('/sw.js')) r.unregister();
+    });
   });
   if ('caches' in window) {
     caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
   }
+  navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 </script>
 </head>
