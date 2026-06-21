@@ -334,8 +334,156 @@ async function _grantAdminAccess(user) {
     await fbLoad();
     listenRequisitions();
     listenAllData();
+    listenPermissions();
   }
 }
+
+// ========== จัดการสิทธิ์การเข้าถึง staff / staffud ==========
+// อ่าน/อนุมัติ/ปฏิเสธคำขอจาก uid_requests (staff.html) และ uid_requests_ud (staffud.html)
+// แล้วเขียนผลไปที่ allowed_uids / allowed_uids_ud ตามสิทธิ์ที่กำหนดไว้ใน firebase-rules.json
+let _uidRequests   = {};
+let _uidRequestsUd = {};
+let _allowedUids   = {};
+let _allowedUidsUd = {};
+
+function listenPermissions() {
+  onValue(ref(db, 'uid_requests'), snap => {
+    _uidRequests = snap.val() || {};
+    renderPermissionPage();
+  }, e => console.warn('listen uid_requests:', e));
+  onValue(ref(db, 'uid_requests_ud'), snap => {
+    _uidRequestsUd = snap.val() || {};
+    renderPermissionPage();
+  }, e => console.warn('listen uid_requests_ud:', e));
+  onValue(ref(db, 'allowed_uids'), snap => {
+    _allowedUids = snap.val() || {};
+    renderPermissionPage();
+  }, e => console.warn('listen allowed_uids:', e));
+  onValue(ref(db, 'allowed_uids_ud'), snap => {
+    _allowedUidsUd = snap.val() || {};
+    renderPermissionPage();
+  }, e => console.warn('listen allowed_uids_ud:', e));
+}
+
+function _fmtPermDate(iso) {
+  if (!iso) return '-';
+  try { return new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }); }
+  catch (_) { return iso; }
+}
+
+function _permSourceTag(source) {
+  return source === 'staffud'
+    ? '<span class="b4-tag">สาขาอุดร (staffud)</span>'
+    : '<span class="status-badge status-paid">ระบบหลัก (staff)</span>';
+}
+
+function renderPermissionPage() {
+  // --- คำขอที่รออนุมัติ (รวมจากทั้ง 2 ระบบ) ---
+  const reqList = [
+    ...Object.entries(_uidRequests).map(([uid, v]) => ({ uid, ...v, _source: 'staff' })),
+    ...Object.entries(_uidRequestsUd).map(([uid, v]) => ({ uid, ...v, _source: 'staffud' })),
+  ].sort((a, b) => (b.requestedAt || '').localeCompare(a.requestedAt || ''));
+
+  const countEl = document.getElementById('perm-req-count');
+  if (countEl) countEl.textContent = reqList.length;
+
+  const badge = document.getElementById('perm-badge');
+  if (badge) {
+    badge.style.display = reqList.length > 0 ? 'inline-block' : 'none';
+    badge.textContent = reqList.length;
+  }
+
+  const listEl  = document.getElementById('perm-req-list');
+  const emptyEl = document.getElementById('perm-req-empty');
+  if (listEl) {
+    if (reqList.length === 0) {
+      listEl.innerHTML = '';
+      if (emptyEl) emptyEl.style.display = 'block';
+    } else {
+      if (emptyEl) emptyEl.style.display = 'none';
+      listEl.innerHTML = reqList.map(r => `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)">
+          ${r.photoURL
+            ? `<img src="${r.photoURL}" onerror="this.style.display='none'" style="width:36px;height:36px;border-radius:50%;flex-shrink:0">`
+            : `<div style="width:36px;height:36px;border-radius:50%;background:var(--surface2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--text3)">👤</div>`}
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:500">${r.displayName || '(ไม่มีชื่อ)'} ${_permSourceTag(r._source)}</div>
+            <div style="font-size:12px;color:var(--text2)">${r.email || '-'} · ขอเมื่อ ${_fmtPermDate(r.requestedAt)}</div>
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="approveUidRequest('${r.uid}','${r._source}')">✓ อนุมัติ</button>
+          <button class="btn btn-sm btn-danger" onclick="rejectUidRequest('${r.uid}','${r._source}')">✕ ปฏิเสธ</button>
+        </div>`).join('');
+    }
+  }
+
+  // --- ผู้ที่ได้รับสิทธิ์แล้ว (allowed_uids + allowed_uids_ud) ---
+  const allowedList = [
+    ...Object.entries(_allowedUids).map(([uid, v]) => ({ uid, ...v, _source: 'staff' })),
+    ...Object.entries(_allowedUidsUd).map(([uid, v]) => ({ uid, ...v, _source: 'staffud' })),
+  ].sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
+
+  const tbody = document.getElementById('perm-allowed-tbody');
+  const allowedEmpty = document.getElementById('perm-allowed-empty');
+  if (tbody) {
+    if (allowedList.length === 0) {
+      tbody.innerHTML = '';
+      if (allowedEmpty) allowedEmpty.style.display = 'block';
+    } else {
+      if (allowedEmpty) allowedEmpty.style.display = 'none';
+      tbody.innerHTML = allowedList.map(a => `
+        <tr>
+          <td style="font-weight:500">${a.displayName || '(ไม่มีชื่อ)'}</td>
+          <td style="font-size:12px;color:var(--text2)">${a.email || '-'}</td>
+          <td>${_permSourceTag(a._source)}</td>
+          <td style="font-size:12px">${_fmtPermDate(a.addedAt)}</td>
+          <td><button class="btn btn-sm btn-danger" onclick="revokeUidAccess('${a.uid}','${a._source}')">เพิกถอนสิทธิ์</button></td>
+        </tr>`).join('');
+    }
+  }
+}
+
+async function approveUidRequest(uid, source) {
+  const reqData = source === 'staffud' ? _uidRequestsUd[uid] : _uidRequests[uid];
+  if (!reqData) { alert('ไม่พบคำขอนี้ (อาจถูกอนุมัติหรือลบไปแล้ว)'); return; }
+  const allowedPath = source === 'staffud' ? 'allowed_uids_ud' : 'allowed_uids';
+  const reqPath      = source === 'staffud' ? 'uid_requests_ud' : 'uid_requests';
+  try {
+    await set(ref(db, `${allowedPath}/${uid}`), {
+      email: reqData.email || '',
+      displayName: reqData.displayName || '',
+      addedAt: new Date().toISOString()
+    });
+    await set(ref(db, `${reqPath}/${uid}`), null);
+  } catch (e) {
+    console.warn('approveUidRequest error:', e);
+    alert('เกิดข้อผิดพลาดในการอนุมัติ กรุณาลองใหม่');
+  }
+}
+
+async function rejectUidRequest(uid, source) {
+  if (!confirm('ยืนยันปฏิเสธคำขอนี้?\nผู้ขอจะต้องเข้าสู่ระบบใหม่อีกครั้งหากต้องการขอสิทธิ์ใหม่')) return;
+  const reqPath = source === 'staffud' ? 'uid_requests_ud' : 'uid_requests';
+  try {
+    await set(ref(db, `${reqPath}/${uid}`), null);
+  } catch (e) {
+    console.warn('rejectUidRequest error:', e);
+    alert('เกิดข้อผิดพลาด กรุณาลองใหม่');
+  }
+}
+
+async function revokeUidAccess(uid, source) {
+  if (!confirm('ยืนยันเพิกถอนสิทธิ์การเข้าใช้งานของผู้นี้?')) return;
+  const allowedPath = source === 'staffud' ? 'allowed_uids_ud' : 'allowed_uids';
+  try {
+    await set(ref(db, `${allowedPath}/${uid}`), null);
+  } catch (e) {
+    console.warn('revokeUidAccess error:', e);
+    alert('เกิดข้อผิดพลาด กรุณาลองใหม่');
+  }
+}
+window.approveUidRequest = approveUidRequest;
+window.rejectUidRequest  = rejectUidRequest;
+window.revokeUidAccess   = revokeUidAccess;
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -666,6 +814,7 @@ window._fbSave = fbSave;
     <div class="nav-item" onclick="goPage('history')"><span class="nav-icon">📋</span> ประวัติการชำระ</div>
     <div class="nav-item" onclick="goPage('refund')"><span class="nav-icon">↩️</span> คืนเงินลูกค้า</div>
     <div class="nav-item" onclick="goPage('issues')"><span class="nav-icon">⚠️</span> ปัญหาข้อมูล <span class="nav-badge" style="background:var(--text3)">0</span></div>
+    <div class="nav-item" onclick="goPage('permission')"><span class="nav-icon">🔐</span> สิทธิ์การเข้าถึง <span class="nav-badge" id="perm-badge" style="display:none;background:#c0392b">0</span></div>
   </nav>
   <div class="sidebar-footer">
     <div id="admin-user-name"></div>
@@ -1120,6 +1269,39 @@ window._fbSave = fbSave;
         <b>ไม่พบข้อมูลซ้ำซ้อน</b> — ข้อมูลลูกค้าปัจจุบันทั้งหมดไม่มีชื่อซ้ำกันค่ะ
       </div>
       <div id="issues-list"></div>
+    </div>
+
+    <div class="page" id="page-permission">
+      <div class="alert alert-info">
+        <span class="alert-icon">ℹ️</span>
+        หน้านี้ใช้สำหรับอนุมัติ/ปฏิเสธคำขอเข้าใช้งานจากพนักงาน (staff.html และ staffud.html) และจัดการสิทธิ์ที่อนุมัติไปแล้ว
+      </div>
+      <div class="table-wrap" style="margin-bottom:16px">
+        <div class="table-header">
+          <h3>คำขอเข้าใช้งานที่รออนุมัติ (<span id="perm-req-count">0</span> รายการ)</h3>
+        </div>
+        <div id="perm-req-list"></div>
+        <div class="empty" id="perm-req-empty" style="display:none">
+          <div class="empty-icon">✅</div>
+          <div class="empty-text">ไม่มีคำขอที่รออนุมัติในขณะนี้</div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="table-header">
+          <h3>ผู้ที่ได้รับสิทธิ์เข้าใช้งานแล้ว</h3>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>ชื่อ</th><th>อีเมล</th><th>ระบบ</th><th>วันที่ได้รับสิทธิ์</th><th></th></tr></thead>
+            <tbody id="perm-allowed-tbody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="perm-allowed-empty" style="display:none">
+          <div class="empty-icon">👤</div>
+          <div class="empty-text">ยังไม่มีผู้ได้รับสิทธิ์เข้าใช้งาน</div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -4556,7 +4738,7 @@ function goPage(id) {
   });
   // Auto-close sidebar on mobile
   if (window.innerWidth <= 640) closeSidebar();
-  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล'};
+  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',permission:'จัดการสิทธิ์การเข้าถึง'};
   document.getElementById('page-title').textContent = titles[id]||'';
   if(id==='customers')    renderTable();
   if(id==='discharged')   renderDischarged();
@@ -4566,6 +4748,7 @@ function goPage(id) {
   if(id==='history')      renderHistory();
   if(id==='issues')       renderIssues();
   if(id==='dashboard')    updateDashboard();
+  if(id==='permission')   renderPermissionPage();
 }
 
 // ========== CATEGORY (CAT_META) MANAGEMENT ==========
