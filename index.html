@@ -1833,7 +1833,7 @@ window._fbSave = fbSave;
 .rcpt-header { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
 .rcpt-company-name { font-size: 16px; font-weight: 700; color: #c45570; margin-bottom: 2px; }
 .rcpt-company-en { font-size: 12px; color: #555; margin-bottom: 4px; }
-.rcpt-company-addr { font-size: 11.5px; color: #444; line-height: 1.6; }
+.rcpt-company-addr { font-size: 10.5px; color: #444; line-height: 1.6; }
 .rcpt-copy-box { text-align: center; border: 1.5px solid #333; padding: 6px 14px; border-radius: 4px; }
 .rcpt-copy-title { font-size: 12px; font-weight: 700; }
 .rcpt-copy-sub { font-size: 11px; color: #555; margin-top: 2px; }
@@ -4129,21 +4129,21 @@ function renderReceiptContent() {
         <div class="rcpt-company-name" style="font-size:17px">บริษัท เนอร์สซิ่ง โฮมอุดร ดีดี จำกัด</div>
         <div class="rcpt-company-en">NURSING HOMEUDON DD CO., LTD.</div>
         <div class="rcpt-company-addr">
-          288 หมู่ที่ 8 ซอยบ้านดงวัด ตำบลหมากแข้ง อำเภอเมืองอุดรธานี จ.อุดรธานี 41000<br>
+          <span style="white-space:nowrap">288 หมู่ที่ 8 ซอยบ้านดงวัด ตำบลหมากแข้ง อำเภอเมืองอุดรธานี จ.อุดรธานี 41000</span><br>
           โทร : 089-944-4987 , 080-821-8363<br>
           เลขประจำตัวผู้เสียภาษีอากร : <b>0415565000188</b>
         </div>` : `
         <div class="rcpt-company-name" style="font-size:17px">บริษัท เนอร์สซิ่งโฮม ดีดี จำกัด</div>
         <div class="rcpt-company-en">NURSING HOME DD CO.,LTD.</div>
         <div class="rcpt-company-addr">
-          1 หมู่บ้าน ประชานิเวศน์ 4 ตำบลท่าทราย อำเภอเมืองนนทบุรี จ.นนทบุรี 11000<br>
+          <span style="white-space:nowrap">1 หมู่บ้าน ประชานิเวศน์ 4 ตำบลท่าทราย อำเภอเมืองนนทบุรี จ.นนทบุรี 11000</span><br>
           โทร : 089-9444987 , 085-0015884&nbsp;&nbsp;|&nbsp;&nbsp;Email : DDnursinghome@outlook.com<br>
           เลขประจำตัวผู้เสียภาษีอากร : <b>0125562018704</b>
         </div>`;
 
 document.getElementById('receipt-print-area').innerHTML = `
     <div class="rcpt-header" style="display:flex;align-items:center;gap:16px;margin-bottom:10px">
-      <img src="${rcptLogoSrc}" style="width:${isUdonBranch?130:80}px;height:${isUdonBranch?120:80}px;object-fit:contain;flex-shrink:0" alt="DD Logo">
+      <img src="${rcptLogoSrc}" style="width:${isUdonBranch?150:80}px;height:${isUdonBranch?140:80}px;object-fit:contain;flex-shrink:0" alt="DD Logo">
       <div style="flex:1">${rcptCompanyHeaderHtml}
       </div>
       <div style="text-align:center;flex-shrink:0;margin-left:8px">
@@ -4347,7 +4347,7 @@ body {
 .rcpt-header { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
 .rcpt-company-name { font-size: 16px; font-weight: 700; color: #c45570; margin-bottom: 2px; }
 .rcpt-company-en { font-size: 12px; color: #555; margin-bottom: 4px; }
-.rcpt-company-addr { font-size: 11.5px; color: #444; line-height: 1.6; }
+.rcpt-company-addr { font-size: 10.5px; color: #444; line-height: 1.6; }
 .rcpt-copy-box { text-align: center; border: 1.5px solid #333; padding: 6px 14px; border-radius: 4px; }
 .rcpt-copy-title { font-size: 12px; font-weight: 700; }
 .rcpt-copy-sub { font-size: 11px; color: #555; margin-top: 2px; }
@@ -4681,13 +4681,13 @@ function printRefundReceipt(id) {
   const rfCompanyHeaderHtml = isUdonBranchRf ? `
           <div style="font-size:17px;font-weight:700;color:#c45570">บริษัท เนอร์สซิ่ง โฮมอุดร ดีดี จำกัด</div>
           <div style="font-size:12px;color:#555">NURSING HOMEUDON DD CO., LTD.</div>
-          <div style="font-size:10.5px;color:#444;line-height:1.5">
-            288 หมู่ที่ 8 ซอยบ้านดงวัด ตำบลหมากแข้ง อำเภอเมืองอุดรธานี จ.อุดรธานี 41000 &nbsp;|&nbsp; <span style="white-space:nowrap">โทร : 089-944-4987, 080-821-8363</span>
+          <div style="font-size:10px;color:#444;line-height:1.5">
+            <span style="white-space:nowrap">288 หมู่ที่ 8 ซอยบ้านดงวัด ตำบลหมากแข้ง อำเภอเมืองอุดรธานี จ.อุดรธานี 41000</span> &nbsp;|&nbsp; <span style="white-space:nowrap">โทร : 089-944-4987, 080-821-8363</span>
           </div>` : `
           <div style="font-size:17px;font-weight:700;color:#c45570">บริษัท เนอร์สซิ่งโฮม ดีดี จำกัด</div>
           <div style="font-size:12px;color:#555">NURSING HOME DD CO.,LTD.</div>
-          <div style="font-size:10.5px;color:#444;line-height:1.5">
-            1 หมู่บ้านประชานิเวศน์ 4 ต.ท่าทราย อ.เมืองนนทบุรี จ.นนทบุรี 11000 &nbsp;|&nbsp; <span style="white-space:nowrap">โทร : 089-9444987, 085-0015884</span> &nbsp;|&nbsp; <span style="white-space:nowrap">Email : DDnursinghome@outlook.com</span>
+          <div style="font-size:10px;color:#444;line-height:1.5">
+            <span style="white-space:nowrap">1 หมู่บ้านประชานิเวศน์ 4 ต.ท่าทราย อ.เมืองนนทบุรี จ.นนทบุรี 11000</span> &nbsp;|&nbsp; <span style="white-space:nowrap">โทร : 089-9444987, 085-0015884</span> &nbsp;|&nbsp; <span style="white-space:nowrap">Email : DDnursinghome@outlook.com</span>
           </div>`;
 
   const diffRows = (r.diffItems || []).map((item,i) => `
@@ -4706,7 +4706,7 @@ function printRefundReceipt(id) {
     <div style="font-family:'IBM Plex Sans Thai',Sarabun,sans-serif;font-size:13px;padding:24px 28px;color:#111;line-height:1.55">
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:10px">
-        ${logoSrc ? `<img src="${logoSrc}" style="width:${isUdonBranchRf?108:72}px;height:${isUdonBranchRf?108:72}px;object-fit:contain;flex-shrink:0">` : ''}
+        ${logoSrc ? `<img src="${logoSrc}" style="width:${isUdonBranchRf?124:72}px;height:${isUdonBranchRf?124:72}px;object-fit:contain;flex-shrink:0">` : ''}
         <div style="flex:1">${rfCompanyHeaderHtml}
         </div>
         <div style="text-align:center;flex-shrink:0">
