@@ -59,8 +59,8 @@ input, select, textarea, button { font-family: inherit; font-size: 14px; }
   .topbar-title { font-size: 14px; }
   .content { padding: 12px; }
   .stats-row { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .stat-value { font-size: 20px; }
-  .stat-card { padding: 12px; }
+  .stats-row .stat-value { font-size: 20px; }
+  .stats-row .stat-card { padding: 12px; }
   .hamburger { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; cursor: pointer; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); flex-shrink: 0; font-size: 18px; -webkit-tap-highlight-color: transparent; }
   .btn { padding: 8px 14px; font-size: 13px; }
   .btn-sm { padding: 6px 10px; font-size: 12px; }
@@ -121,12 +121,14 @@ input, select, textarea, button { font-family: inherit; font-size: 14px; }
 /* Page sections */
 .page { display: none; }
 .page.active { display: block; }
+/* หน้าที่ต้องการให้เนื้อหา (กราฟ/รายการ) ยืดเต็มพื้นที่จอที่เหลือ เช่น ภาพรวม, แจ้งเตือนบิล */
+.page-fill.active { display: flex; flex-direction: column; height: 100%; }
 
 /* Stats row */
 .stats-row { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 20px; }
-.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
 .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
-.stat-value { font-size: 24px; font-weight: 600; color: var(--text); font-family: 'IBM Plex Mono', monospace; }
+.stat-value { font-size: 30px; font-weight: 600; color: var(--text); font-family: 'IBM Plex Mono', monospace; }
 .stat-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
 .stat-card.green .stat-value { color: var(--accent); }
 .stat-card.red .stat-value { color: var(--danger); }
@@ -196,8 +198,8 @@ td { padding: 10px 12px; font-size: 13px; vertical-align: middle; }
 .bill-note { font-size: 12px; color: var(--text2); }
 
 /* Dashboard chart */
-.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
-.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; flex: 1; min-height: 320px; }
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; display: flex; flex-direction: column; }
 .chart-card h3 { font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 12px; }
 
 /* Alert strip */
@@ -823,7 +825,7 @@ window._fbSave = fbSave;
     <div class="nav-item" onclick="goPage('customers')"><span class="nav-icon">👥</span> ลูกค้าทั้งหมด</div>
     <div class="nav-item" onclick="goPage('discharged')"><span class="nav-icon">🚪</span> คืนเคส <span class="nav-badge" id="discharged-badge" style="background:var(--text3)">0</span></div>
     <div class="nav-item" onclick="goPage('billing')"><span class="nav-icon">💳</span> ชำระบิล <span class="nav-badge" id="unpaid-badge">0</span></div>
-    <div class="nav-item" onclick="goPage('dashboard')"><span class="nav-icon">🔔</span> แจ้งเตือนบิล <span class="nav-badge" id="reminder-badge" style="display:none;background:#c0392b">0</span></div>
+    <div class="nav-item" onclick="goPage('reminders')"><span class="nav-icon">🔔</span> แจ้งเตือนบิล <span class="nav-badge" id="reminder-badge" style="display:none;background:#c0392b">0</span></div>
     <div class="nav-item" onclick="goPage('requisition')"><span class="nav-icon">📦</span> เบิกของ</div>
     <div class="nav-item" onclick="goPage('history')"><span class="nav-icon">📋</span> ประวัติการชำระ</div>
     <div class="nav-item" onclick="goPage('refund')"><span class="nav-icon">↩️</span> คืนเงินลูกค้า</div>
@@ -849,8 +851,8 @@ window._fbSave = fbSave;
   </div>
   <div class="content">
 
-    <!-- DASHBOARD PAGE -->
-    <div class="page active" id="page-dashboard">
+    <!-- DASHBOARD PAGE (ภาพรวม: chart + dashboard เท่านั้น) -->
+    <div class="page page-fill active" id="page-dashboard">
 
       <!-- Year/Mode selector -->
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
@@ -890,7 +892,7 @@ window._fbSave = fbSave;
       <div class="chart-grid">
         <div class="chart-card">
           <h3 id="dchart1-title">รายได้ต่อสาขา</h3>
-          <div style="position:relative;height:180px"><canvas id="dchart1"></canvas></div>
+          <div style="position:relative;flex:1;min-height:220px"><canvas id="dchart1"></canvas></div>
         </div>
         <div class="chart-card">
           <h3 id="dchart2-title">การชำระบิล</h3>
@@ -906,12 +908,17 @@ window._fbSave = fbSave;
               <div style="font-size:12px;color:var(--unpaid)">✗ ยังไม่ชำระ: <b id="dc-unpaid-n">0</b> ราย</div>
             </div>
           </div>
-          <div style="margin-top:14px">
+          <div style="margin-top:14px;flex:1;display:flex;flex-direction:column;min-height:0">
             <h3 style="margin-bottom:8px">รายได้รายเดือน</h3>
-            <div style="position:relative;height:120px"><canvas id="dchart2"></canvas></div>
+            <div style="position:relative;flex:1;min-height:140px"><canvas id="dchart2"></canvas></div>
           </div>
         </div>
       </div>
+
+    </div>
+
+    <!-- BILLING REMINDERS PAGE (แจ้งเตือนบิล: แจ้งเตือนรอบออกบิลเท่านั้น) -->
+    <div class="page page-fill" id="page-reminders">
 
       <!-- Billing Reminders -->
       <div id="billing-reminders-filter" style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">
@@ -922,8 +929,7 @@ window._fbSave = fbSave;
         <button class="month-tab"        id="rbf-b3"   onclick="setReminderBranch('สาขา 3')">สาขา 3</button>
         <button class="month-tab"        id="rbf-b4"   onclick="setReminderBranch('สาขาอุดร')">สาขาอุดร</button>
       </div>
-      <div id="billing-reminders"></div>
-
+      <div id="billing-reminders" style="flex:1;overflow-y:auto"></div>
 
     </div>
 
@@ -2201,6 +2207,16 @@ function buildBillingReminders() {
             ${getPayStatus(c.id, c.billMonth) === 'partial'
               ? '<span class="status-badge status-partial" style="font-size:10px">บางส่วน</span>'
               : '<span class="status-badge status-unpaid" style="font-size:10px">ยังไม่ชำระ</span>'}
+            ${isInvoiced(c.id, c.billMonth)
+              ? `<span onclick="event.stopPropagation();toggleInvoiced('${c.id}','${c.billMonth}')" title="คลิกเพื่อยกเลิก"
+                  style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;background:#e8f5ee;color:#1a6b4a;border:1px solid #b0d8c0;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">
+                  ✅ ออกบิลแล้ว
+                </span>`
+              : `<button onclick="event.stopPropagation();toggleInvoiced('${c.id}','${c.billMonth}')"
+                  style="padding:3px 10px;border:1px solid #ccc;border-radius:12px;font-size:11px;color:#999;background:#f9f9f9;cursor:pointer;white-space:nowrap">
+                  ยังไม่ออก
+                </button>`
+            }
             <button class="btn btn-sm btn-primary"
               onclick="event.stopPropagation();openPayModal('${c.id}')"
               style="font-size:11px;padding:3px 8px">💳 ชำระ</button>
@@ -2491,7 +2507,9 @@ function toggleInvoiced(custId, month) {
     invoiced[k] = { date: new Date().toISOString().split('T')[0], by: 'admin' };
   }
   if (window._fbSave) window._fbSave('invoiced', invoiced);
+  // ซิ่งข้อมูลกับทั้งหน้า "ชำระบิล" (คอลัมน์การดำเนินการ) และหน้า "แจ้งเตือนบิล"
   renderBilling();
+  buildBillingReminders();
 }
 
 function markAllPaid(){
@@ -4815,11 +4833,12 @@ function goPage(id) {
   });
   // Auto-close sidebar on mobile
   if (window.innerWidth <= 640) closeSidebar();
-  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',permission:'จัดการสิทธิ์การเข้าถึง'};
+  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',reminders:'แจ้งเตือนบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',permission:'จัดการสิทธิ์การเข้าถึง'};
   document.getElementById('page-title').textContent = titles[id]||'';
   if(id==='customers')    renderTable();
   if(id==='discharged')   renderDischarged();
   if(id==='billing')      { renderMonthTabs(); renderBilling(); }
+  if(id==='reminders')    buildBillingReminders();
   if(id==='requisition')  { initReqSelects(); switchReqTab('record'); }
   if(id==='refund')       renderRefundList();
   if(id==='history')      renderHistory();
