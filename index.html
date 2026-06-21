@@ -382,7 +382,11 @@ function renderPermissionPage() {
   const reqList = [
     ...Object.entries(_uidRequests).map(([uid, v]) => ({ uid, ...v, _source: 'staff' })),
     ...Object.entries(_uidRequestsUd).map(([uid, v]) => ({ uid, ...v, _source: 'staffud' })),
-  ].sort((a, b) => (b.requestedAt || '').localeCompare(a.requestedAt || ''));
+  ]
+    // กันเคสที่อนุมัติไปแล้วแต่ลบคำขอเดิมไม่สำเร็จ (เช่น rules ที่ deploy จริงยังไม่อัปเดต)
+    // ไม่ให้โผล่ค้างอยู่ในลิสต์ "รออนุมัติ" อีก
+    .filter(r => !((r._source === 'staffud' ? _allowedUidsUd : _allowedUids)[r.uid]))
+    .sort((a, b) => (b.requestedAt || '').localeCompare(a.requestedAt || ''));
 
   const countEl = document.getElementById('perm-req-count');
   if (countEl) countEl.textContent = reqList.length;
@@ -447,16 +451,26 @@ async function approveUidRequest(uid, source) {
   if (!reqData) { alert('ไม่พบคำขอนี้ (อาจถูกอนุมัติหรือลบไปแล้ว)'); return; }
   const allowedPath = source === 'staffud' ? 'allowed_uids_ud' : 'allowed_uids';
   const reqPath      = source === 'staffud' ? 'uid_requests_ud' : 'uid_requests';
+  // ขั้นตอนสำคัญ: ให้สิทธิ์ก่อน — ถ้าขั้นนี้สำเร็จ ผู้ขอจะเข้าระบบได้ทันทีไม่ว่าขั้นถัดไปจะเป็นอย่างไร
   try {
     await set(ref(db, `${allowedPath}/${uid}`), {
       email: reqData.email || '',
       displayName: reqData.displayName || '',
       addedAt: new Date().toISOString()
     });
-    await set(ref(db, `${reqPath}/${uid}`), null);
   } catch (e) {
     console.warn('approveUidRequest error:', e);
     alert('เกิดข้อผิดพลาดในการอนุมัติ กรุณาลองใหม่');
+    return;
+  }
+  // ลบคำขอเดิมออก — ไม่ critical ต่อการอนุมัติ (ผู้ใช้ได้สิทธิ์ไปแล้วตั้งแต่ขั้นบน)
+  // ถ้า rules เวอร์ชันที่ deploy จริงยังไม่อนุญาตให้ admin ลบ uid_requests ของผู้อื่น
+  // (ดู firebase-rules.json) รายการนี้จะถูกซ่อนออกจากหน้าจอด้วย filter ใน renderPermissionPage()
+  // อยู่ดี และจะถูกลบทิ้งจริงเองตอนผู้ใช้ login ครั้งถัดไป
+  try {
+    await set(ref(db, `${reqPath}/${uid}`), null);
+  } catch (e) {
+    console.warn('approveUidRequest: ลบคำขอเดิมไม่สำเร็จ (ไม่กระทบสิทธิ์ที่อนุมัติไปแล้ว):', e);
   }
 }
 
