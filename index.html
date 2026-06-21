@@ -4143,7 +4143,7 @@ function renderReceiptContent() {
 
 document.getElementById('receipt-print-area').innerHTML = `
     <div class="rcpt-header" style="display:flex;align-items:center;gap:16px;margin-bottom:10px">
-      <img src="${rcptLogoSrc}" style="width:${isUdonBranch?86:80}px;height:80px;object-fit:contain;flex-shrink:0" alt="DD Logo">
+      <img src="${rcptLogoSrc}" style="width:${isUdonBranch?130:80}px;height:${isUdonBranch?120:80}px;object-fit:contain;flex-shrink:0" alt="DD Logo">
       <div style="flex:1">${rcptCompanyHeaderHtml}
       </div>
       <div style="text-align:center;flex-shrink:0;margin-left:8px">
@@ -4706,7 +4706,7 @@ function printRefundReceipt(id) {
     <div style="font-family:'IBM Plex Sans Thai',Sarabun,sans-serif;font-size:13px;padding:24px 28px;color:#111;line-height:1.55">
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:10px">
-        ${logoSrc ? `<img src="${logoSrc}" style="width:72px;height:72px;object-fit:contain;flex-shrink:0">` : ''}
+        ${logoSrc ? `<img src="${logoSrc}" style="width:${isUdonBranchRf?108:72}px;height:${isUdonBranchRf?108:72}px;object-fit:contain;flex-shrink:0">` : ''}
         <div style="flex:1">${rfCompanyHeaderHtml}
         </div>
         <div style="text-align:center;flex-shrink:0">
