@@ -4512,7 +4512,7 @@ function _ssRenderTable() {
       if (shifts.includes('ช') && shifts.includes('ด')) otNight++;
       const chips = slots.map(s =>
         `<span class="ss-chip" style="${_ssChipStyle(s.shift,s.branch)}">${_ssShiftGlyph(s.shift)}${s.branch||''}</span>`
-      ).join('');
+      ).join('<br>');
       let tdStyle = '';
       if (isTdy)       tdStyle = 'background:rgba(22,163,74,.06)';
       else if (isWk && !val) tdStyle = 'background:#fff5f5';
@@ -4765,7 +4765,7 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .ss-name-col{position:sticky;left:0;z-index:3;background:#f5f3ef!important;text-align:left!important;min-width:100px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:10px!important;padding-right:8px!important;border-right:1.5px solid #e0dbd2;font-weight:500}
 .ss-table th.ss-name-col{z-index:4}
 .ss-today-col{background:#f0fdf4!important;color:#16a34a!important;font-weight:700}
-.ss-chip{display:inline-block;padding:2px 5px;border-radius:5px;font-size:13px;font-weight:600;line-height:1.3;white-space:nowrap}
+.ss-chip{display:inline-block;padding:2px 5px;border-radius:5px;font-size:13px;font-weight:600;line-height:1.3;white-space:nowrap;margin-bottom:2px}
 .ss-empty{color:#ddd;font-size:12px}
 .ss-branch-row td{font-size:13px;font-weight:700;padding:4px 10px;letter-spacing:.3px;position:sticky;left:0}
 /* Summary columns */

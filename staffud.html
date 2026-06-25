@@ -3444,7 +3444,7 @@ function _ssudRenderTable() {
       if (shifts.includes('ช') && shifts.includes('ด')) otNight++;
       const chips = slots.map(s =>
         `<span class="ssud-chip" style="${_ssudChipStyle(s.shift)}">${_ssudShiftGlyph(s.shift)}</span>`
-      ).join('');
+      ).join('<br>');
       let tdStyle = '';
       if (isTdy)            tdStyle = 'background:rgba(22,163,74,.06)';
       else if (isWk && !val) tdStyle = 'background:#fff5f5';
@@ -3747,7 +3747,7 @@ body{font-family:"IBM Plex Sans Thai",sans-serif;background:#f5f3ef;color:#1a191
 .ssud-name-col{position:sticky;left:0;z-index:3;background:#fffbf2!important;text-align:left!important;min-width:100px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:10px!important;padding-right:8px!important;border-right:1.5px solid #e0dbd2;font-weight:500}
 .ssud-table th.ssud-name-col{z-index:4}
 .ssud-today-col{background:#f0fdf4!important;color:#16a34a!important;font-weight:700}
-.ssud-chip{display:inline-block;padding:2px 6px;border-radius:5px;font-size:11px;font-weight:600;line-height:1.3;white-space:nowrap}
+.ssud-chip{display:inline-block;padding:2px 6px;border-radius:5px;font-size:11px;font-weight:600;line-height:1.3;white-space:nowrap;margin-bottom:2px}
 .ssud-empty{color:#ddd;font-size:10px}
 .ssud-branch-row td{font-size:11px;font-weight:700;padding:4px 10px;letter-spacing:.3px;position:sticky;left:0}
 /* summary columns */
