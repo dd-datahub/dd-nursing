@@ -731,19 +731,23 @@ function _schedMainRenderTable() {
   html += '<th class="sched-sum-col">OT<br>วันหยุด</th>';
   html += '<th class="sched-sum-col">รวมกะ</th>';
   html += '<th class="sched-sum-col"></th>';
+  html += '<th class="sched-sum-col"></th>';
   html += '</tr></thead><tbody>';
 
   let lastBranch = '__NONE__';
-  for (const [nid, nurse] of nurses) {
+  for (let _i = 0; _i < nurses.length; _i++) {
+    const [nid, nurse] = nurses[_i];
     const branch = nurse.branch || '';
     if (branch !== lastBranch) {
       lastBranch = branch;
       const bLabel = branch==='1'?'🏥 สาขา 1':branch==='2'?'🏥 สาขา 2':branch==='3'?'🏥 สาขา 3':'📋 ยังไม่ระบุสาขา';
       const bBg    = branch==='1'?'#dbeafe':branch==='2'?'#d1fae5':branch==='3'?'#ffedd5':'#f0ede8';
       const bColor = branch==='1'?'#1d4ed8':branch==='2'?'#065f46':branch==='3'?'#c2410c':'#888';
-      html += `<tr class="sched-branch-row"><td colspan="${days+7}" style="background:${bBg};color:${bColor}">${bLabel}</td></tr>`;
+      html += `<tr class="sched-branch-row"><td colspan="${days+8}" style="background:${bBg};color:${bColor}">${bLabel}</td></tr>`;
     }
 
+    const canUp   = _i > 0 && (nurses[_i-1][1].branch||'') === branch;
+    const canDown = _i < nurses.length-1 && (nurses[_i+1][1].branch||'') === branch;
     const nd = _schedMainData[nid] || {};
     const rowBg = branch==='1'?'#f0f6ff':branch==='2'?'#f0faf4':branch==='3'?'#fff8f0':'#fafaf8';
     const countMap = {ช:0,ด:0,ห:0,ล:0};
@@ -780,6 +784,7 @@ function _schedMainRenderTable() {
       .map(([k,v])=>`<span class="sched-sum-tag">${k}<b>${v}</b></span>`).join('');
     const sumCell = `<td class="sched-sum-val">${summary||'—'}</td>`;
     const safeName = (nurse.name||'').replace(/'/g,"\\'");
+    const moveCell = `<td style="white-space:nowrap"><button class="sched-del-btn" style="font-size:12px;${canUp?'':'opacity:.2;cursor:default'}" title="เลื่อนลำดับขึ้น" ${canUp?`onclick="schedMainMoveNurse('${nid}',-1)"`:''}>▲</button><button class="sched-del-btn" style="font-size:12px;${canDown?'':'opacity:.2;cursor:default'}" title="เลื่อนลำดับลง" ${canDown?`onclick="schedMainMoveNurse('${nid}',1)"`:''}>▼</button></td>`;
     const delCell = nurse.inactive
       ? `<td><button class="sched-del-btn" title="กู้คืนพนักงานคนนี้ (กลับมาทำงาน)" onclick="schedMainRestoreNurse('${nid}')">↩️</button></td>`
       : `<td><button class="sched-del-btn" title="ลบพนักงานออกจากตาราง" onclick="schedMainDeleteNurse('${nid}','${safeName}')">🗑️</button></td>`;
@@ -789,7 +794,7 @@ function _schedMainRenderTable() {
 
     html += `<tr style="background:${rowBg}${nurse.inactive?';opacity:.7':''}">` +
             `<td class="sched-name-col" style="background:${rowBg}">${nameLabel}</td>` +
-            cells + wdCell + offCell + otCell + otHolCell + sumCell + delCell + '</tr>';
+            cells + wdCell + offCell + otCell + otHolCell + sumCell + moveCell + delCell + '</tr>';
   }
   html += '</tbody></table>';
   wrap.innerHTML = html;
@@ -842,6 +847,30 @@ async function schedMainDeleteNurse(nid, name) {
   }
 }
 
+async function schedMainMoveNurse(nid, dir) {
+  const list = Object.entries(_schedMainNurses)
+    .filter(([id, nurse]) => !nurse.inactive || _schedMainData[id])
+    .sort((a,b) => {
+      const ba = a[1].branch||'9', bb = b[1].branch||'9';
+      if (ba !== bb) return ba.localeCompare(bb);
+      return (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th');
+    });
+  const idx = list.findIndex(([id]) => id === nid);
+  if (idx < 0) return;
+  const branch = list[idx][1].branch || '';
+  const swapIdx = idx + dir;
+  if (swapIdx < 0 || swapIdx >= list.length) return;
+  if ((list[swapIdx][1].branch||'') !== branch) return;
+  [list[idx], list[swapIdx]] = [list[swapIdx], list[idx]];
+  const updates = {};
+  list.forEach(([id], i) => { updates[`schedule_nurses/${id}/order`] = i + 1; });
+  try {
+    await update(ref(db), updates);
+  } catch (e) {
+    alert('เกิดข้อผิดพลาด: ' + e.message);
+  }
+}
+
 function schedMainEditCell(nid, day) {
   const ym = _schedMainInitYM();
   const nd = _schedMainData[nid] || {};
@@ -869,6 +898,7 @@ window.schedMainAddNurse     = schedMainAddNurse;
 window.schedMainClearAllData = schedMainClearAllData;
 window.schedMainDeleteNurse  = schedMainDeleteNurse;
 window.schedMainRestoreNurse = schedMainRestoreNurse;
+window.schedMainMoveNurse    = schedMainMoveNurse;
 window.schedMainEditCell     = schedMainEditCell;
 window.schedMainEditOT       = schedMainEditOT;
 
@@ -988,11 +1018,15 @@ function _schedUdRenderTable() {
   html += '<th class="sched-sum-col">OT<br>วันหยุด</th>';
   html += '<th class="sched-sum-col">รวมกะ</th>';
   html += '<th class="sched-sum-col"></th>';
+  html += '<th class="sched-sum-col"></th>';
   html += '</tr></thead><tbody>';
 
-  html += `<tr class="sched-branch-row"><td colspan="${days+7}" style="background:#fef3c7;color:#92400e">🏥 สาขาอุดร</td></tr>`;
+  html += `<tr class="sched-branch-row"><td colspan="${days+8}" style="background:#fef3c7;color:#92400e">🏥 สาขาอุดร</td></tr>`;
 
-  for (const [nid, nurse] of nurses) {
+  for (let _i = 0; _i < nurses.length; _i++) {
+    const [nid, nurse] = nurses[_i];
+    const canUp   = _i > 0;
+    const canDown = _i < nurses.length-1;
     const nd = _schedUdData[nid] || {};
     const countMap = {ช:0, ด:0, ห:0, ล:0};
     let workDays = 0, otNight = 0, cells = '';
@@ -1028,6 +1062,7 @@ function _schedUdRenderTable() {
       .map(([k,v])=>`<span class="sched-sum-tag">${k}<b>${v}</b></span>`).join('');
     const sumCell = `<td class="sched-sum-val">${summary||'—'}</td>`;
     const safeName = (nurse.name||'').replace(/'/g,"\\'");
+    const moveCell = `<td style="white-space:nowrap"><button class="sched-del-btn" style="font-size:12px;${canUp?'':'opacity:.2;cursor:default'}" title="เลื่อนลำดับขึ้น" ${canUp?`onclick="schedUdMoveNurse('${nid}',-1)"`:''}>▲</button><button class="sched-del-btn" style="font-size:12px;${canDown?'':'opacity:.2;cursor:default'}" title="เลื่อนลำดับลง" ${canDown?`onclick="schedUdMoveNurse('${nid}',1)"`:''}>▼</button></td>`;
     const delCell = nurse.inactive
       ? `<td><button class="sched-del-btn" title="กู้คืนพนักงานคนนี้ (กลับมาทำงาน)" onclick="schedUdRestoreNurse('${nid}')">↩️</button></td>`
       : `<td><button class="sched-del-btn" title="ลบพนักงานออกจากตาราง" onclick="schedUdDeleteNurse('${nid}','${safeName}')">🗑️</button></td>`;
@@ -1037,7 +1072,7 @@ function _schedUdRenderTable() {
 
     html += `<tr${nurse.inactive?' style="opacity:.7"':''}>` +
             `<td class="sched-name-col">${nameLabel}</td>` +
-            cells + wdCell + offCell + otCell + otHolCell + sumCell + delCell + '</tr>';
+            cells + wdCell + offCell + otCell + otHolCell + sumCell + moveCell + delCell + '</tr>';
   }
   html += '</tbody></table>';
   wrap.innerHTML = html;
@@ -1088,6 +1123,24 @@ async function schedUdDeleteNurse(nid, name) {
   }
 }
 
+async function schedUdMoveNurse(nid, dir) {
+  const list = Object.entries(_schedUdNurses)
+    .filter(([id, nurse]) => !nurse.inactive || _schedUdData[id])
+    .sort((a,b) => (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th'));
+  const idx = list.findIndex(([id]) => id === nid);
+  if (idx < 0) return;
+  const swapIdx = idx + dir;
+  if (swapIdx < 0 || swapIdx >= list.length) return;
+  [list[idx], list[swapIdx]] = [list[swapIdx], list[idx]];
+  const updates = {};
+  list.forEach(([id], i) => { updates[`schedule_ud_nurses/${id}/order`] = i + 1; });
+  try {
+    await update(ref(db), updates);
+  } catch (e) {
+    alert('เกิดข้อผิดพลาด: ' + e.message);
+  }
+}
+
 function schedUdEditCell(nid, day) {
   const ym = _schedUdInitYM();
   const nd = _schedUdData[nid] || {};
@@ -1115,6 +1168,7 @@ window.schedUdAddNurse     = schedUdAddNurse;
 window.schedUdClearAllData = schedUdClearAllData;
 window.schedUdDeleteNurse  = schedUdDeleteNurse;
 window.schedUdRestoreNurse = schedUdRestoreNurse;
+window.schedUdMoveNurse    = schedUdMoveNurse;
 window.schedUdEditCell     = schedUdEditCell;
 window.schedUdEditOT       = schedUdEditOT;
 
