@@ -765,7 +765,7 @@ function _schedMainRenderTable() {
       if (shifts.includes('ช') && shifts.includes('ด')) otNight++;
       const chips = slots.map(s =>
         `<span class="sched-chip" style="${_schedMainChipStyle(s.shift,s.branch)}">${_schedShiftGlyph(s.shift)}${s.branch||''}</span>`
-      ).join('');
+      ).join('<br>');
       const noteRaw  = nd[`d${d}_note`] || '';
       const noteHtml = noteRaw ? `<div class="sched-cell-note" title="${_schedEscHtml(noteRaw)}">${_schedEscHtml(noteRaw)}</div>` : '';
       let tdStyle = '';
@@ -1043,7 +1043,7 @@ function _schedUdRenderTable() {
       if (shifts.includes('ช') && shifts.includes('ด')) otNight++;
       const chips = slots.map(s =>
         `<span class="sched-chip" style="${_schedUdChipStyle(s.shift)}">${_schedShiftGlyph(s.shift)}</span>`
-      ).join('');
+      ).join('<br>');
       const noteRaw  = nd[`d${d}_note`] || '';
       const noteHtml = noteRaw ? `<div class="sched-cell-note" title="${_schedEscHtml(noteRaw)}">${_schedEscHtml(noteRaw)}</div>` : '';
       let tdStyle = '';
@@ -2238,7 +2238,7 @@ if ('serviceWorker' in navigator) {
     .sched-name-col{position:sticky;left:0;z-index:3;background:var(--surface2)!important;text-align:left!important;min-width:130px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:12px!important;padding-right:10px!important;border-right:1.5px solid #e0dbd2;font-weight:500}
     .sched-table th.sched-name-col{z-index:4}
     .sched-today-col{background:#f0fdf4!important;color:#16a34a!important;font-weight:700}
-    .sched-chip{display:inline-block;padding:2px 5px;border-radius:5px;font-size:14px;font-weight:600;line-height:1.3;white-space:nowrap}
+    .sched-chip{display:inline-block;padding:2px 5px;border-radius:5px;font-size:14px;font-weight:600;line-height:1.3;white-space:nowrap;margin-bottom:2px}
     .sched-empty{color:#ddd;font-size:12px}
     .sched-cell-note{margin-top:3px;font-size:10.5px;color:var(--text3);line-height:1.25;max-width:64px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-left:auto;margin-right:auto;font-weight:400}
     .sched-branch-row td{font-size:13px;font-weight:700;padding:5px 12px;letter-spacing:.3px;position:sticky;left:0}
