@@ -4451,11 +4451,14 @@ function _ssRenderTable() {
   const now = new Date();
   const todayDay = (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') === ym) ? now.getDate() : -1;
   // ใช้ logic sort เดียวกับ index.html _schedRenderTable (secondary sort)
-  const nurses = Object.entries(_ssNurses).sort((a,b) => {
-    const ba = a[1].branch||'9', bb = b[1].branch||'9';
-    if (ba !== bb) return ba.localeCompare(bb);
-    return (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th');
-  });
+  // พนักงานที่ลาออกแล้ว (inactive) ยังแสดงในเดือนที่มีข้อมูลกะอยู่ แต่จะไม่โผล่ในเดือนที่ไม่มีข้อมูล
+  const nurses = Object.entries(_ssNurses)
+    .filter(([nid, nurse]) => !nurse.inactive || _ssData[nid])
+    .sort((a,b) => {
+      const ba = a[1].branch||'9', bb = b[1].branch||'9';
+      if (ba !== bb) return ba.localeCompare(bb);
+      return (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th');
+    });
   if (!nurses.length) {
     wrap.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#bbb;font-size:15px">ไม่พบข้อมูลพนักงาน</div>';
     return;
@@ -4525,9 +4528,12 @@ function _ssRenderTable() {
     const summary = Object.entries(countMap).filter(([,v])=>v>0)
       .map(([k,v])=>`<span class="ss-sum-tag">${k}<b>${v}</b></span>`).join('');
     const sumCell = `<td class="ss-sum-val ss-total-val">${summary||'—'}</td>`;
+    const nameLabel = nurse.inactive
+      ? `${nurse.name} <span style="color:#b91c1c;font-size:10.5px;font-weight:600">(ลาออกแล้ว)</span>`
+      : nurse.name;
 
-    html += `<tr style="background:${rowBg}">` +
-            `<td class="ss-name-col" style="background:${rowBg}">${nurse.name}</td>` +
+    html += `<tr style="background:${rowBg}${nurse.inactive?';opacity:.7':''}">` +
+            `<td class="ss-name-col" style="background:${rowBg}">${nameLabel}</td>` +
             cells + wdCell + otCell + otHolCell + sumCell + '</tr>';
   }
   html += '</tbody></table>';

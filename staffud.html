@@ -3392,11 +3392,14 @@ function _ssudRenderTable() {
   const now = new Date();
   const todayDay = (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') === ym) ? now.getDate() : -1;
   // ใช้ logic sort เดียวกับ index.html _schedRenderTable (secondary sort)
-  const nurses = Object.entries(_ssudNurses).sort((a,b) => {
-    const ba = a[1].branch||'9', bb = b[1].branch||'9';
-    if (ba !== bb) return ba.localeCompare(bb);
-    return (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th');
-  });
+  // พนักงานที่ลาออกแล้ว (inactive) ยังแสดงในเดือนที่มีข้อมูลกะอยู่ แต่จะไม่โผล่ในเดือนที่ไม่มีข้อมูล
+  const nurses = Object.entries(_ssudNurses)
+    .filter(([nid, nurse]) => !nurse.inactive || _ssudData[nid])
+    .sort((a,b) => {
+      const ba = a[1].branch||'9', bb = b[1].branch||'9';
+      if (ba !== bb) return ba.localeCompare(bb);
+      return (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th');
+    });
   if (!nurses.length) {
     wrap.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#bbb;font-size:13px">ไม่พบข้อมูลพนักงาน</div>';
     return;
@@ -3457,8 +3460,11 @@ function _ssudRenderTable() {
     const summary = Object.entries(countMap).filter(([,v])=>v>0)
       .map(([k,v])=>`<span class="ssud-sum-tag">${k}<b>${v}</b></span>`).join('');
     const sumCell = `<td class="ssud-sum-val ssud-total-val">${summary||'—'}</td>`;
+    const nameLabel = nurse.inactive
+      ? `${nurse.name} <span style="color:#b91c1c;font-size:10.5px;font-weight:600">(ลาออกแล้ว)</span>`
+      : nurse.name;
 
-    html += `<tr><td class="ssud-name-col">${nurse.name}</td>` +
+    html += `<tr${nurse.inactive?' style="opacity:.7"':''}><td class="ssud-name-col">${nameLabel}</td>` +
             cells + wdCell + otCell + otHolCell + sumCell + '</tr>';
   }
   html += '</tbody></table>';

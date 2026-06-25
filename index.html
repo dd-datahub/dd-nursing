@@ -704,11 +704,13 @@ function _schedMainRenderTable() {
   const days = _schedMainDaysInMonth(ym);
   const now = new Date();
   const todayDay = (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') === ym) ? now.getDate() : -1;
-  const nurses = Object.entries(_schedMainNurses).sort((a,b) => {
-    const ba = a[1].branch||'9', bb = b[1].branch||'9';
-    if (ba !== bb) return ba.localeCompare(bb);
-    return (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th');
-  });
+  const nurses = Object.entries(_schedMainNurses)
+    .filter(([nid, nurse]) => !nurse.inactive || _schedMainData[nid])
+    .sort((a,b) => {
+      const ba = a[1].branch||'9', bb = b[1].branch||'9';
+      if (ba !== bb) return ba.localeCompare(bb);
+      return (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th');
+    });
   if (!nurses.length) {
     wrap.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#bbb;font-size:15px">ยังไม่มีพนักงานในตารางเวร — เพิ่มได้ที่ฟอร์มด้านบน</div>';
     return;
@@ -776,10 +778,15 @@ function _schedMainRenderTable() {
       .map(([k,v])=>`<span class="sched-sum-tag">${k}<b>${v}</b></span>`).join('');
     const sumCell = `<td class="sched-sum-val">${summary||'—'}</td>`;
     const safeName = (nurse.name||'').replace(/'/g,"\\'");
-    const delCell = `<td><button class="sched-del-btn" title="ลบพนักงานออกจากตาราง" onclick="schedMainDeleteNurse('${nid}','${safeName}')">🗑️</button></td>`;
+    const delCell = nurse.inactive
+      ? `<td><button class="sched-del-btn" title="กู้คืนพนักงานคนนี้ (กลับมาทำงาน)" onclick="schedMainRestoreNurse('${nid}')">↩️</button></td>`
+      : `<td><button class="sched-del-btn" title="ลบพนักงานออกจากตาราง" onclick="schedMainDeleteNurse('${nid}','${safeName}')">🗑️</button></td>`;
+    const nameLabel = nurse.inactive
+      ? `${nurse.name} <span style="color:#b91c1c;font-size:10.5px;font-weight:600">(ลาออกแล้ว)</span>`
+      : nurse.name;
 
-    html += `<tr style="background:${rowBg}">` +
-            `<td class="sched-name-col" style="background:${rowBg}">${nurse.name}</td>` +
+    html += `<tr style="background:${rowBg}${nurse.inactive?';opacity:.7':''}">` +
+            `<td class="sched-name-col" style="background:${rowBg}">${nameLabel}</td>` +
             cells + wdCell + otCell + otHolCell + sumCell + delCell + '</tr>';
   }
   html += '</tbody></table>';
@@ -816,10 +823,18 @@ async function schedMainClearAllData() {
   }
 }
 
-async function schedMainDeleteNurse(nid, name) {
-  if (!confirm(`ลบ "${name}" ออกจากตารางเวร?\n(ข้อมูลกะที่บันทึกไว้ก่อนหน้าจะยังอยู่ในระบบ แต่จะไม่แสดงในตารางอีก)`)) return;
+async function schedMainRestoreNurse(nid) {
   try {
-    await set(ref(db, `schedule_nurses/${nid}`), null);
+    await update(ref(db, `schedule_nurses/${nid}`), { inactive: null });
+  } catch (e) {
+    alert('เกิดข้อผิดพลาด: ' + e.message);
+  }
+}
+
+async function schedMainDeleteNurse(nid, name) {
+  if (!confirm(`นำ "${name}" ออกจากตารางเวร (ลาออก/ไม่ทำงานแล้ว)?\n(ประวัติกะที่บันทึกไว้ในเดือนก่อนหน้าจะยังแสดงในตารางตามปกติ จะไม่มีชื่อนี้ให้ลงเวรในเดือนถัดไปเท่านั้น — กดปุ่ม ↩️ เพื่อกู้คืนได้ทุกเมื่อ)`)) return;
+  try {
+    await update(ref(db, `schedule_nurses/${nid}`), { inactive: true });
   } catch (e) {
     alert('เกิดข้อผิดพลาด: ' + e.message);
   }
@@ -851,6 +866,7 @@ window.schedMainNextMonth    = schedMainNextMonth;
 window.schedMainAddNurse     = schedMainAddNurse;
 window.schedMainClearAllData = schedMainClearAllData;
 window.schedMainDeleteNurse  = schedMainDeleteNurse;
+window.schedMainRestoreNurse = schedMainRestoreNurse;
 window.schedMainEditCell     = schedMainEditCell;
 window.schedMainEditOT       = schedMainEditOT;
 
@@ -945,9 +961,11 @@ function _schedUdRenderTable() {
   const days = _schedUdDaysInMonth(ym);
   const now = new Date();
   const todayDay = (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') === ym) ? now.getDate() : -1;
-  const nurses = Object.entries(_schedUdNurses).sort((a,b) => {
-    return (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th');
-  });
+  const nurses = Object.entries(_schedUdNurses)
+    .filter(([nid, nurse]) => !nurse.inactive || _schedUdData[nid])
+    .sort((a,b) => {
+      return (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th');
+    });
   if (!nurses.length) {
     wrap.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#bbb;font-size:15px">ยังไม่มีพนักงานในตารางเวร — เพิ่มได้ที่ฟอร์มด้านบน</div>';
     return;
@@ -1006,10 +1024,15 @@ function _schedUdRenderTable() {
       .map(([k,v])=>`<span class="sched-sum-tag">${k}<b>${v}</b></span>`).join('');
     const sumCell = `<td class="sched-sum-val">${summary||'—'}</td>`;
     const safeName = (nurse.name||'').replace(/'/g,"\\'");
-    const delCell = `<td><button class="sched-del-btn" title="ลบพนักงานออกจากตาราง" onclick="schedUdDeleteNurse('${nid}','${safeName}')">🗑️</button></td>`;
+    const delCell = nurse.inactive
+      ? `<td><button class="sched-del-btn" title="กู้คืนพนักงานคนนี้ (กลับมาทำงาน)" onclick="schedUdRestoreNurse('${nid}')">↩️</button></td>`
+      : `<td><button class="sched-del-btn" title="ลบพนักงานออกจากตาราง" onclick="schedUdDeleteNurse('${nid}','${safeName}')">🗑️</button></td>`;
+    const nameLabel = nurse.inactive
+      ? `${nurse.name} <span style="color:#b91c1c;font-size:10.5px;font-weight:600">(ลาออกแล้ว)</span>`
+      : nurse.name;
 
-    html += `<tr>` +
-            `<td class="sched-name-col">${nurse.name}</td>` +
+    html += `<tr${nurse.inactive?' style="opacity:.7"':''}>` +
+            `<td class="sched-name-col">${nameLabel}</td>` +
             cells + wdCell + otCell + otHolCell + sumCell + delCell + '</tr>';
   }
   html += '</tbody></table>';
@@ -1044,10 +1067,18 @@ async function schedUdClearAllData() {
   }
 }
 
-async function schedUdDeleteNurse(nid, name) {
-  if (!confirm(`ลบ "${name}" ออกจากตารางเวร?\n(ข้อมูลกะที่บันทึกไว้ก่อนหน้าจะยังอยู่ในระบบ แต่จะไม่แสดงในตารางอีก)`)) return;
+async function schedUdRestoreNurse(nid) {
   try {
-    await set(ref(db, `schedule_ud_nurses/${nid}`), null);
+    await update(ref(db, `schedule_ud_nurses/${nid}`), { inactive: null });
+  } catch (e) {
+    alert('เกิดข้อผิดพลาด: ' + e.message);
+  }
+}
+
+async function schedUdDeleteNurse(nid, name) {
+  if (!confirm(`นำ "${name}" ออกจากตารางเวร (ลาออก/ไม่ทำงานแล้ว)?\n(ประวัติกะที่บันทึกไว้ในเดือนก่อนหน้าจะยังแสดงในตารางตามปกติ จะไม่มีชื่อนี้ให้ลงเวรในเดือนถัดไปเท่านั้น — กดปุ่ม ↩️ เพื่อกู้คืนได้ทุกเมื่อ)`)) return;
+  try {
+    await update(ref(db, `schedule_ud_nurses/${nid}`), { inactive: true });
   } catch (e) {
     alert('เกิดข้อผิดพลาด: ' + e.message);
   }
@@ -1079,6 +1110,7 @@ window.schedUdNextMonth    = schedUdNextMonth;
 window.schedUdAddNurse     = schedUdAddNurse;
 window.schedUdClearAllData = schedUdClearAllData;
 window.schedUdDeleteNurse  = schedUdDeleteNurse;
+window.schedUdRestoreNurse = schedUdRestoreNurse;
 window.schedUdEditCell     = schedUdEditCell;
 window.schedUdEditOT       = schedUdEditOT;
 
