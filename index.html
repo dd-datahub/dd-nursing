@@ -759,11 +759,13 @@ function _schedMainRenderTable() {
       const chips = slots.map(s =>
         `<span class="sched-chip" style="${_schedMainChipStyle(s.shift,s.branch)}">${s.shift}${s.branch||''}</span>`
       ).join('');
+      const noteRaw  = nd[`d${d}_note`] || '';
+      const noteHtml = noteRaw ? `<div class="sched-cell-note" title="${_schedEscHtml(noteRaw)}">${_schedEscHtml(noteRaw)}</div>` : '';
       let tdStyle = '';
       if (isTdy)       tdStyle = 'background:rgba(22,163,74,.06)';
       else if (isWk && !val) tdStyle = 'background:#fff5f5';
       cells += `<td class="sched-cell"${tdStyle?` style="${tdStyle}"`:''} onclick="schedMainEditCell('${nid}',${d})">` +
-               (chips || '<span class="sched-empty">—</span>') + '</td>';
+               (chips || '<span class="sched-empty">—</span>') + noteHtml + '</td>';
     }
 
     const wdCell = `<td class="sched-sum-val">${workDays||'—'}</td>`;
@@ -827,8 +829,9 @@ function schedMainEditCell(nid, day) {
   const ym = _schedMainInitYM();
   const nd = _schedMainData[nid] || {};
   const cur = nd[`d${day}`] || '';
+  const note = nd[`d${day}_note`] || '';
   const name = (_schedMainNurses[nid] && _schedMainNurses[nid].name) || '';
-  _schedOpenShiftModal('main', nid, day, ym, name, _schedMainFormatMonthTH(ym), cur);
+  _schedOpenShiftModal('main', nid, day, ym, name, _schedMainFormatMonthTH(ym), cur, note);
 }
 
 function schedMainEditOT(nid) {
@@ -986,11 +989,13 @@ function _schedUdRenderTable() {
       const chips = slots.map(s =>
         `<span class="sched-chip" style="${_schedUdChipStyle(s.shift)}">${s.shift}</span>`
       ).join('');
+      const noteRaw  = nd[`d${d}_note`] || '';
+      const noteHtml = noteRaw ? `<div class="sched-cell-note" title="${_schedEscHtml(noteRaw)}">${_schedEscHtml(noteRaw)}</div>` : '';
       let tdStyle = '';
       if (isTdy)            tdStyle = 'background:rgba(22,163,74,.06)';
       else if (isWk && !val) tdStyle = 'background:#fff5f5';
       cells += `<td class="sched-cell"${tdStyle?` style="${tdStyle}"`:''} onclick="schedUdEditCell('${nid}',${d})">` +
-               (chips || '<span class="sched-empty">—</span>') + '</td>';
+               (chips || '<span class="sched-empty">—</span>') + noteHtml + '</td>';
     }
 
     const wdCell = `<td class="sched-sum-val">${workDays||'—'}</td>`;
@@ -1052,8 +1057,9 @@ function schedUdEditCell(nid, day) {
   const ym = _schedUdInitYM();
   const nd = _schedUdData[nid] || {};
   const cur = nd[`d${day}`] || '';
+  const note = nd[`d${day}_note`] || '';
   const name = (_schedUdNurses[nid] && _schedUdNurses[nid].name) || '';
-  _schedOpenShiftModal('ud', nid, day, ym, name, _schedUdFormatMonthTH(ym), cur);
+  _schedOpenShiftModal('ud', nid, day, ym, name, _schedUdFormatMonthTH(ym), cur, note);
 }
 
 function schedUdEditOT(nid) {
@@ -1141,7 +1147,11 @@ function schedPickShiftBranch(slot, branch) {
   _schedShiftRender();
 }
 
-function _schedOpenShiftModal(branchType, nid, day, ym, name, monthLabel, val) {
+function _schedEscHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function _schedOpenShiftModal(branchType, nid, day, ym, name, monthLabel, val, note) {
   _schedShiftCtx = { branchType, nid, day, ym };
   const parse = branchType === 'main' ? _schedMainParseVal : _schedUdParseVal;
   const parsed = parse(val);
@@ -1152,6 +1162,8 @@ function _schedOpenShiftModal(branchType, nid, day, ym, name, monthLabel, val) {
   _schedShiftBuildButtons();
   const titleEl = document.getElementById('sched-shift-modal-title');
   if (titleEl) titleEl.textContent = `กำหนดกะวันที่ ${day} — ${name} (${monthLabel})`;
+  const noteEl = document.getElementById('sched-shift-note');
+  if (noteEl) noteEl.value = note || '';
   _schedShiftRender();
   document.getElementById('sched-shift-modal').classList.add('open');
 }
@@ -1163,22 +1175,26 @@ function schedShiftModalSave() {
     .filter(s => s.shift)
     .map(s => s.shift + (s.branch||''))
     .join('/');
-  const path = branchType === 'main'
-    ? `schedule/${ym}/${nid}/d${day}`
-    : `schedule_ud/${ym}/${nid}/d${day}`;
-  set(ref(db, path), val === '' ? null : val)
+  const noteEl = document.getElementById('sched-shift-note');
+  const noteVal = noteEl ? noteEl.value.trim() : '';
+  const base = branchType === 'main' ? `schedule/${ym}/${nid}` : `schedule_ud/${ym}/${nid}`;
+  Promise.all([
+    set(ref(db, `${base}/d${day}`), val === '' ? null : val),
+    set(ref(db, `${base}/d${day}_note`), noteVal === '' ? null : noteVal),
+  ])
     .then(() => closeModal('sched-shift-modal'))
     .catch(e => alert('เกิดข้อผิดพลาด: ' + e.message));
 }
 
 function schedShiftModalClear() {
   if (!_schedShiftCtx) return;
-  if (!confirm('ลบกะวันนี้ของพนักงานคนนี้?')) return;
+  if (!confirm('ลบกะและหมายเหตุของวันนี้ของพนักงานคนนี้?')) return;
   const { branchType, nid, day, ym } = _schedShiftCtx;
-  const path = branchType === 'main'
-    ? `schedule/${ym}/${nid}/d${day}`
-    : `schedule_ud/${ym}/${nid}/d${day}`;
-  set(ref(db, path), null)
+  const base = branchType === 'main' ? `schedule/${ym}/${nid}` : `schedule_ud/${ym}/${nid}`;
+  Promise.all([
+    set(ref(db, `${base}/d${day}`), null),
+    set(ref(db, `${base}/d${day}_note`), null),
+  ])
     .then(() => closeModal('sched-shift-modal'))
     .catch(e => alert('เกิดข้อผิดพลาด: ' + e.message));
 }
@@ -2084,6 +2100,7 @@ if ('serviceWorker' in navigator) {
     .sched-today-col{background:#f0fdf4!important;color:#16a34a!important;font-weight:700}
     .sched-chip{display:inline-block;padding:3px 6px;border-radius:5px;font-size:14px;font-weight:600;line-height:1.3;white-space:nowrap}
     .sched-empty{color:#ddd;font-size:12px}
+    .sched-cell-note{margin-top:3px;font-size:10.5px;color:var(--text3);line-height:1.25;max-width:64px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-left:auto;margin-right:auto;font-weight:400}
     .sched-branch-row td{font-size:13px;font-weight:700;padding:5px 12px;letter-spacing:.3px;position:sticky;left:0}
     .sched-sum-col{position:sticky;top:0;z-index:2;font-size:13px;font-weight:600;padding:6px 5px;text-align:center;white-space:nowrap;border-left:2px solid #e0dbd2}
     .sched-sum-val{text-align:center;font-size:15px;padding:5px 7px;border-left:2px solid #e0dbd2;vertical-align:middle}
@@ -2252,6 +2269,10 @@ if ('serviceWorker' in navigator) {
               <button type="button" class="sched-branch-btn" data-branch="2" onclick="schedPickShiftBranch(2,'2')">สาขา 2</button>
               <button type="button" class="sched-branch-btn" data-branch="3" onclick="schedPickShiftBranch(2,'3')">สาขา 3</button>
             </div>
+          </div>
+          <div class="sched-slot-block">
+            <label for="sched-shift-note" style="font-size:12px;font-weight:600;color:var(--text2)">หมายเหตุ (ถ้ามี)</label>
+            <textarea id="sched-shift-note" rows="2" placeholder="เช่น สลับเวรกับคนอื่น, มาสาย, ลาป่วยครึ่งวัน ฯลฯ" style="width:100%;margin-top:6px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:inherit;font-size:14px;resize:vertical;box-sizing:border-box"></textarea>
           </div>
           <div style="margin-top:14px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius);font-size:13px;color:var(--text2)">
             ค่าที่จะบันทึก: <b id="sched-shift-preview">—</b>
