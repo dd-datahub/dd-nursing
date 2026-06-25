@@ -4382,12 +4382,15 @@ const _SS_CHIP_COLORS = {
   'ช1':['#dbeafe','#1d4ed8'],'ด1':['#ede9fe','#5b21b6'],
   'ช2':['#d1fae5','#065f46'],'ด2':['#fde68a','#78350f'],
   'ช3':['#ffedd5','#c2410c'],'ด3':['#fce7f3','#9d174d'],
-  'ห': ['#f1f5f9','#475569'],'ล': ['#fef9c3','#854d0e'],
+  'ห': ['#fee2e2','#dc2626'],'ล': ['#fef9c3','#854d0e'],
   'บ': ['#fef3c7','#b45309'],'ว': ['#d1fae5','#065f46'],
 };
 function _ssChipStyle(shift, branch) {
   const c = _SS_CHIP_COLORS[shift+branch] || _SS_CHIP_COLORS[shift] || ['#f3f4f6','#555'];
   return `background:${c[0]};color:${c[1]}`;
+}
+function _ssShiftGlyph(shift) {
+  return shift === 'ห' ? '✗' : shift;
 }
 function _ssParseVal(v) {
   if (!v) return [];
@@ -4508,7 +4511,7 @@ function _ssRenderTable() {
       if (shifts.some(sh=>sh==='ช'||sh==='ด')) workDays++;
       if (shifts.includes('ช') && shifts.includes('ด')) otNight++;
       const chips = slots.map(s =>
-        `<span class="ss-chip" style="${_ssChipStyle(s.shift,s.branch)}">${s.shift}${s.branch||''}</span>`
+        `<span class="ss-chip" style="${_ssChipStyle(s.shift,s.branch)}">${_ssShiftGlyph(s.shift)}${s.branch||''}</span>`
       ).join('');
       let tdStyle = '';
       if (isTdy)       tdStyle = 'background:rgba(22,163,74,.06)';
@@ -5835,7 +5838,7 @@ if ('serviceWorker' in navigator) {
           <span class="ss-chip" style="background:#fde68a;color:#78350f">ด2</span><span style="font-size:13px;color:#888">ดึกสข.2</span>
           <span class="ss-chip" style="background:#ffedd5;color:#c2410c">ช3</span><span style="font-size:13px;color:#888">เช้าสข.3</span>
           <span class="ss-chip" style="background:#fce7f3;color:#9d174d">ด3</span><span style="font-size:13px;color:#888">ดึกสข.3</span>
-          <span class="ss-chip" style="background:#f1f5f9;color:#475569">ห</span><span style="font-size:13px;color:#888">หยุด</span>
+          <span class="ss-chip" style="background:#fee2e2;color:#dc2626">✗</span><span style="font-size:13px;color:#888">หยุด</span>
           <span class="ss-chip" style="background:#fef9c3;color:#854d0e">ล</span><span style="font-size:13px;color:#888">ลา</span>
         </div>
         <!-- Table -->

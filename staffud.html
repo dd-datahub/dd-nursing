@@ -3330,6 +3330,9 @@ function _ssudChipStyle(shift) {
   const c = _SSUD_CHIP_COLORS[shift] || ['#f3f4f6','#555'];
   return `background:${c[0]};color:${c[1]}`;
 }
+function _ssudShiftGlyph(shift) {
+  return shift === 'ห' ? '✗' : shift;
+}
 function _ssudParseVal(v) {
   if (!v) return [];
   return String(v).split('/').slice(0,2)
@@ -3440,7 +3443,7 @@ function _ssudRenderTable() {
       if (shifts.some(sh=>sh==='ช'||sh==='ด')) workDays++;
       if (shifts.includes('ช') && shifts.includes('ด')) otNight++;
       const chips = slots.map(s =>
-        `<span class="ssud-chip" style="${_ssudChipStyle(s.shift)}">${s.shift}</span>`
+        `<span class="ssud-chip" style="${_ssudChipStyle(s.shift)}">${_ssudShiftGlyph(s.shift)}</span>`
       ).join('');
       let tdStyle = '';
       if (isTdy)            tdStyle = 'background:rgba(22,163,74,.06)';
@@ -4402,7 +4405,7 @@ if ('serviceWorker' in navigator) {
           <span style="font-size:11px;color:#999;margin-right:2px">สัญลักษณ์:</span>
           <span class="ssud-chip" style="background:#fef3c7;color:#92400e">ช</span><span style="font-size:11px;color:#888">เช้า</span>
           <span class="ssud-chip" style="background:#e0e7ff;color:#3730a3">ด</span><span style="font-size:11px;color:#888">ดึก</span>
-          <span class="ssud-chip" style="background:#fee2e2;color:#dc2626">ห</span><span style="font-size:11px;color:#888">หยุด</span>
+          <span class="ssud-chip" style="background:#fee2e2;color:#dc2626">✗</span><span style="font-size:11px;color:#888">หยุด</span>
           <span class="ssud-chip" style="background:#fef9c3;color:#854d0e">ล</span><span style="font-size:11px;color:#888">ลา</span>
         </div>
         <!-- Table -->
