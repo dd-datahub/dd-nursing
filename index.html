@@ -612,6 +612,461 @@ window.revokeUidAccess          = revokeUidAccess;
 window.addPreAuthorizedEmail    = addPreAuthorizedEmail;
 window.cancelPreAuthorizedEmail = cancelPreAuthorizedEmail;
 
+// ════════════════════════════════════════════════════════════════
+// ตารางเวร (สาขาหลัก) — Admin จัดการได้เต็มรูปแบบ
+// อ้างอิงรูปแบบข้อมูลเดียวกับ staff.html (อ่านอย่างเดียว) แต่เพิ่มสิทธิ์เขียน
+// schedule/{ym}/{nurseId}/d{day} = "ช1/ด2" (รหัสกะ+เลขสาขา คั่นด้วย / สูงสุด 2 กะ)
+// schedule/{ym}/{nurseId}/_ot_holiday = ตัวเลข OT วันหยุด
+// schedule_nurses/{nurseId} = { name, branch:'1'|'2'|'3', order }
+// ════════════════════════════════════════════════════════════════
+let _schedMainYM = null;
+let _schedMainData = {};
+let _schedMainNurses = {};
+let _schedMainListener = null;
+let _schedMainNurseListener = null;
+
+function _schedMainInitYM() {
+  if (!_schedMainYM) {
+    const now = new Date();
+    _schedMainYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  }
+  return _schedMainYM;
+}
+function schedMainPrevMonth() {
+  const [y, m] = (_schedMainYM||_schedMainInitYM()).split('-').map(Number);
+  const d = new Date(y, m-2, 1);
+  _schedMainYM = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  _schedMainAttachListeners();
+}
+function schedMainNextMonth() {
+  const [y, m] = (_schedMainYM||_schedMainInitYM()).split('-').map(Number);
+  const d = new Date(y, m, 1);
+  _schedMainYM = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  _schedMainAttachListeners();
+}
+function _schedMainFormatMonthTH(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return `${months[m-1]} ${y+543}`;
+}
+function _schedMainDaysInMonth(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m, 0).getDate();
+}
+function _schedMainDayOfWeek(ym, day) {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m-1, day).getDay();
+}
+function _schedMainAttachListeners() {
+  if (typeof _schedMainListener === 'function') { _schedMainListener(); _schedMainListener = null; }
+  if (typeof _schedMainNurseListener === 'function') { _schedMainNurseListener(); _schedMainNurseListener = null; }
+  const ym = _schedMainInitYM();
+  const lbl = document.getElementById('schedmain-month-label');
+  if (lbl) lbl.textContent = _schedMainFormatMonthTH(ym);
+  _schedMainData = {}; _schedMainNurses = {};
+  _schedMainListener = onValue(ref(db, `schedule/${ym}`), snap => {
+    _schedMainData = snap.val() || {};
+    _schedMainRenderTable();
+  });
+  _schedMainNurseListener = onValue(ref(db, 'schedule_nurses'), snap => {
+    _schedMainNurses = snap.val() || {};
+    _schedMainRenderTable();
+  });
+}
+function renderSchedMainPage() {
+  _schedMainInitYM();
+  if (_schedMainListener) { _schedMainRenderTable(); return; }
+  _schedMainAttachListeners();
+}
+
+const _SCHEDMAIN_CHIP_COLORS = {
+  'ช1':['#dbeafe','#1d4ed8'],'ด1':['#ede9fe','#5b21b6'],
+  'ช2':['#d1fae5','#065f46'],'ด2':['#fde68a','#78350f'],
+  'ช3':['#ffedd5','#c2410c'],'ด3':['#fce7f3','#9d174d'],
+  'ห': ['#f1f5f9','#475569'],'ล': ['#fef9c3','#854d0e'],
+  'บ': ['#fef3c7','#b45309'],'ว': ['#d1fae5','#065f46'],
+};
+function _schedMainChipStyle(shift, branch) {
+  const c = _SCHEDMAIN_CHIP_COLORS[shift+branch] || _SCHEDMAIN_CHIP_COLORS[shift] || ['#f3f4f6','#555'];
+  return `background:${c[0]};color:${c[1]}`;
+}
+function _schedMainParseVal(v) {
+  if (!v) return [];
+  return String(v).split('/').slice(0,2)
+    .map(p => ({ shift: p[0]||'', branch: p.slice(1)||'' }))
+    .filter(s => s.shift);
+}
+
+function _schedMainRenderTable() {
+  const wrap = document.getElementById('schedmain-table-wrap');
+  if (!wrap) return;
+  const ym = _schedMainInitYM();
+  const days = _schedMainDaysInMonth(ym);
+  const now = new Date();
+  const todayDay = (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') === ym) ? now.getDate() : -1;
+  const nurses = Object.entries(_schedMainNurses).sort((a,b) => {
+    const ba = a[1].branch||'9', bb = b[1].branch||'9';
+    if (ba !== bb) return ba.localeCompare(bb);
+    return (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th');
+  });
+  if (!nurses.length) {
+    wrap.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#bbb;font-size:15px">ยังไม่มีพนักงานในตารางเวร — เพิ่มได้ที่ฟอร์มด้านบน</div>';
+    return;
+  }
+
+  let html = '<table class="sched-table"><thead><tr>';
+  html += '<th class="sched-name-col">ชื่อ / สาขา</th>';
+  for (let d = 1; d <= days; d++) {
+    const dow = _schedMainDayOfWeek(ym, d);
+    const isWk = dow===0||dow===6;
+    if (d===todayDay)          html += `<th class="sched-today-col">${d}</th>`;
+    else if (isWk)             html += `<th style="background:#fff5f5;color:#e57373">${d}</th>`;
+    else                       html += `<th>${d}</th>`;
+  }
+  html += '<th class="sched-sum-col">วัน<br>ทำงาน</th>';
+  html += '<th class="sched-sum-col">OT<br>ดึก</th>';
+  html += '<th class="sched-sum-col">OT<br>วันหยุด</th>';
+  html += '<th class="sched-sum-col">รวมกะ</th>';
+  html += '<th class="sched-sum-col"></th>';
+  html += '</tr></thead><tbody>';
+
+  let lastBranch = '__NONE__';
+  for (const [nid, nurse] of nurses) {
+    const branch = nurse.branch || '';
+    if (branch !== lastBranch) {
+      lastBranch = branch;
+      const bLabel = branch==='1'?'🏥 สาขา 1':branch==='2'?'🏥 สาขา 2':branch==='3'?'🏥 สาขา 3':'📋 ยังไม่ระบุสาขา';
+      const bBg    = branch==='1'?'#dbeafe':branch==='2'?'#d1fae5':branch==='3'?'#ffedd5':'#f0ede8';
+      const bColor = branch==='1'?'#1d4ed8':branch==='2'?'#065f46':branch==='3'?'#c2410c':'#888';
+      html += `<tr class="sched-branch-row"><td colspan="${days+6}" style="background:${bBg};color:${bColor}">${bLabel}</td></tr>`;
+    }
+
+    const nd = _schedMainData[nid] || {};
+    const rowBg = branch==='1'?'#f0f6ff':branch==='2'?'#f0faf4':branch==='3'?'#fff8f0':'#fafaf8';
+    const countMap = {ช:0,ด:0,ห:0,ล:0};
+    let workDays = 0, otNight = 0, cells = '';
+
+    for (let d = 1; d <= days; d++) {
+      const dow   = _schedMainDayOfWeek(ym, d);
+      const isWk  = dow===0||dow===6;
+      const isTdy = d === todayDay;
+      const val   = nd[`d${d}`] || '';
+      const slots = _schedMainParseVal(val);
+      const shifts = slots.map(s => s.shift);
+      shifts.forEach(sh => { if (countMap[sh]!==undefined) countMap[sh]++; });
+      if (shifts.some(sh=>sh==='ช'||sh==='ด')) workDays++;
+      if (shifts.includes('ช') && shifts.includes('ด')) otNight++;
+      const chips = slots.map(s =>
+        `<span class="sched-chip" style="${_schedMainChipStyle(s.shift,s.branch)}">${s.shift}${s.branch||''}</span>`
+      ).join('');
+      let tdStyle = '';
+      if (isTdy)       tdStyle = 'background:rgba(22,163,74,.06)';
+      else if (isWk && !val) tdStyle = 'background:#fff5f5';
+      cells += `<td class="sched-cell"${tdStyle?` style="${tdStyle}"`:''} onclick="schedMainEditCell('${nid}',${d})">` +
+               (chips || '<span class="sched-empty">—</span>') + '</td>';
+    }
+
+    const wdCell = `<td class="sched-sum-val">${workDays||'—'}</td>`;
+    const otCell = `<td class="sched-sum-val" style="${otNight>0?'color:#6d28d9;font-weight:700':'color:#ccc'}">${otNight>0?otNight:'—'}</td>`;
+    const otHolRaw = (nd._ot_holiday != null && nd._ot_holiday !== '') ? nd._ot_holiday : null;
+    const otHolCell = `<td class="sched-sum-val sched-cell" style="${otHolRaw!=null?'color:#92400e;font-weight:700':'color:#ccc'}" onclick="schedMainEditOT('${nid}')">${otHolRaw!=null?otHolRaw:'—'}</td>`;
+    const summary = Object.entries(countMap).filter(([,v])=>v>0)
+      .map(([k,v])=>`<span class="sched-sum-tag">${k}<b>${v}</b></span>`).join('');
+    const sumCell = `<td class="sched-sum-val">${summary||'—'}</td>`;
+    const safeName = (nurse.name||'').replace(/'/g,"\\'");
+    const delCell = `<td><button class="sched-del-btn" title="ลบพนักงานออกจากตาราง" onclick="schedMainDeleteNurse('${nid}','${safeName}')">🗑️</button></td>`;
+
+    html += `<tr style="background:${rowBg}">` +
+            `<td class="sched-name-col" style="background:${rowBg}">${nurse.name}</td>` +
+            cells + wdCell + otCell + otHolCell + sumCell + delCell + '</tr>';
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+async function schedMainAddNurse() {
+  const nameEl = document.getElementById('schedmain-add-name');
+  const branchEl = document.getElementById('schedmain-add-branch');
+  const orderEl = document.getElementById('schedmain-add-order');
+  const name = (nameEl.value||'').trim();
+  if (!name) { alert('กรุณากรอกชื่อพนักงาน'); return; }
+  const branch = branchEl.value || '';
+  const order = parseInt(orderEl.value,10) || 99;
+  try {
+    const nid = 'nurse_' + Date.now();
+    await set(ref(db, `schedule_nurses/${nid}`), { name, branch, order });
+    nameEl.value = ''; orderEl.value = '';
+  } catch (e) {
+    alert('เกิดข้อผิดพลาด: ' + e.message);
+  }
+}
+
+async function schedMainDeleteNurse(nid, name) {
+  if (!confirm(`ลบ "${name}" ออกจากตารางเวร?\n(ข้อมูลกะที่บันทึกไว้ก่อนหน้าจะยังอยู่ในระบบ แต่จะไม่แสดงในตารางอีก)`)) return;
+  try {
+    await set(ref(db, `schedule_nurses/${nid}`), null);
+  } catch (e) {
+    alert('เกิดข้อผิดพลาด: ' + e.message);
+  }
+}
+
+function schedMainEditCell(nid, day) {
+  const ym = _schedMainInitYM();
+  const nd = _schedMainData[nid] || {};
+  const cur = nd[`d${day}`] || '';
+  const input = prompt(
+    `กำหนดกะวันที่ ${day} (${_schedMainFormatMonthTH(ym)})\n\n` +
+    `รหัสกะ: ช=เช้า ด=ดึก ห=หยุด ล=ลา บ=บ่าย ว=วันหยุด\n` +
+    `ใส่เลขสาขาต่อท้าย ช หรือ ด ได้ เช่น ช1, ด2, ช3\n` +
+    `ใส่ได้สูงสุด 2 กะ คั่นด้วย / เช่น ช1/ด2\n\n` +
+    `เว้นว่างแล้วกดตกลง = ลบกะวันนี้`,
+    cur
+  );
+  if (input === null) return;
+  const val = input.trim();
+  set(ref(db, `schedule/${ym}/${nid}/d${day}`), val === '' ? null : val)
+    .catch(e => alert('เกิดข้อผิดพลาด: ' + e.message));
+}
+
+function schedMainEditOT(nid) {
+  const ym = _schedMainInitYM();
+  const nd = _schedMainData[nid] || {};
+  const cur = (nd._ot_holiday != null) ? nd._ot_holiday : '';
+  const input = prompt(`กำหนด OT วันหยุด ของเดือน ${_schedMainFormatMonthTH(ym)}\n(ใส่จำนวนเป็นตัวเลข เว้นว่างแล้วกดตกลง = ลบ)`, cur);
+  if (input === null) return;
+  const val = input.trim();
+  set(ref(db, `schedule/${ym}/${nid}/_ot_holiday`), val === '' ? null : val)
+    .catch(e => alert('เกิดข้อผิดพลาด: ' + e.message));
+}
+
+window.renderSchedMainPage   = renderSchedMainPage;
+window.schedMainPrevMonth    = schedMainPrevMonth;
+window.schedMainNextMonth    = schedMainNextMonth;
+window.schedMainAddNurse     = schedMainAddNurse;
+window.schedMainDeleteNurse  = schedMainDeleteNurse;
+window.schedMainEditCell     = schedMainEditCell;
+window.schedMainEditOT       = schedMainEditOT;
+
+// ════════════════════════════════════════════════════════════════
+// ตารางเวร (สาขาอุดร) — เหมือนสาขาหลัก แต่ไม่มีสาขาย่อย (อ้างอิง staffud.html)
+// schedule_ud/{ym}/{nurseId}/d{day} = "ช" หรือ "ช/ด" (ไม่มีเลขสาขาต่อท้าย)
+// schedule_ud_nurses/{nurseId} = { name, order }
+// ════════════════════════════════════════════════════════════════
+let _schedUdYM = null;
+let _schedUdData = {};
+let _schedUdNurses = {};
+let _schedUdListener = null;
+let _schedUdNurseListener = null;
+
+function _schedUdInitYM() {
+  if (!_schedUdYM) {
+    const now = new Date();
+    _schedUdYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  }
+  return _schedUdYM;
+}
+function schedUdPrevMonth() {
+  const [y, m] = (_schedUdYM||_schedUdInitYM()).split('-').map(Number);
+  const d = new Date(y, m-2, 1);
+  _schedUdYM = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  _schedUdAttachListeners();
+}
+function schedUdNextMonth() {
+  const [y, m] = (_schedUdYM||_schedUdInitYM()).split('-').map(Number);
+  const d = new Date(y, m, 1);
+  _schedUdYM = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  _schedUdAttachListeners();
+}
+function _schedUdFormatMonthTH(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return `${months[m-1]} ${y+543}`;
+}
+function _schedUdDaysInMonth(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m, 0).getDate();
+}
+function _schedUdDayOfWeek(ym, day) {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m-1, day).getDay();
+}
+function _schedUdAttachListeners() {
+  if (typeof _schedUdListener === 'function') { _schedUdListener(); _schedUdListener = null; }
+  if (typeof _schedUdNurseListener === 'function') { _schedUdNurseListener(); _schedUdNurseListener = null; }
+  const ym = _schedUdInitYM();
+  const lbl = document.getElementById('schedud-month-label');
+  if (lbl) lbl.textContent = _schedUdFormatMonthTH(ym);
+  _schedUdData = {}; _schedUdNurses = {};
+  _schedUdListener = onValue(ref(db, `schedule_ud/${ym}`), snap => {
+    _schedUdData = snap.val() || {};
+    _schedUdRenderTable();
+  });
+  _schedUdNurseListener = onValue(ref(db, 'schedule_ud_nurses'), snap => {
+    _schedUdNurses = snap.val() || {};
+    _schedUdRenderTable();
+  });
+}
+function renderSchedUdPage() {
+  _schedUdInitYM();
+  if (_schedUdListener) { _schedUdRenderTable(); return; }
+  _schedUdAttachListeners();
+}
+
+const _SCHEDUD_CHIP_COLORS = {
+  'ช': ['#fef3c7','#92400e'],
+  'ด': ['#e0e7ff','#3730a3'],
+  'ห': ['#fee2e2','#dc2626'],
+  'ล': ['#fef9c3','#854d0e'],
+  'บ': ['#fef3c7','#b45309'],
+  'ว': ['#d1fae5','#065f46'],
+};
+function _schedUdChipStyle(shift) {
+  const c = _SCHEDUD_CHIP_COLORS[shift] || ['#f3f4f6','#555'];
+  return `background:${c[0]};color:${c[1]}`;
+}
+function _schedUdParseVal(v) {
+  if (!v) return [];
+  return String(v).split('/').slice(0,2)
+    .map(p => ({ shift: p[0]||'', branch: p.slice(1)||'' }))
+    .filter(s => s.shift);
+}
+
+function _schedUdRenderTable() {
+  const wrap = document.getElementById('schedud-table-wrap');
+  if (!wrap) return;
+  const ym = _schedUdInitYM();
+  const days = _schedUdDaysInMonth(ym);
+  const now = new Date();
+  const todayDay = (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') === ym) ? now.getDate() : -1;
+  const nurses = Object.entries(_schedUdNurses).sort((a,b) => {
+    return (a[1].order||99) - (b[1].order||99) || a[1].name.localeCompare(b[1].name,'th');
+  });
+  if (!nurses.length) {
+    wrap.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#bbb;font-size:15px">ยังไม่มีพนักงานในตารางเวร — เพิ่มได้ที่ฟอร์มด้านบน</div>';
+    return;
+  }
+
+  let html = '<table class="sched-table"><thead><tr>';
+  html += '<th class="sched-name-col">ชื่อ</th>';
+  for (let d = 1; d <= days; d++) {
+    const dow = _schedUdDayOfWeek(ym, d);
+    const isWk = dow===0||dow===6;
+    if (d===todayDay)          html += `<th class="sched-today-col">${d}</th>`;
+    else if (isWk)             html += `<th style="background:#fff5f5;color:#e57373">${d}</th>`;
+    else                       html += `<th>${d}</th>`;
+  }
+  html += '<th class="sched-sum-col">วัน<br>ทำงาน</th>';
+  html += '<th class="sched-sum-col">OT<br>ดึก</th>';
+  html += '<th class="sched-sum-col">OT<br>วันหยุด</th>';
+  html += '<th class="sched-sum-col">รวมกะ</th>';
+  html += '<th class="sched-sum-col"></th>';
+  html += '</tr></thead><tbody>';
+
+  html += `<tr class="sched-branch-row"><td colspan="${days+6}" style="background:#fef3c7;color:#92400e">🏥 สาขาอุดร</td></tr>`;
+
+  for (const [nid, nurse] of nurses) {
+    const nd = _schedUdData[nid] || {};
+    const countMap = {ช:0, ด:0, ห:0, ล:0};
+    let workDays = 0, otNight = 0, cells = '';
+
+    for (let d = 1; d <= days; d++) {
+      const dow   = _schedUdDayOfWeek(ym, d);
+      const isWk  = dow===0||dow===6;
+      const isTdy = d === todayDay;
+      const val   = nd[`d${d}`] || '';
+      const slots = _schedUdParseVal(val);
+      const shifts = slots.map(s => s.shift);
+      shifts.forEach(sh => { if (countMap[sh]!==undefined) countMap[sh]++; });
+      if (shifts.some(sh=>sh==='ช'||sh==='ด')) workDays++;
+      if (shifts.includes('ช') && shifts.includes('ด')) otNight++;
+      const chips = slots.map(s =>
+        `<span class="sched-chip" style="${_schedUdChipStyle(s.shift)}">${s.shift}</span>`
+      ).join('');
+      let tdStyle = '';
+      if (isTdy)            tdStyle = 'background:rgba(22,163,74,.06)';
+      else if (isWk && !val) tdStyle = 'background:#fff5f5';
+      cells += `<td class="sched-cell"${tdStyle?` style="${tdStyle}"`:''} onclick="schedUdEditCell('${nid}',${d})">` +
+               (chips || '<span class="sched-empty">—</span>') + '</td>';
+    }
+
+    const wdCell = `<td class="sched-sum-val">${workDays||'—'}</td>`;
+    const otCell = `<td class="sched-sum-val" style="${otNight>0?'color:#6d28d9;font-weight:700':'color:#ccc'}">${otNight>0?otNight:'—'}</td>`;
+    const otHolRaw = (nd._ot_holiday!=null && nd._ot_holiday!=='') ? nd._ot_holiday : null;
+    const otHolCell = `<td class="sched-sum-val sched-cell" style="${otHolRaw!=null?'color:#92400e;font-weight:700':'color:#ccc'}" onclick="schedUdEditOT('${nid}')">${otHolRaw!=null?otHolRaw:'—'}</td>`;
+    const summary = Object.entries(countMap).filter(([,v])=>v>0)
+      .map(([k,v])=>`<span class="sched-sum-tag">${k}<b>${v}</b></span>`).join('');
+    const sumCell = `<td class="sched-sum-val">${summary||'—'}</td>`;
+    const safeName = (nurse.name||'').replace(/'/g,"\\'");
+    const delCell = `<td><button class="sched-del-btn" title="ลบพนักงานออกจากตาราง" onclick="schedUdDeleteNurse('${nid}','${safeName}')">🗑️</button></td>`;
+
+    html += `<tr>` +
+            `<td class="sched-name-col">${nurse.name}</td>` +
+            cells + wdCell + otCell + otHolCell + sumCell + delCell + '</tr>';
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+async function schedUdAddNurse() {
+  const nameEl = document.getElementById('schedud-add-name');
+  const orderEl = document.getElementById('schedud-add-order');
+  const name = (nameEl.value||'').trim();
+  if (!name) { alert('กรุณากรอกชื่อพนักงาน'); return; }
+  const order = parseInt(orderEl.value,10) || 99;
+  try {
+    const nid = 'nurse_' + Date.now();
+    await set(ref(db, `schedule_ud_nurses/${nid}`), { name, order });
+    nameEl.value = ''; orderEl.value = '';
+  } catch (e) {
+    alert('เกิดข้อผิดพลาด: ' + e.message);
+  }
+}
+
+async function schedUdDeleteNurse(nid, name) {
+  if (!confirm(`ลบ "${name}" ออกจากตารางเวร?\n(ข้อมูลกะที่บันทึกไว้ก่อนหน้าจะยังอยู่ในระบบ แต่จะไม่แสดงในตารางอีก)`)) return;
+  try {
+    await set(ref(db, `schedule_ud_nurses/${nid}`), null);
+  } catch (e) {
+    alert('เกิดข้อผิดพลาด: ' + e.message);
+  }
+}
+
+function schedUdEditCell(nid, day) {
+  const ym = _schedUdInitYM();
+  const nd = _schedUdData[nid] || {};
+  const cur = nd[`d${day}`] || '';
+  const input = prompt(
+    `กำหนดกะวันที่ ${day} (${_schedUdFormatMonthTH(ym)})\n\n` +
+    `รหัสกะ: ช=เช้า ด=ดึก ห=หยุด ล=ลา บ=บ่าย ว=วันหยุด\n` +
+    `ใส่ได้สูงสุด 2 กะ คั่นด้วย / เช่น ช/ด\n\n` +
+    `เว้นว่างแล้วกดตกลง = ลบกะวันนี้`,
+    cur
+  );
+  if (input === null) return;
+  const val = input.trim();
+  set(ref(db, `schedule_ud/${ym}/${nid}/d${day}`), val === '' ? null : val)
+    .catch(e => alert('เกิดข้อผิดพลาด: ' + e.message));
+}
+
+function schedUdEditOT(nid) {
+  const ym = _schedUdInitYM();
+  const nd = _schedUdData[nid] || {};
+  const cur = (nd._ot_holiday != null) ? nd._ot_holiday : '';
+  const input = prompt(`กำหนด OT วันหยุด ของเดือน ${_schedUdFormatMonthTH(ym)}\n(ใส่จำนวนเป็นตัวเลข เว้นว่างแล้วกดตกลง = ลบ)`, cur);
+  if (input === null) return;
+  const val = input.trim();
+  set(ref(db, `schedule_ud/${ym}/${nid}/_ot_holiday`), val === '' ? null : val)
+    .catch(e => alert('เกิดข้อผิดพลาด: ' + e.message));
+}
+
+window.renderSchedUdPage   = renderSchedUdPage;
+window.schedUdPrevMonth    = schedUdPrevMonth;
+window.schedUdNextMonth    = schedUdNextMonth;
+window.schedUdAddNurse     = schedUdAddNurse;
+window.schedUdDeleteNurse  = schedUdDeleteNurse;
+window.schedUdEditCell     = schedUdEditCell;
+window.schedUdEditOT       = schedUdEditOT;
+
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window._adminReady = false;
@@ -961,6 +1416,8 @@ if ('serviceWorker' in navigator) {
     <div class="nav-item" onclick="goPage('history')" title="ประวัติการชำระ"><span class="nav-icon">📋</span> <span class="nav-label">ประวัติการชำระ</span></div>
     <div class="nav-item" onclick="goPage('refund')" title="คืนเงินลูกค้า"><span class="nav-icon">↩️</span> <span class="nav-label">คืนเงินลูกค้า</span></div>
     <div class="nav-item" onclick="goPage('issues')" title="ปัญหาข้อมูล"><span class="nav-icon">⚠️</span> <span class="nav-label">ปัญหาข้อมูล</span> <span class="nav-badge" style="background:var(--text3)">0</span></div>
+    <div class="nav-item" onclick="goPage('schedmain')" title="ตารางเวร (สาขาหลัก)"><span class="nav-icon">🗓️</span> <span class="nav-label">ตารางเวร (หลัก)</span></div>
+    <div class="nav-item" onclick="goPage('schedud')" title="ตารางเวร (สาขาอุดร)"><span class="nav-icon">🗓️</span> <span class="nav-label">ตารางเวร (อุดร)</span></div>
     <div class="nav-item" onclick="goPage('permission')" title="สิทธิ์การเข้าถึง"><span class="nav-icon">🔐</span> <span class="nav-label">สิทธิ์การเข้าถึง</span> <span class="nav-badge" id="perm-badge" style="display:none;background:#c0392b">0</span></div>
   </nav>
   <div class="sidebar-footer">
@@ -1495,6 +1952,128 @@ if ('serviceWorker' in navigator) {
           <div class="empty-icon">👤</div>
           <div class="empty-text">ยังไม่มีผู้ได้รับสิทธิ์เข้าใช้งาน</div>
         </div>
+      </div>
+    </div>
+
+    <style>
+    .sched-table{border-collapse:collapse;width:100%;min-width:max-content;font-size:14px;font-family:inherit}
+    .sched-table th{position:sticky;top:0;z-index:2;background:var(--surface2);color:#555;font-weight:600;padding:7px 4px;text-align:center;border-bottom:2px solid #e0dbd2;white-space:nowrap;min-width:34px}
+    .sched-table td{padding:5px 3px;text-align:center;border-bottom:.5px solid #f0ede8;vertical-align:middle;min-width:34px}
+    .sched-name-col{position:sticky;left:0;z-index:3;background:var(--surface2)!important;text-align:left!important;min-width:100px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:10px!important;padding-right:8px!important;border-right:1.5px solid #e0dbd2;font-weight:500}
+    .sched-table th.sched-name-col{z-index:4}
+    .sched-today-col{background:#f0fdf4!important;color:#16a34a!important;font-weight:700}
+    .sched-chip{display:inline-block;padding:2px 5px;border-radius:5px;font-size:13px;font-weight:600;line-height:1.3;white-space:nowrap}
+    .sched-empty{color:#ddd;font-size:12px}
+    .sched-branch-row td{font-size:13px;font-weight:700;padding:4px 10px;letter-spacing:.3px;position:sticky;left:0}
+    .sched-sum-col{position:sticky;top:0;z-index:2;font-size:13px;font-weight:600;padding:5px 4px;text-align:center;white-space:nowrap;border-left:2px solid #e0dbd2}
+    .sched-sum-val{text-align:center;font-size:15px;padding:4px 6px;border-left:2px solid #e0dbd2;vertical-align:middle}
+    .sched-sum-tag{display:inline-block;margin:1px 2px;font-size:13px;color:#555;white-space:nowrap}
+    .sched-sum-tag b{margin-left:1px;color:#333}
+    .sched-cell{cursor:pointer;transition:background .1s}
+    .sched-cell:hover{background:#eef2ff!important}
+    .sched-del-btn{background:none;border:none;cursor:pointer;font-size:15px;padding:2px 6px;opacity:.6}
+    .sched-del-btn:hover{opacity:1}
+    .sched-legend-tag{display:inline-block;margin:2px 6px 2px 0;padding:2px 7px;border-radius:5px;font-size:12px;font-weight:600}
+    .sched-month-nav{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #e8e5e0}
+    .sched-month-nav .btn{padding:6px 12px}
+    .sched-month-nav .sched-month-label{font-size:15px;font-weight:600;min-width:120px;text-align:center}
+    </style>
+
+    <div class="page" id="page-schedmain">
+      <div class="alert alert-info">
+        <span class="alert-icon">ℹ️</span>
+        จัดการตารางเวรพนักงานสาขาหลัก — เพิ่ม/ลบพนักงานในตาราง และคลิกที่ช่องวันที่เพื่อกำหนดกะได้โดยตรง พนักงานจะเห็นตารางนี้แบบอ่านอย่างเดียวในแอป staff.html
+        <div style="margin-top:8px">
+          <span class="sched-legend-tag" style="background:#dbeafe;color:#1d4ed8">ช1/ช2/ช3 เช้า</span>
+          <span class="sched-legend-tag" style="background:#ede9fe;color:#5b21b6">ด1/ด2/ด3 ดึก</span>
+          <span class="sched-legend-tag" style="background:#f1f5f9;color:#475569">ห หยุด</span>
+          <span class="sched-legend-tag" style="background:#fef9c3;color:#854d0e">ล ลา</span>
+          <span class="sched-legend-tag" style="background:#fef3c7;color:#b45309">บ บ่าย</span>
+          <span class="sched-legend-tag" style="background:#d1fae5;color:#065f46">ว วันหยุด</span>
+        </div>
+      </div>
+
+      <div class="table-wrap" style="margin-bottom:16px">
+        <div class="table-header">
+          <h3>เพิ่มพนักงานในตารางเวร (สาขาหลัก)</h3>
+        </div>
+        <div style="padding:16px">
+          <div class="form-row">
+            <div class="form-group" style="flex:2">
+              <label>ชื่อพนักงาน</label>
+              <input type="text" id="schedmain-add-name" placeholder="ชื่อ-นามสกุล">
+            </div>
+            <div class="form-group">
+              <label>สาขา</label>
+              <select id="schedmain-add-branch">
+                <option value="1">สาขา 1</option>
+                <option value="2">สาขา 2</option>
+                <option value="3">สาขา 3</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>ลำดับ</label>
+              <input type="number" id="schedmain-add-order" placeholder="1" min="1" style="width:80px">
+            </div>
+            <div class="form-group" style="align-self:flex-end">
+              <button class="btn btn-primary" onclick="schedMainAddNurse()">+ เพิ่ม</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="sched-month-nav">
+          <button class="btn" onclick="schedMainPrevMonth()">‹ เดือนก่อน</button>
+          <span class="sched-month-label" id="schedmain-month-label">—</span>
+          <button class="btn" onclick="schedMainNextMonth()">เดือนถัดไป ›</button>
+        </div>
+        <div style="overflow-x:auto" id="schedmain-table-wrap"></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-schedud">
+      <div class="alert alert-info">
+        <span class="alert-icon">ℹ️</span>
+        จัดการตารางเวรพนักงานสาขาอุดร — เพิ่ม/ลบพนักงานในตาราง และคลิกที่ช่องวันที่เพื่อกำหนดกะได้โดยตรง พนักงานจะเห็นตารางนี้แบบอ่านอย่างเดียวในแอป staffud.html
+        <div style="margin-top:8px">
+          <span class="sched-legend-tag" style="background:#fef3c7;color:#92400e">ช เช้า</span>
+          <span class="sched-legend-tag" style="background:#e0e7ff;color:#3730a3">ด ดึก</span>
+          <span class="sched-legend-tag" style="background:#fee2e2;color:#dc2626">ห หยุด</span>
+          <span class="sched-legend-tag" style="background:#fef9c3;color:#854d0e">ล ลา</span>
+          <span class="sched-legend-tag" style="background:#fef3c7;color:#b45309">บ บ่าย</span>
+          <span class="sched-legend-tag" style="background:#d1fae5;color:#065f46">ว วันหยุด</span>
+        </div>
+      </div>
+
+      <div class="table-wrap" style="margin-bottom:16px">
+        <div class="table-header">
+          <h3>เพิ่มพนักงานในตารางเวร (สาขาอุดร)</h3>
+        </div>
+        <div style="padding:16px">
+          <div class="form-row">
+            <div class="form-group" style="flex:2">
+              <label>ชื่อพนักงาน</label>
+              <input type="text" id="schedud-add-name" placeholder="ชื่อ-นามสกุล">
+            </div>
+            <div class="form-group">
+              <label>ลำดับ</label>
+              <input type="number" id="schedud-add-order" placeholder="1" min="1" style="width:80px">
+            </div>
+            <div class="form-group" style="align-self:flex-end">
+              <button class="btn btn-primary" onclick="schedUdAddNurse()">+ เพิ่ม</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="sched-month-nav">
+          <button class="btn" onclick="schedUdPrevMonth()">‹ เดือนก่อน</button>
+          <span class="sched-month-label" id="schedud-month-label">—</span>
+          <button class="btn" onclick="schedUdNextMonth()">เดือนถัดไป ›</button>
+        </div>
+        <div style="overflow-x:auto" id="schedud-table-wrap"></div>
       </div>
     </div>
 
@@ -5038,7 +5617,7 @@ function goPage(id) {
   });
   // Auto-close sidebar on mobile
   if (window.innerWidth <= 640) closeSidebar();
-  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',reminders:'แจ้งเตือนบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',permission:'จัดการสิทธิ์การเข้าถึง'};
+  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',reminders:'แจ้งเตือนบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',schedmain:'ตารางเวร (สาขาหลัก)',schedud:'ตารางเวร (สาขาอุดร)',permission:'จัดการสิทธิ์การเข้าถึง'};
   document.getElementById('page-title').textContent = titles[id]||'';
   if(id==='customers')    renderTable();
   if(id==='discharged')   renderDischarged();
@@ -5049,6 +5628,8 @@ function goPage(id) {
   if(id==='history')      renderHistory();
   if(id==='issues')       renderIssues();
   if(id==='dashboard')    updateDashboard();
+  if(id==='schedmain')    renderSchedMainPage();
+  if(id==='schedud')      renderSchedUdPage();
   if(id==='permission')   renderPermissionPage();
 }
 
