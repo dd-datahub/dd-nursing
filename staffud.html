@@ -113,6 +113,26 @@ onAuthStateChanged(auth, async user => {
       return;
     }
 
+    // 1.5 ตรวจสอบว่าแอดมินเพิ่มอีเมลนี้ไว้ล่วงหน้าหรือไม่ (allowed_emails_ud)
+    // ถ้าใช่ — รับสิทธิ์ทันทีโดยไม่ต้องรอแอดมินอนุมัติคำขอ
+    try {
+      const emailKey = (user.email || '').trim().toLowerCase().replace(/\./g, ',');
+      const preAuthSnap = await get(ref(db, `allowed_emails_ud/${emailKey}`));
+      if (preAuthSnap.exists()) {
+        await set(ref(db, `allowed_uids_ud/${user.uid}`), {
+          email:       user.email,
+          displayName: user.displayName || '',
+          addedAt:     new Date().toISOString()
+        });
+        _grantStaffAccess(user);
+        try { await set(ref(db, `uid_requests_ud/${user.uid}`), null); } catch(_) {}
+        return;
+      }
+    } catch (e) {
+      console.warn("Cannot check allowed_emails_ud (pre-auth):", e);
+      // ตรวจไม่ได้ก็ไม่เป็นไร — ปล่อยให้ตกไปขั้นตอนขอสิทธิ์ตามปกติด้านล่าง
+    }
+
     // 2. ยังไม่ได้รับอนุมัติ — ส่งคำขอไปที่ uid_requests_ud
     try {
       await set(ref(db, `uid_requests_ud/${user.uid}`), {

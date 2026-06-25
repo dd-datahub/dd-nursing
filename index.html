@@ -364,6 +364,13 @@ let _uidRequests   = {};
 let _uidRequestsUd = {};
 let _allowedUids   = {};
 let _allowedUidsUd = {};
+let _allowedEmails   = {};
+let _allowedEmailsUd = {};
+
+// แปลงอีเมลเป็น key ที่ใช้กับ Firebase ได้ (key ห้ามมี ".")
+function _sanitizeEmailKey(email) {
+  return (email || '').trim().toLowerCase().replace(/\./g, ',');
+}
 
 function listenPermissions() {
   onValue(ref(db, 'uid_requests'), snap => {
@@ -382,6 +389,14 @@ function listenPermissions() {
     _allowedUidsUd = snap.val() || {};
     renderPermissionPage();
   }, e => console.warn('listen allowed_uids_ud:', e));
+  onValue(ref(db, 'allowed_emails'), snap => {
+    _allowedEmails = snap.val() || {};
+    renderPermissionPage();
+  }, e => console.warn('listen allowed_emails:', e));
+  onValue(ref(db, 'allowed_emails_ud'), snap => {
+    _allowedEmailsUd = snap.val() || {};
+    renderPermissionPage();
+  }, e => console.warn('listen allowed_emails_ud:', e));
 }
 
 function _fmtPermDate(iso) {
@@ -435,6 +450,39 @@ function renderPermissionPage() {
           </div>
           <button class="btn btn-sm btn-primary" onclick="approveUidRequest('${r.uid}','${r._source}')">✓ อนุมัติ</button>
           <button class="btn btn-sm btn-danger" onclick="rejectUidRequest('${r.uid}','${r._source}')">✕ ปฏิเสธ</button>
+        </div>`).join('');
+    }
+  }
+
+  // --- อีเมลที่เพิ่มไว้ล่วงหน้า (allowed_emails + allowed_emails_ud) ---
+  // ซ่อนรายการที่ถูก claim ไปแล้ว (อีเมลนี้มีอยู่ใน allowed_uids/allowed_uids_ud แล้ว)
+  const preAuthList = [
+    ...Object.entries(_allowedEmails).map(([key, v]) => ({ key, ...v, _source: 'staff' })),
+    ...Object.entries(_allowedEmailsUd).map(([key, v]) => ({ key, ...v, _source: 'staffud' })),
+  ]
+    .filter(p => {
+      const list = p._source === 'staffud' ? _allowedUidsUd : _allowedUids;
+      const email = (p.email || '').toLowerCase();
+      return !Object.values(list).some(a => (a.email || '').toLowerCase() === email);
+    })
+    .sort((a, b) => (b.addedAt || '').localeCompare(a.addedAt || ''));
+
+  const preEl    = document.getElementById('perm-preauth-list');
+  const preEmpty = document.getElementById('perm-preauth-empty');
+  if (preEl) {
+    if (preAuthList.length === 0) {
+      preEl.innerHTML = '';
+      if (preEmpty) preEmpty.style.display = 'block';
+    } else {
+      if (preEmpty) preEmpty.style.display = 'none';
+      preEl.innerHTML = preAuthList.map(p => `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)">
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--surface2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--text3)">📧</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:500">${p.email || '-'} ${_permSourceTag(p._source)}</div>
+            <div style="font-size:12px;color:var(--text2)">รอเข้าระบบครั้งแรก · เพิ่มเมื่อ ${_fmtPermDate(p.addedAt)}</div>
+          </div>
+          <button class="btn btn-sm btn-danger" onclick="cancelPreAuthorizedEmail('${p.key}','${p._source}')">ยกเลิก</button>
         </div>`).join('');
     }
   }
@@ -514,9 +562,55 @@ async function revokeUidAccess(uid, source) {
     alert('เกิดข้อผิดพลาด กรุณาลองใหม่');
   }
 }
-window.approveUidRequest = approveUidRequest;
-window.rejectUidRequest  = rejectUidRequest;
-window.revokeUidAccess   = revokeUidAccess;
+async function addPreAuthorizedEmail() {
+  const inputEl  = document.getElementById('perm-add-email');
+  const sourceEl = document.getElementById('perm-add-source');
+  const email  = (inputEl?.value || '').trim().toLowerCase();
+  const source = sourceEl?.value || 'staff';
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    alert('กรุณากรอกอีเมลให้ถูกต้อง');
+    return;
+  }
+
+  const allowedList = source === 'staffud' ? _allowedUidsUd : _allowedUids;
+  if (Object.values(allowedList).some(a => (a.email || '').toLowerCase() === email)) {
+    alert('อีเมลนี้ได้รับสิทธิ์เข้าใช้งานอยู่แล้ว ไม่ต้องเพิ่มซ้ำ');
+    return;
+  }
+
+  const key  = _sanitizeEmailKey(email);
+  const path = source === 'staffud' ? 'allowed_emails_ud' : 'allowed_emails';
+  try {
+    await set(ref(db, `${path}/${key}`), {
+      email,
+      addedAt: new Date().toISOString(),
+      addedBy: (auth.currentUser && auth.currentUser.email) || ''
+    });
+    if (inputEl) inputEl.value = '';
+    alert('เพิ่มสิทธิ์ล่วงหน้าเรียบร้อย — เมื่อพนักงานเข้าสู่ระบบด้วยอีเมลนี้ครั้งแรก จะได้รับสิทธิ์ทันที');
+  } catch (e) {
+    console.warn('addPreAuthorizedEmail error:', e);
+    alert('เกิดข้อผิดพลาดในการเพิ่มสิทธิ์ กรุณาลองใหม่ (ถ้าเพิ่งอัปเดต firebase-rules.json อย่าลืมนำไปวางใน Firebase Console > Rules ด้วย)');
+  }
+}
+
+async function cancelPreAuthorizedEmail(key, source) {
+  if (!confirm('ยกเลิกสิทธิ์ล่วงหน้านี้?\nถ้าพนักงานยังไม่เคย login จะต้องส่งคำขอเข้ามาใหม่และรอแอดมินอนุมัติแทน')) return;
+  const path = source === 'staffud' ? 'allowed_emails_ud' : 'allowed_emails';
+  try {
+    await set(ref(db, `${path}/${key}`), null);
+  } catch (e) {
+    console.warn('cancelPreAuthorizedEmail error:', e);
+    alert('เกิดข้อผิดพลาด กรุณาลองใหม่');
+  }
+}
+
+window.approveUidRequest        = approveUidRequest;
+window.rejectUidRequest         = rejectUidRequest;
+window.revokeUidAccess          = revokeUidAccess;
+window.addPreAuthorizedEmail    = addPreAuthorizedEmail;
+window.cancelPreAuthorizedEmail = cancelPreAuthorizedEmail;
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -1343,6 +1437,39 @@ if ('serviceWorker' in navigator) {
         <span class="alert-icon">ℹ️</span>
         หน้านี้ใช้สำหรับอนุมัติ/ปฏิเสธคำขอเข้าใช้งานจากพนักงาน (staff.html และ staffud.html) และจัดการสิทธิ์ที่อนุมัติไปแล้ว
       </div>
+
+      <div class="table-wrap" style="margin-bottom:16px">
+        <div class="table-header">
+          <h3>เพิ่มสิทธิ์ล่วงหน้าด้วยอีเมล (ไม่ต้องรอพนักงานขอสิทธิ์)</h3>
+        </div>
+        <div style="padding:16px">
+          <div class="form-row">
+            <div class="form-group" style="flex:2">
+              <label>อีเมล Google ของพนักงาน</label>
+              <input type="email" id="perm-add-email" placeholder="name@gmail.com">
+            </div>
+            <div class="form-group">
+              <label>ระบบ</label>
+              <select id="perm-add-source">
+                <option value="staff">ระบบหลัก (staff)</option>
+                <option value="staffud">สาขาอุดร (staffud)</option>
+              </select>
+            </div>
+            <div class="form-group" style="align-self:flex-end">
+              <button class="btn btn-primary" onclick="addPreAuthorizedEmail()">+ เพิ่มสิทธิ์</button>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--text2)">
+            เมื่อเพิ่มแล้ว พนักงานที่ login ด้วยบัญชี Google อีเมลนี้เข้า staff.html/staffud.html ครั้งแรก จะได้รับสิทธิ์เข้าใช้งานทันที ไม่ต้องรอแอดมินอนุมัติ
+          </div>
+        </div>
+        <div id="perm-preauth-list"></div>
+        <div class="empty" id="perm-preauth-empty" style="display:none">
+          <div class="empty-icon">📧</div>
+          <div class="empty-text">ยังไม่มีอีเมลที่เพิ่มไว้ล่วงหน้า</div>
+        </div>
+      </div>
+
       <div class="table-wrap" style="margin-bottom:16px">
         <div class="table-header">
           <h3>คำขอเข้าใช้งานที่รออนุมัติ (<span id="perm-req-count">0</span> รายการ)</h3>
