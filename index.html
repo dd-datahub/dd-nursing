@@ -795,7 +795,20 @@ async function schedMainAddNurse() {
   try {
     const nid = 'nurse_' + Date.now();
     await set(ref(db, `schedule_nurses/${nid}`), { name, branch, order });
-    nameEl.value = ''; orderEl.value = '';
+    nameEl.value = ''; orderEl.value = ''; branchEl.value = '1';
+    nameEl.focus();
+  } catch (e) {
+    alert('เกิดข้อผิดพลาด: ' + e.message);
+  }
+}
+
+async function schedMainClearAllData() {
+  if (!confirm('ลบข้อมูลตารางเวร "สาขาหลัก" ทั้งหมด?\n\nจะลบทั้งรายชื่อพนักงานทุกคน และกะที่ตั้งไว้ทุกเดือน\nการกระทำนี้ไม่สามารถย้อนกลับได้')) return;
+  if (!confirm('ยืนยันอีกครั้ง: ต้องการลบข้อมูลตารางเวรสาขาหลักทั้งหมดใช่หรือไม่?')) return;
+  try {
+    await set(ref(db, 'schedule_nurses'), null);
+    await set(ref(db, 'schedule'), null);
+    alert('ลบข้อมูลตารางเวรสาขาหลักทั้งหมดเรียบร้อยแล้ว');
   } catch (e) {
     alert('เกิดข้อผิดพลาด: ' + e.message);
   }
@@ -843,6 +856,7 @@ window.renderSchedMainPage   = renderSchedMainPage;
 window.schedMainPrevMonth    = schedMainPrevMonth;
 window.schedMainNextMonth    = schedMainNextMonth;
 window.schedMainAddNurse     = schedMainAddNurse;
+window.schedMainClearAllData = schedMainClearAllData;
 window.schedMainDeleteNurse  = schedMainDeleteNurse;
 window.schedMainEditCell     = schedMainEditCell;
 window.schedMainEditOT       = schedMainEditOT;
@@ -1017,6 +1031,19 @@ async function schedUdAddNurse() {
     const nid = 'nurse_' + Date.now();
     await set(ref(db, `schedule_ud_nurses/${nid}`), { name, order });
     nameEl.value = ''; orderEl.value = '';
+    nameEl.focus();
+  } catch (e) {
+    alert('เกิดข้อผิดพลาด: ' + e.message);
+  }
+}
+
+async function schedUdClearAllData() {
+  if (!confirm('ลบข้อมูลตารางเวร "สาขาอุดร" ทั้งหมด?\n\nจะลบทั้งรายชื่อพนักงานทุกคน และกะที่ตั้งไว้ทุกเดือน\nการกระทำนี้ไม่สามารถย้อนกลับได้')) return;
+  if (!confirm('ยืนยันอีกครั้ง: ต้องการลบข้อมูลตารางเวรสาขาอุดรทั้งหมดใช่หรือไม่?')) return;
+  try {
+    await set(ref(db, 'schedule_ud_nurses'), null);
+    await set(ref(db, 'schedule_ud'), null);
+    alert('ลบข้อมูลตารางเวรสาขาอุดรทั้งหมดเรียบร้อยแล้ว');
   } catch (e) {
     alert('เกิดข้อผิดพลาด: ' + e.message);
   }
@@ -1063,6 +1090,7 @@ window.renderSchedUdPage   = renderSchedUdPage;
 window.schedUdPrevMonth    = schedUdPrevMonth;
 window.schedUdNextMonth    = schedUdNextMonth;
 window.schedUdAddNurse     = schedUdAddNurse;
+window.schedUdClearAllData = schedUdClearAllData;
 window.schedUdDeleteNurse  = schedUdDeleteNurse;
 window.schedUdEditCell     = schedUdEditCell;
 window.schedUdEditOT       = schedUdEditOT;
@@ -1416,8 +1444,7 @@ if ('serviceWorker' in navigator) {
     <div class="nav-item" onclick="goPage('history')" title="ประวัติการชำระ"><span class="nav-icon">📋</span> <span class="nav-label">ประวัติการชำระ</span></div>
     <div class="nav-item" onclick="goPage('refund')" title="คืนเงินลูกค้า"><span class="nav-icon">↩️</span> <span class="nav-label">คืนเงินลูกค้า</span></div>
     <div class="nav-item" onclick="goPage('issues')" title="ปัญหาข้อมูล"><span class="nav-icon">⚠️</span> <span class="nav-label">ปัญหาข้อมูล</span> <span class="nav-badge" style="background:var(--text3)">0</span></div>
-    <div class="nav-item" onclick="goPage('schedmain')" title="ตารางเวร (สาขาหลัก)"><span class="nav-icon">🗓️</span> <span class="nav-label">ตารางเวร (หลัก)</span></div>
-    <div class="nav-item" onclick="goPage('schedud')" title="ตารางเวร (สาขาอุดร)"><span class="nav-icon">🗓️</span> <span class="nav-label">ตารางเวร (อุดร)</span></div>
+    <div class="nav-item" onclick="goPage('sched')" title="ตารางเวร"><span class="nav-icon">🗓️</span> <span class="nav-label">ตารางเวร</span></div>
     <div class="nav-item" onclick="goPage('permission')" title="สิทธิ์การเข้าถึง"><span class="nav-icon">🔐</span> <span class="nav-label">สิทธิ์การเข้าถึง</span> <span class="nav-badge" id="perm-badge" style="display:none;background:#c0392b">0</span></div>
   </nav>
   <div class="sidebar-footer">
@@ -1977,103 +2004,116 @@ if ('serviceWorker' in navigator) {
     .sched-month-nav{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #e8e5e0}
     .sched-month-nav .btn{padding:6px 12px}
     .sched-month-nav .sched-month-label{font-size:15px;font-weight:600;min-width:120px;text-align:center}
+    .sched-tab-btn{padding:9px 20px;border-radius:var(--radius);border:1px solid #e0dbd2;background:#fff;color:var(--text2);font-weight:600;cursor:pointer;font-size:14px}
+    .sched-tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .sched-clear-btn{background:none;border:none;color:var(--danger);font-size:12px;text-decoration:underline;cursor:pointer;opacity:.75;padding:0}
+    .sched-clear-btn:hover{opacity:1}
     </style>
 
-    <div class="page" id="page-schedmain">
-      <div class="alert alert-info">
-        <span class="alert-icon">ℹ️</span>
-        จัดการตารางเวรพนักงานสาขาหลัก — เพิ่ม/ลบพนักงานในตาราง และคลิกที่ช่องวันที่เพื่อกำหนดกะได้โดยตรง พนักงานจะเห็นตารางนี้แบบอ่านอย่างเดียวในแอป staff.html
-        <div style="margin-top:8px">
-          <span class="sched-legend-tag" style="background:#dbeafe;color:#1d4ed8">ช1/ช2/ช3 เช้า</span>
-          <span class="sched-legend-tag" style="background:#ede9fe;color:#5b21b6">ด1/ด2/ด3 ดึก</span>
-          <span class="sched-legend-tag" style="background:#f1f5f9;color:#475569">ห หยุด</span>
-          <span class="sched-legend-tag" style="background:#fef9c3;color:#854d0e">ล ลา</span>
-          <span class="sched-legend-tag" style="background:#fef3c7;color:#b45309">บ บ่าย</span>
-          <span class="sched-legend-tag" style="background:#d1fae5;color:#065f46">ว วันหยุด</span>
-        </div>
+    <div class="page" id="page-sched">
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="sched-tab-btn active" id="sched-tab-btn-main" onclick="schedSwitchTab('main')">🏥 สาขาหลัก</button>
+        <button class="sched-tab-btn" id="sched-tab-btn-ud" onclick="schedSwitchTab('ud')">🏥 สาขาอุดร</button>
       </div>
 
-      <div class="table-wrap" style="margin-bottom:16px">
-        <div class="table-header">
-          <h3>เพิ่มพนักงานในตารางเวร (สาขาหลัก)</h3>
+      <div id="sched-tab-main">
+        <div class="alert alert-info">
+          <span class="alert-icon">ℹ️</span>
+          จัดการตารางเวรพนักงานสาขาหลัก — เพิ่ม/ลบพนักงานในตาราง และคลิกที่ช่องวันที่เพื่อกำหนดกะได้โดยตรง พนักงานจะเห็นตารางนี้แบบอ่านอย่างเดียวในแอป staff.html
+          <div style="margin-top:8px">
+            <span class="sched-legend-tag" style="background:#dbeafe;color:#1d4ed8">ช1/ช2/ช3 เช้า</span>
+            <span class="sched-legend-tag" style="background:#ede9fe;color:#5b21b6">ด1/ด2/ด3 ดึก</span>
+            <span class="sched-legend-tag" style="background:#f1f5f9;color:#475569">ห หยุด</span>
+            <span class="sched-legend-tag" style="background:#fef9c3;color:#854d0e">ล ลา</span>
+            <span class="sched-legend-tag" style="background:#fef3c7;color:#b45309">บ บ่าย</span>
+            <span class="sched-legend-tag" style="background:#d1fae5;color:#065f46">ว วันหยุด</span>
+          </div>
         </div>
-        <div style="padding:16px">
-          <div class="form-row">
-            <div class="form-group" style="flex:2">
-              <label>ชื่อพนักงาน</label>
-              <input type="text" id="schedmain-add-name" placeholder="ชื่อ-นามสกุล">
-            </div>
-            <div class="form-group">
-              <label>สาขา</label>
-              <select id="schedmain-add-branch">
-                <option value="1">สาขา 1</option>
-                <option value="2">สาขา 2</option>
-                <option value="3">สาขา 3</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>ลำดับ</label>
-              <input type="number" id="schedmain-add-order" placeholder="1" min="1" style="width:80px">
-            </div>
-            <div class="form-group" style="align-self:flex-end">
-              <button class="btn btn-primary" onclick="schedMainAddNurse()">+ เพิ่ม</button>
+
+        <div class="table-wrap" style="margin-bottom:16px">
+          <div class="table-header" style="display:flex;align-items:center;justify-content:space-between">
+            <h3>เพิ่มพนักงานในตารางเวร (สาขาหลัก)</h3>
+            <button class="sched-clear-btn" onclick="schedMainClearAllData()">ล้างข้อมูลทั้งหมด (รายชื่อ+กะทุกเดือน)</button>
+          </div>
+          <div style="padding:16px">
+            <div class="form-row">
+              <div class="form-group" style="flex:2">
+                <label>ชื่อพนักงาน</label>
+                <input type="text" id="schedmain-add-name" placeholder="ชื่อ-นามสกุล">
+              </div>
+              <div class="form-group">
+                <label>สาขา</label>
+                <select id="schedmain-add-branch">
+                  <option value="1">สาขา 1</option>
+                  <option value="2">สาขา 2</option>
+                  <option value="3">สาขา 3</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>ลำดับ</label>
+                <input type="number" id="schedmain-add-order" placeholder="1" min="1" style="width:80px">
+              </div>
+              <div class="form-group" style="align-self:flex-end">
+                <button class="btn btn-primary" onclick="schedMainAddNurse()">+ เพิ่ม</button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div class="table-wrap">
-        <div class="sched-month-nav">
-          <button class="btn" onclick="schedMainPrevMonth()">‹ เดือนก่อน</button>
-          <span class="sched-month-label" id="schedmain-month-label">—</span>
-          <button class="btn" onclick="schedMainNextMonth()">เดือนถัดไป ›</button>
-        </div>
-        <div style="overflow-x:auto" id="schedmain-table-wrap"></div>
-      </div>
-    </div>
-
-    <div class="page" id="page-schedud">
-      <div class="alert alert-info">
-        <span class="alert-icon">ℹ️</span>
-        จัดการตารางเวรพนักงานสาขาอุดร — เพิ่ม/ลบพนักงานในตาราง และคลิกที่ช่องวันที่เพื่อกำหนดกะได้โดยตรง พนักงานจะเห็นตารางนี้แบบอ่านอย่างเดียวในแอป staffud.html
-        <div style="margin-top:8px">
-          <span class="sched-legend-tag" style="background:#fef3c7;color:#92400e">ช เช้า</span>
-          <span class="sched-legend-tag" style="background:#e0e7ff;color:#3730a3">ด ดึก</span>
-          <span class="sched-legend-tag" style="background:#fee2e2;color:#dc2626">ห หยุด</span>
-          <span class="sched-legend-tag" style="background:#fef9c3;color:#854d0e">ล ลา</span>
-          <span class="sched-legend-tag" style="background:#fef3c7;color:#b45309">บ บ่าย</span>
-          <span class="sched-legend-tag" style="background:#d1fae5;color:#065f46">ว วันหยุด</span>
+        <div class="table-wrap">
+          <div class="sched-month-nav">
+            <button class="btn" onclick="schedMainPrevMonth()">‹ เดือนก่อน</button>
+            <span class="sched-month-label" id="schedmain-month-label">—</span>
+            <button class="btn" onclick="schedMainNextMonth()">เดือนถัดไป ›</button>
+          </div>
+          <div style="overflow-x:auto" id="schedmain-table-wrap"></div>
         </div>
       </div>
 
-      <div class="table-wrap" style="margin-bottom:16px">
-        <div class="table-header">
-          <h3>เพิ่มพนักงานในตารางเวร (สาขาอุดร)</h3>
+      <div id="sched-tab-ud" style="display:none">
+        <div class="alert alert-info">
+          <span class="alert-icon">ℹ️</span>
+          จัดการตารางเวรพนักงานสาขาอุดร — เพิ่ม/ลบพนักงานในตาราง และคลิกที่ช่องวันที่เพื่อกำหนดกะได้โดยตรง พนักงานจะเห็นตารางนี้แบบอ่านอย่างเดียวในแอป staffud.html
+          <div style="margin-top:8px">
+            <span class="sched-legend-tag" style="background:#fef3c7;color:#92400e">ช เช้า</span>
+            <span class="sched-legend-tag" style="background:#e0e7ff;color:#3730a3">ด ดึก</span>
+            <span class="sched-legend-tag" style="background:#fee2e2;color:#dc2626">ห หยุด</span>
+            <span class="sched-legend-tag" style="background:#fef9c3;color:#854d0e">ล ลา</span>
+            <span class="sched-legend-tag" style="background:#fef3c7;color:#b45309">บ บ่าย</span>
+            <span class="sched-legend-tag" style="background:#d1fae5;color:#065f46">ว วันหยุด</span>
+          </div>
         </div>
-        <div style="padding:16px">
-          <div class="form-row">
-            <div class="form-group" style="flex:2">
-              <label>ชื่อพนักงาน</label>
-              <input type="text" id="schedud-add-name" placeholder="ชื่อ-นามสกุล">
-            </div>
-            <div class="form-group">
-              <label>ลำดับ</label>
-              <input type="number" id="schedud-add-order" placeholder="1" min="1" style="width:80px">
-            </div>
-            <div class="form-group" style="align-self:flex-end">
-              <button class="btn btn-primary" onclick="schedUdAddNurse()">+ เพิ่ม</button>
+
+        <div class="table-wrap" style="margin-bottom:16px">
+          <div class="table-header" style="display:flex;align-items:center;justify-content:space-between">
+            <h3>เพิ่มพนักงานในตารางเวร (สาขาอุดร)</h3>
+            <button class="sched-clear-btn" onclick="schedUdClearAllData()">ล้างข้อมูลทั้งหมด (รายชื่อ+กะทุกเดือน)</button>
+          </div>
+          <div style="padding:16px">
+            <div class="form-row">
+              <div class="form-group" style="flex:2">
+                <label>ชื่อพนักงาน</label>
+                <input type="text" id="schedud-add-name" placeholder="ชื่อ-นามสกุล">
+              </div>
+              <div class="form-group">
+                <label>ลำดับ</label>
+                <input type="number" id="schedud-add-order" placeholder="1" min="1" style="width:80px">
+              </div>
+              <div class="form-group" style="align-self:flex-end">
+                <button class="btn btn-primary" onclick="schedUdAddNurse()">+ เพิ่ม</button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div class="table-wrap">
-        <div class="sched-month-nav">
-          <button class="btn" onclick="schedUdPrevMonth()">‹ เดือนก่อน</button>
-          <span class="sched-month-label" id="schedud-month-label">—</span>
-          <button class="btn" onclick="schedUdNextMonth()">เดือนถัดไป ›</button>
+        <div class="table-wrap">
+          <div class="sched-month-nav">
+            <button class="btn" onclick="schedUdPrevMonth()">‹ เดือนก่อน</button>
+            <span class="sched-month-label" id="schedud-month-label">—</span>
+            <button class="btn" onclick="schedUdNextMonth()">เดือนถัดไป ›</button>
+          </div>
+          <div style="overflow-x:auto" id="schedud-table-wrap"></div>
         </div>
-        <div style="overflow-x:auto" id="schedud-table-wrap"></div>
       </div>
     </div>
 
@@ -5617,7 +5657,7 @@ function goPage(id) {
   });
   // Auto-close sidebar on mobile
   if (window.innerWidth <= 640) closeSidebar();
-  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',reminders:'แจ้งเตือนบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',schedmain:'ตารางเวร (สาขาหลัก)',schedud:'ตารางเวร (สาขาอุดร)',permission:'จัดการสิทธิ์การเข้าถึง'};
+  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',reminders:'แจ้งเตือนบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',sched:'ตารางเวร',permission:'จัดการสิทธิ์การเข้าถึง'};
   document.getElementById('page-title').textContent = titles[id]||'';
   if(id==='customers')    renderTable();
   if(id==='discharged')   renderDischarged();
@@ -5628,9 +5668,34 @@ function goPage(id) {
   if(id==='history')      renderHistory();
   if(id==='issues')       renderIssues();
   if(id==='dashboard')    updateDashboard();
-  if(id==='schedmain')    renderSchedMainPage();
-  if(id==='schedud')      renderSchedUdPage();
+  if(id==='sched')        renderSchedPage();
   if(id==='permission')   renderPermissionPage();
+}
+
+// ========== ตารางเวร: รวมเมนู + สลับแท็บสาขาหลัก/อุดร ==========
+let _schedActiveTab = 'main';
+function renderSchedPage() {
+  schedSwitchTab(_schedActiveTab);
+}
+function schedSwitchTab(tab) {
+  _schedActiveTab = tab;
+  const mainWrap = document.getElementById('sched-tab-main');
+  const udWrap   = document.getElementById('sched-tab-ud');
+  const mainBtn  = document.getElementById('sched-tab-btn-main');
+  const udBtn    = document.getElementById('sched-tab-btn-ud');
+  if (mainWrap) mainWrap.style.display = (tab === 'main') ? '' : 'none';
+  if (udWrap)   udWrap.style.display   = (tab === 'ud')   ? '' : 'none';
+  if (mainBtn)  mainBtn.classList.toggle('active', tab === 'main');
+  if (udBtn)    udBtn.classList.toggle('active', tab === 'ud');
+  // เคลียร์ข้อมูลที่กรอกไว้ในฟอร์ม "เพิ่มพนักงาน" ของทั้ง 2 แท็บทุกครั้งที่สลับ/เปิดหน้า
+  // เพื่อให้พร้อมกรอกข้อมูลใหม่ ไม่มีค่าตกค้างจากครั้งก่อน
+  const mn = document.getElementById('schedmain-add-name');   if (mn) mn.value = '';
+  const mo = document.getElementById('schedmain-add-order');  if (mo) mo.value = '';
+  const mb = document.getElementById('schedmain-add-branch'); if (mb) mb.value = '1';
+  const un = document.getElementById('schedud-add-name');     if (un) un.value = '';
+  const uo = document.getElementById('schedud-add-order');    if (uo) uo.value = '';
+  if (tab === 'main') { if (typeof renderSchedMainPage === 'function') renderSchedMainPage(); }
+  else                { if (typeof renderSchedUdPage   === 'function') renderSchedUdPage(); }
 }
 
 // ========== CATEGORY (CAT_META) MANAGEMENT ==========
