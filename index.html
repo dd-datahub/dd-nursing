@@ -300,7 +300,7 @@ tr.row-inactive:hover { background: #f3f2ef !important; }
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, set, get, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -1151,6 +1151,18 @@ function _schedEscHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function _schedShiftMaxDay(branchType, ym) {
+  return branchType === 'main' ? _schedMainDaysInMonth(ym) : _schedUdDaysInMonth(ym);
+}
+
+function _schedShiftGetEndDay(day, maxDay) {
+  const endDayEl = document.getElementById('sched-shift-endday');
+  let endDay = endDayEl ? parseInt(endDayEl.value, 10) : day;
+  if (!Number.isFinite(endDay) || endDay < day) endDay = day;
+  if (endDay > maxDay) endDay = maxDay;
+  return endDay;
+}
+
 function _schedOpenShiftModal(branchType, nid, day, ym, name, monthLabel, val, note) {
   _schedShiftCtx = { branchType, nid, day, ym };
   const parse = branchType === 'main' ? _schedMainParseVal : _schedUdParseVal;
@@ -1164,6 +1176,11 @@ function _schedOpenShiftModal(branchType, nid, day, ym, name, monthLabel, val, n
   if (titleEl) titleEl.textContent = `กำหนดกะวันที่ ${day} — ${name} (${monthLabel})`;
   const noteEl = document.getElementById('sched-shift-note');
   if (noteEl) noteEl.value = note || '';
+  const maxDay = _schedShiftMaxDay(branchType, ym);
+  const startLabelEl = document.getElementById('sched-shift-startday-label');
+  if (startLabelEl) startLabelEl.textContent = day;
+  const endDayEl = document.getElementById('sched-shift-endday');
+  if (endDayEl) { endDayEl.min = day; endDayEl.max = maxDay; endDayEl.value = day; }
   _schedShiftRender();
   document.getElementById('sched-shift-modal').classList.add('open');
 }
@@ -1177,24 +1194,35 @@ function schedShiftModalSave() {
     .join('/');
   const noteEl = document.getElementById('sched-shift-note');
   const noteVal = noteEl ? noteEl.value.trim() : '';
+  const maxDay = _schedShiftMaxDay(branchType, ym);
+  const endDay = _schedShiftGetEndDay(day, maxDay);
   const base = branchType === 'main' ? `schedule/${ym}/${nid}` : `schedule_ud/${ym}/${nid}`;
-  Promise.all([
-    set(ref(db, `${base}/d${day}`), val === '' ? null : val),
-    set(ref(db, `${base}/d${day}_note`), noteVal === '' ? null : noteVal),
-  ])
+  const updates = {};
+  for (let dd = day; dd <= endDay; dd++) {
+    updates[`d${dd}`] = val === '' ? null : val;
+    updates[`d${dd}_note`] = noteVal === '' ? null : noteVal;
+  }
+  update(ref(db, base), updates)
     .then(() => closeModal('sched-shift-modal'))
     .catch(e => alert('เกิดข้อผิดพลาด: ' + e.message));
 }
 
 function schedShiftModalClear() {
   if (!_schedShiftCtx) return;
-  if (!confirm('ลบกะและหมายเหตุของวันนี้ของพนักงานคนนี้?')) return;
   const { branchType, nid, day, ym } = _schedShiftCtx;
+  const maxDay = _schedShiftMaxDay(branchType, ym);
+  const endDay = _schedShiftGetEndDay(day, maxDay);
+  const msg = endDay > day
+    ? `ลบกะและหมายเหตุวันที่ ${day}-${endDay} ของพนักงานคนนี้?`
+    : 'ลบกะและหมายเหตุของวันนี้ของพนักงานคนนี้?';
+  if (!confirm(msg)) return;
   const base = branchType === 'main' ? `schedule/${ym}/${nid}` : `schedule_ud/${ym}/${nid}`;
-  Promise.all([
-    set(ref(db, `${base}/d${day}`), null),
-    set(ref(db, `${base}/d${day}_note`), null),
-  ])
+  const updates = {};
+  for (let dd = day; dd <= endDay; dd++) {
+    updates[`d${dd}`] = null;
+    updates[`d${dd}_note`] = null;
+  }
+  update(ref(db, base), updates)
     .then(() => closeModal('sched-shift-modal'))
     .catch(e => alert('เกิดข้อผิดพลาด: ' + e.message));
 }
@@ -2250,6 +2278,13 @@ if ('serviceWorker' in navigator) {
           <span class="modal-close" onclick="closeModal('sched-shift-modal')">×</span>
         </div>
         <div class="modal-body">
+          <div class="sched-slot-block">
+            <label style="font-size:12px;font-weight:600;color:var(--text2)">ใช้กะนี้กับวันที่ <span id="sched-shift-startday-label">-</span> ถึงวันที่</label>
+            <div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <input type="number" id="sched-shift-endday" min="1" style="width:90px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);font-family:inherit;font-size:14px">
+              <span style="font-size:11px;color:var(--text3)">(ค่าเริ่มต้น = วันเดียว หากต้องการลงเวรเดียวกันหลายวันให้แก้เป็นวันสุดท้ายที่ต้องการ)</span>
+            </div>
+          </div>
           <div class="sched-slot-block">
             <label style="font-size:12px;font-weight:600;color:var(--text2)">กะที่ 1</label>
             <div class="sched-shift-btns" id="sched-shift-slot1-codes"></div>
