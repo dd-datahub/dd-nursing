@@ -1434,8 +1434,10 @@ async function fbLoad() {
     }
     if (d.customers_extra) {
       // Merge extra customer data (edits) back
-      Object.entries(d.customers_extra).forEach(([id, extra]) => {
-        const c = customers.find(x=>x.id===id);
+      // Note: Firebase keys use _ instead of / (e.g. DD1_03) — restore before lookup
+      Object.entries(d.customers_extra).forEach(([rawId, extra]) => {
+        const realId = _restoreCustKey(rawId);
+        const c = customers.find(x => x.id === realId);
         if (c) Object.assign(c, extra);
       });
     }
@@ -1593,10 +1595,12 @@ function listenAllData() {
   });
 
   // customers_extra — sync การแก้ไขข้อมูลลูกค้าแบบ realtime
+  // Note: Firebase keys use _ instead of / (e.g. DD1_03) — restore before lookup
   onValue(ref(db, "customers_extra"), snap => {
     if (snap.exists()) {
-      Object.entries(snap.val()).forEach(([id, extra]) => {
-        const c = customers.find(x => x.id === id);
+      Object.entries(snap.val()).forEach(([rawId, extra]) => {
+        const realId = _restoreCustKey(rawId);
+        const c = customers.find(x => x.id === realId);
         if (c) Object.assign(c, extra);
       });
     }
