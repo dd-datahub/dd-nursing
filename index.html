@@ -767,7 +767,7 @@ function _schedMainRenderTable() {
         `<span class="sched-chip" style="${_schedMainChipStyle(s.shift,s.branch)}">${_schedShiftGlyph(s.shift)}${s.branch||''}</span>`
       ).join('<br>');
       const noteRaw  = nd[`d${d}_note`] || '';
-      const noteHtml = noteRaw ? `<div class="sched-cell-note" title="${_schedEscHtml(noteRaw)}">${_schedEscHtml(noteRaw)}</div>` : '';
+      const noteHtml = noteRaw ? `<div class="sched-cell-note" title="${_schedEscHtml(noteRaw)}">${_schedHighlightNote(noteRaw)}</div>` : '';
       let tdStyle = '';
       if (isTdy)       tdStyle = 'background:rgba(22,163,74,.06)';
       else if (isWk && !val) tdStyle = 'background:#fff5f5';
@@ -1045,7 +1045,7 @@ function _schedUdRenderTable() {
         `<span class="sched-chip" style="${_schedUdChipStyle(s.shift)}">${_schedShiftGlyph(s.shift)}</span>`
       ).join('<br>');
       const noteRaw  = nd[`d${d}_note`] || '';
-      const noteHtml = noteRaw ? `<div class="sched-cell-note" title="${_schedEscHtml(noteRaw)}">${_schedEscHtml(noteRaw)}</div>` : '';
+      const noteHtml = noteRaw ? `<div class="sched-cell-note" title="${_schedEscHtml(noteRaw)}">${_schedHighlightNote(noteRaw)}</div>` : '';
       let tdStyle = '';
       if (isTdy)            tdStyle = 'background:rgba(22,163,74,.06)';
       else if (isWk && !val) tdStyle = 'background:#fff5f5';
@@ -1239,6 +1239,13 @@ function schedPickShiftBranch(slot, branch) {
 
 function _schedEscHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ไฮไลต์ keyword ในช่อง note: "ลงบิล" → น้ำเงิน, "จัดยา" → เขียว
+function _schedHighlightNote(s) {
+  return _schedEscHtml(s)
+    .replace(/ลงบิล/g, '<span style="color:#1d4ed8;font-weight:700">ลงบิล</span>')
+    .replace(/จัดยา/g, '<span style="color:#16a34a;font-weight:700">จัดยา</span>');
 }
 
 // แสดงกะ "ห" (หยุด) เป็นกากบาทสีแดงในตาราง แทนตัวอักษร (ค่าที่บันทึกจริงยังเป็น 'ห' เหมือนเดิม)
