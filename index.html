@@ -734,24 +734,6 @@ function _schedMainRenderTable() {
   html += '<th class="sched-sum-col"></th>';
   html += '</tr></thead><tbody>';
 
-  // ── แถวหมายเหตุประจำวัน (day-note row) ──────────────────────────────────
-  { const dnNotes = _schedMainData._day_notes || {};
-    html += `<tr class="sched-daynote-row"><td class="sched-name-col" style="background:#f7f5f0!important;font-size:11px;color:#888;font-weight:600;letter-spacing:.2px">📋 หมายเหตุ/วัน</td><td></td>`;
-    for (let d = 1; d <= days; d++) {
-      const dn = dnNotes[`d${d}`] || '';
-      const todayBg = d === todayDay ? 'background:rgba(22,163,74,.06)!important' : '';
-      const chip = dn === 'จัดยา'
-        ? `<span style="color:#16a34a;font-size:10px;font-weight:700;white-space:nowrap">จัดยา</span>`
-        : dn === 'ลงบิล'
-        ? `<span style="color:#1d4ed8;font-size:10px;font-weight:700;white-space:nowrap">ลงบิล</span>`
-        : dn ? `<span style="color:#555;font-size:10px;white-space:nowrap">${_schedEscHtml(dn)}</span>`
-             : `<span style="color:#d1c9bd;font-size:10px">+</span>`;
-      html += `<td class="sched-daynote-cell" style="${todayBg}" onclick="schedMainEditDayNote(${d})" title="${dn ? _schedEscHtml(dn) : 'คลิกเพิ่มบันทึกประจำวัน'}">${chip}</td>`;
-    }
-    for (let i = 0; i < 6; i++) html += `<td></td>`;
-    html += '</tr>';
-  }
-
   let lastBranch = '__NONE__';
   for (let _i = 0; _i < nurses.length; _i++) {
     const [nid, nurse] = nurses[_i];
@@ -762,6 +744,24 @@ function _schedMainRenderTable() {
       const bBg    = branch==='1'?'#dbeafe':branch==='2'?'#d1fae5':branch==='3'?'#ffedd5':'#f0ede8';
       const bColor = branch==='1'?'#1d4ed8':branch==='2'?'#065f46':branch==='3'?'#c2410c':'#888';
       html += `<tr class="sched-branch-row"><td colspan="${days+8}" style="background:${bBg};color:${bColor}">${bLabel}</td></tr>`;
+      // ── แถวหมายเหตุประจำวัน (ต่อจากหัวสาขา) ──────────────────────────
+      { const branchKey = branch || '_';
+        const dnNotes = ((_schedMainData._day_notes || {})[branchKey]) || {};
+        html += `<tr class="sched-daynote-row"><td class="sched-name-col" style="background:#f7f5f0!important;font-size:11px;color:#888;font-weight:600;letter-spacing:.2px">📋 หมายเหตุ/วัน</td><td></td>`;
+        for (let d = 1; d <= days; d++) {
+          const dn = dnNotes[`d${d}`] || '';
+          const todayBg = d === todayDay ? 'background:rgba(22,163,74,.06)!important' : '';
+          const chip = dn === 'จัดยา'
+            ? `<span style="color:#16a34a;font-size:10px;font-weight:700;white-space:nowrap">จัดยา</span>`
+            : dn === 'ลงบิล'
+            ? `<span style="color:#1d4ed8;font-size:10px;font-weight:700;white-space:nowrap">ลงบิล</span>`
+            : dn ? `<span style="color:#555;font-size:10px;white-space:nowrap">${_schedEscHtml(dn)}</span>`
+                 : `<span style="color:#d1c9bd;font-size:10px">+</span>`;
+          html += `<td class="sched-daynote-cell" style="${todayBg}" onclick="schedMainEditDayNote(${d},'${branchKey}')" title="${dn ? _schedEscHtml(dn) : 'คลิกเพิ่มบันทึกประจำวัน'}">${chip}</td>`;
+        }
+        for (let i = 0; i < 6; i++) html += `<td></td>`;
+        html += '</tr>';
+      }
     }
 
     const canUp   = _i > 0 && (nurses[_i-1][1].branch||'') === branch;
@@ -1039,7 +1039,9 @@ function _schedUdRenderTable() {
   html += '<th class="sched-sum-col"></th>';
   html += '</tr></thead><tbody>';
 
-  // ── แถวหมายเหตุประจำวัน (day-note row) ──────────────────────────────────
+  html += `<tr class="sched-branch-row"><td colspan="${days+8}" style="background:#fef3c7;color:#92400e">🏥 สาขาอุดร</td></tr>`;
+
+  // ── แถวหมายเหตุประจำวัน (ต่อจากหัวสาขาอุดร) ─────────────────────────
   { const dnNotes = _schedUdData._day_notes || {};
     html += `<tr class="sched-daynote-row"><td class="sched-name-col" style="background:#f7f5f0!important;font-size:11px;color:#888;font-weight:600;letter-spacing:.2px">📋 หมายเหตุ/วัน</td><td></td>`;
     for (let d = 1; d <= days; d++) {
@@ -1056,8 +1058,6 @@ function _schedUdRenderTable() {
     for (let i = 0; i < 6; i++) html += `<td></td>`;
     html += '</tr>';
   }
-
-  html += `<tr class="sched-branch-row"><td colspan="${days+8}" style="background:#fef3c7;color:#92400e">🏥 สาขาอุดร</td></tr>`;
 
   for (let _i = 0; _i < nurses.length; _i++) {
     const [nid, nurse] = nurses[_i];
@@ -1211,12 +1211,13 @@ window.schedUdEditOT       = schedUdEditOT;
 // ════════════════════════════════════════════════════════════════
 // ตารางเวร: บันทึกหมายเหตุประจำวัน (day-note row)
 // ════════════════════════════════════════════════════════════════
-let _schedDayNoteCtx = { branch: 'main', day: 1, ym: '' };
+let _schedDayNoteCtx = { branch: 'main', day: 1, ym: '', branchKey: '1' };
 
-function schedMainEditDayNote(day) {
+// Main: branchKey = branch value ('1','2','3') หรือ '_' สำหรับยังไม่ระบุสาขา
+function schedMainEditDayNote(day, branchKey) {
   const ym = _schedMainInitYM();
-  const note = (_schedMainData._day_notes || {})[`d${day}`] || '';
-  _schedDayNoteCtx = { branch: 'main', day, ym };
+  const note = (((_schedMainData._day_notes || {})[branchKey]) || {})[`d${day}`] || '';
+  _schedDayNoteCtx = { branch: 'main', day, ym, branchKey };
   document.getElementById('sched-daynote-title').textContent = `บันทึกประจำวันที่ ${day}`;
   document.getElementById('sched-daynote-input').value = note;
   document.getElementById('sched-daynote-modal').classList.add('open');
@@ -1225,7 +1226,7 @@ function schedMainEditDayNote(day) {
 function schedUdEditDayNote(day) {
   const ym = _schedUdInitYM();
   const note = (_schedUdData._day_notes || {})[`d${day}`] || '';
-  _schedDayNoteCtx = { branch: 'ud', day, ym };
+  _schedDayNoteCtx = { branch: 'ud', day, ym, branchKey: '' };
   document.getElementById('sched-daynote-title').textContent = `บันทึกประจำวันที่ ${day}`;
   document.getElementById('sched-daynote-input').value = note;
   document.getElementById('sched-daynote-modal').classList.add('open');
@@ -1235,21 +1236,21 @@ function schedDayNoteQuick(text) {
   document.getElementById('sched-daynote-input').value = text;
 }
 async function schedDayNoteSave() {
-  const { branch, day, ym } = _schedDayNoteCtx;
+  const { branch, day, ym, branchKey } = _schedDayNoteCtx;
   const val = document.getElementById('sched-daynote-input').value.trim();
   const path = branch === 'ud'
     ? `schedule_ud/${ym}/_day_notes/d${day}`
-    : `schedule/${ym}/_day_notes/d${day}`;
+    : `schedule/${ym}/_day_notes/${branchKey}/d${day}`;
   try {
     await set(ref(db, path), val || null);
     closeModal('sched-daynote-modal');
   } catch(e) { alert('บันทึกไม่สำเร็จ: ' + e.message); }
 }
 async function schedDayNoteClear() {
-  const { branch, day, ym } = _schedDayNoteCtx;
+  const { branch, day, ym, branchKey } = _schedDayNoteCtx;
   const path = branch === 'ud'
     ? `schedule_ud/${ym}/_day_notes/d${day}`
-    : `schedule/${ym}/_day_notes/d${day}`;
+    : `schedule/${ym}/_day_notes/${branchKey}/d${day}`;
   try {
     await set(ref(db, path), null);
     closeModal('sched-daynote-modal');
