@@ -3882,12 +3882,15 @@ function renderIndivIO(){
   for(let d=1;d<=days;d++){
     const k=String(d).padStart(2,'0'), row=_iioData[k]||{}, bg=d%2===0?'#fafaf8':'#fff';
     ioRows+=`<tr style="background:${bg}">
-      <td style="padding:4px 6px;border:1px solid #eee;text-align:center;font-size:14px;font-weight:500">${d}</td>
-      <td style="padding:2px;border:1px solid #eee"><input type="text" value="${row.ch||''}" placeholder="ช" oninput="updateIO('${k}','ch',this.value)" style="width:50px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center"></td>
-      <td style="padding:2px;border:1px solid #eee"><input type="text" value="${row.dd||''}" placeholder="ด" oninput="updateIO('${k}','dd',this.value)" style="width:50px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center"></td>
-      <td style="padding:2px;border:1px solid #eee"><input type="number" value="${row.I||''}" placeholder="I" oninput="updateIO('${k}','I',this.value)" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center"></td>
-      <td style="padding:2px;border:1px solid #eee"><input type="number" value="${row.O||''}" placeholder="O" oninput="updateIO('${k}','O',this.value)" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center"></td>
-      <td style="padding:2px;border:1px solid #eee"><input type="text" value="${row.note||''}" placeholder="หมายเหตุ" oninput="updateIO('${k}','note',this.value)" style="width:100%;min-width:80px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px"></td>
+      <td rowspan="2" style="padding:4px 6px;border:1px solid #eee;text-align:center;font-size:14px;font-weight:500;vertical-align:middle">${d}</td>
+      <td style="padding:3px 6px;border:1px solid #eee;text-align:center"><span style="display:inline-block;background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:700;padding:1px 7px;border-radius:4px;min-width:18px">ช</span></td>
+      <td style="padding:2px;border:1px solid #eee"><input type="number" value="${row.chI||''}" placeholder="I" oninput="updateIO('${k}','chI',this.value)" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center"></td>
+      <td style="padding:2px;border:1px solid #eee"><input type="number" value="${row.chO||''}" placeholder="O" oninput="updateIO('${k}','chO',this.value)" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center"></td>
+      <td rowspan="2" style="padding:2px;border:1px solid #eee;vertical-align:middle"><input type="text" value="${row.note||''}" placeholder="หมายเหตุ" oninput="updateIO('${k}','note',this.value)" style="width:100%;min-width:80px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px"></td>
+    </tr><tr style="background:${bg}">
+      <td style="padding:3px 6px;border:1px solid #eee;text-align:center"><span style="display:inline-block;background:#fef9c3;color:#854d0e;font-size:12px;font-weight:700;padding:1px 7px;border-radius:4px;min-width:18px">ด</span></td>
+      <td style="padding:2px;border:1px solid #eee"><input type="number" value="${row.ddI||''}" placeholder="I" oninput="updateIO('${k}','ddI',this.value)" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center"></td>
+      <td style="padding:2px;border:1px solid #eee"><input type="number" value="${row.ddO||''}" placeholder="O" oninput="updateIO('${k}','ddO',this.value)" style="width:60px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center"></td>
     </tr>`;
   }
   if(!_idtxData.length)_idtxData=[{}];
@@ -3910,7 +3913,7 @@ function renderIndivIO(){
   </tr>`).join('');
 
   const _sec=(id,bg,tc,title,body,btns)=>`
-  <div style="margin-bottom:12px;border:1px solid #e8e4de;border-radius:10px;overflow:hidden">
+  <div style="min-width:280px;flex:1 1 280px;border:1px solid #e8e4de;border-radius:10px;overflow:hidden">
     <div onclick="toggleIIOSection('${id}')" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:${bg};cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent">
       <span style="font-size:15px;font-weight:600;color:${tc}">${title}</span>
       <span style="font-size:14px;color:${tc};transition:transform .2s;display:inline-block;transform:rotate(${_iioOpen[id]?'0':'-90'}deg)">▼</span>
@@ -3920,21 +3923,20 @@ function renderIndivIO(){
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">${btns}</div>
     </div>
   </div>`;
-  el.innerHTML=
+  el.innerHTML=`<div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">` +
   _sec('io','#e8f0fe','#1a5c9e','💧 น้ำเข้า-ออก (I/O)',`
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px;min-width:400px">
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px;min-width:300px">
       <thead><tr style="background:#f0ede8">
         <th style="padding:6px;border:1px solid #ddd">วันที่</th>
-        <th style="padding:6px;border:1px solid #ddd">เวร ช</th>
-        <th style="padding:6px;border:1px solid #ddd">เวร ด</th>
+        <th style="padding:6px;border:1px solid #ddd">ชื่อเวร</th>
         <th style="padding:6px;border:1px solid #ddd">I</th>
         <th style="padding:6px;border:1px solid #ddd">O</th>
         <th style="padding:6px;border:1px solid #ddd">หมายเหตุ</th>
       </tr></thead><tbody>${ioRows}</tbody>
     </table></div>`,
-    `<button onclick="saveIndivIO()" style="padding:8px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-family:inherit;font-weight:600">💾 บันทึก I/O</button>`)+
+    `<button onclick="saveIndivIO()" style="padding:8px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-family:inherit;font-weight:600">💾 บันทึก I/O</button>`) +
   _sec('dtx','#f5e8d0','#7a4f0d','🩸 บันทึก DTX',`
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px;min-width:360px">
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px;min-width:340px">
       <thead><tr style="background:#f0ede8">
         <th style="padding:6px;border:1px solid #ddd">วดป.</th><th style="padding:6px;border:1px solid #ddd">เวลา</th>
         <th style="padding:6px;border:1px solid #ddd">DTX</th><th style="padding:6px;border:1px solid #ddd">หมายเหตุ</th>
@@ -3942,9 +3944,9 @@ function renderIndivIO(){
       </tr></thead><tbody id="dtx-tbody">${dtxRows}</tbody>
     </table></div>`,
     `<button onclick="addDTXRow()" style="padding:6px 14px;border:1px solid #7a4f0d;border-radius:6px;background:#f5e8d0;color:#7a4f0d;cursor:pointer;font-size:14px;font-family:inherit">+ เพิ่มแถว</button>
-     <button onclick="saveIndivDTX()" style="padding:6px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-family:inherit;font-weight:600">💾 บันทึก DTX</button>`)+
+     <button onclick="saveIndivDTX()" style="padding:6px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-family:inherit;font-weight:600">💾 บันทึก DTX</button>`) +
   _sec('bmi','#e8f0fe','#1a5c9e','⚖️ บันทึก BMI',`
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px;min-width:440px">
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px;min-width:420px">
       <thead><tr style="background:#f0ede8">
         <th style="padding:6px;border:1px solid #ddd">วดป.</th><th style="padding:6px;border:1px solid #ddd">น้ำหนัก(กก.)</th>
         <th style="padding:6px;border:1px solid #ddd">ส่วนสูง(เมตร)</th><th style="padding:6px;border:1px solid #ddd">BMI</th>
@@ -3953,7 +3955,8 @@ function renderIndivIO(){
       </tr></thead><tbody id="bmi-tbody">${bmiRows}</tbody>
     </table></div>`,
     `<button onclick="addBMIRow()" style="padding:6px 14px;border:1px solid #1a5c9e;border-radius:6px;background:#e8f0fe;color:#1a5c9e;cursor:pointer;font-size:14px;font-family:inherit">+ เพิ่มแถว</button>
-     <button onclick="saveIndivBMI()" style="padding:6px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-family:inherit;font-weight:600">💾 บันทึก BMI</button>`);
+     <button onclick="saveIndivBMI()" style="padding:6px 20px;background:#1a6b4a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-family:inherit;font-weight:600">💾 บันทึก BMI</button>`) +
+  `</div>`;
 }
 function updateIO(day,f,val){if(!_iioData[day])_iioData[day]={};_iioData[day][f]=val;}
 window.updateIO=updateIO;
