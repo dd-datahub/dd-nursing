@@ -3055,7 +3055,7 @@ const _MEDREC_SLOTS=[
   {k:'aft_morn',l:'เช้า',grp:'aft'},{k:'aft_noon',l:'เที่ยง',grp:'aft'},{k:'aft_eve',l:'เย็น',grp:'aft'},
   {k:'sleep',l:'ก่อนนอน',grp:'other'},{k:'other',l:'อื่นๆ',grp:'other'}
 ];
-const _MEDREC_EMPTY=()=>({name:'',dose:'',time:'',slots:{},qty:'',countDate:'',note:'',days:{}});
+const _MEDREC_EMPTY=()=>({name:'',dose:'',time:'',slots:{},qty:'',countDate:'',qty2:'',countDate2:'',qty3:'',countDate3:'',note:'',days:{}});
 
 function loadIndivMedRec(){
   if(!_indivCustId)return;
@@ -3082,21 +3082,27 @@ function renderIndivMedRec(){
   h1+=`<th colspan="3" style="padding:4px 5px;border:1px solid #ddd;font-size:10px;text-align:center;background:${BFR}">ก่อนอาหาร</th>`;
   h1+=`<th colspan="3" style="padding:4px 5px;border:1px solid #ddd;font-size:10px;text-align:center;background:${AFT}">หลังอาหาร</th>`;
   h1+=rs2('ก่อนนอน',null,44)+rs2('อื่นๆ',null,36);
-  h1+=`<th colspan="2" style="padding:4px 5px;border:1px solid #ddd;font-size:10px;text-align:center;background:#e8eaf6;white-space:nowrap">นับยา</th>`;
+  h1+=`<th colspan="6" style="padding:4px 5px;border:1px solid #ddd;font-size:10px;text-align:center;background:#e8eaf6;white-space:nowrap">นับยา (3 ครั้ง/เดือน)</th>`;
   h1+=rs2('ขนาดยา',null,52)+rs2('เวลา',null,52);
   days.forEach(d=>{h1+=`<th rowspan="2" style="padding:3px 1px;border:1px solid #ddd;font-size:9px;text-align:center;min-width:26px;background:${BASE}">${d}</th>`;});
   h1+=rs2('หมายเหตุ',null,68)+`<th rowspan="2" style="border:1px solid #ddd;min-width:28px;background:${BASE}"></th>`;
   const sh=(t,bg)=>`<th style="padding:3px 2px;border:1px solid #ddd;font-size:9px;text-align:center;min-width:26px;background:${bg}">${t}</th>`;
   let h2=sh('เช้า',BFR)+sh('เที่ยง',BFR)+sh('เย็น',BFR)+sh('เช้า',AFT)+sh('เที่ยง',AFT)+sh('เย็น',AFT);
-  h2+=sh('จำนวน(เม็ด)','#e8eaf6')+`<th style="padding:3px 2px;border:1px solid #ddd;font-size:9px;text-align:center;min-width:84px;background:#e8eaf6">วันที่นับ</th>`;
+  h2+=sh('จน.1','#e8eaf6')+`<th style="padding:3px 2px;border:1px solid #ddd;font-size:9px;text-align:center;min-width:78px;background:#e8eaf6">วันที่ 1</th>`;
+  h2+=sh('จน.2','#dde1f8')+`<th style="padding:3px 2px;border:1px solid #ddd;font-size:9px;text-align:center;min-width:78px;background:#dde1f8">วันที่ 2</th>`;
+  h2+=sh('จน.3','#e8eaf6')+`<th style="padding:3px 2px;border:1px solid #ddd;font-size:9px;text-align:center;min-width:78px;background:#e8eaf6">วันที่ 3</th>`;
   const slotBg={bfr:BFR,aft:AFT,other:BASE};
   const rows=_imedrecData.map((r,i)=>{
     const bg=i%2===0?'#fff':'#fafaf8';
     let c=`<td style="padding:3px 4px;border:1px solid #eee;text-align:center;color:#888;font-size:10px;position:sticky;left:0;background:${bg};z-index:1">${i+1}</td>
       <td style="padding:2px;border:1px solid #eee;position:sticky;left:24px;background:${bg};z-index:1"><input type="text" value="${(r.name||'').replace(/"/g,'&quot;')}" placeholder="ชื่อยา / รายละเอียด" oninput="updateMedRec(${i},'name',this.value)" style="width:100%;min-width:150px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>`;
     _MEDREC_SLOTS.forEach(s=>{const chk=(r.slots||{})[s.k];c+=`<td style="padding:2px;border:1px solid #eee;text-align:center;background:${slotBg[s.grp]}"><input type="checkbox" ${chk?'checked':''} onchange="updateMedRecSlot(${i},'${s.k}',this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:#1a6b4a"></td>`;});
-    c+=`<td style="padding:2px;border:1px solid #eee;text-align:center;background:#f0f1fa"><input type="number" min="0" value="${r.qty||''}" placeholder="-" oninput="updateMedRec(${i},'qty',this.value)" style="width:46px;padding:4px 2px;border:1px solid #ddd;border-radius:4px;font-size:11px;text-align:center"></td>`;
-    c+=`<td style="padding:2px;border:1px solid #eee;background:#f0f1fa"><input type="date" value="${r.countDate||''}" oninput="updateMedRec(${i},'countDate',this.value)" style="padding:3px 4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit;width:82px"></td>`;
+    c+=`<td style="padding:2px;border:1px solid #eee;text-align:center;background:#f0f1fa"><input type="number" min="0" value="${r.qty||''}" placeholder="-" oninput="updateMedRec(${i},'qty',this.value)" style="width:38px;padding:2px;border:1px solid #ddd;border-radius:4px;font-size:10px;text-align:center"></td>`;
+    c+=`<td style="padding:2px;border:1px solid #eee;background:#f0f1fa"><input type="date" value="${r.countDate||''}" oninput="updateMedRec(${i},'countDate',this.value)" style="padding:2px 3px;border:1px solid #ddd;border-radius:4px;font-size:10px;font-family:inherit;width:76px"></td>`;
+    c+=`<td style="padding:2px;border:1px solid #eee;text-align:center;background:#eaecf8"><input type="number" min="0" value="${r.qty2||''}" placeholder="-" oninput="updateMedRec(${i},'qty2',this.value)" style="width:38px;padding:2px;border:1px solid #ddd;border-radius:4px;font-size:10px;text-align:center"></td>`;
+    c+=`<td style="padding:2px;border:1px solid #eee;background:#eaecf8"><input type="date" value="${r.countDate2||''}" oninput="updateMedRec(${i},'countDate2',this.value)" style="padding:2px 3px;border:1px solid #ddd;border-radius:4px;font-size:10px;font-family:inherit;width:76px"></td>`;
+    c+=`<td style="padding:2px;border:1px solid #eee;text-align:center;background:#f0f1fa"><input type="number" min="0" value="${r.qty3||''}" placeholder="-" oninput="updateMedRec(${i},'qty3',this.value)" style="width:38px;padding:2px;border:1px solid #ddd;border-radius:4px;font-size:10px;text-align:center"></td>`;
+    c+=`<td style="padding:2px;border:1px solid #eee;background:#f0f1fa"><input type="date" value="${r.countDate3||''}" oninput="updateMedRec(${i},'countDate3',this.value)" style="padding:2px 3px;border:1px solid #ddd;border-radius:4px;font-size:10px;font-family:inherit;width:76px"></td>`;
     c+=`<td style="padding:2px;border:1px solid #eee"><input type="text" value="${(r.dose||'').replace(/"/g,'&quot;')}" placeholder="1เม็ด" oninput="updateMedRec(${i},'dose',this.value)" style="width:50px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>`;
     c+=`<td style="padding:2px;border:1px solid #eee"><input type="text" value="${(r.time||'').replace(/"/g,'&quot;')}" placeholder="8.00น" oninput="updateMedRec(${i},'time',this.value)" style="width:50px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;font-family:inherit"></td>`;
     days.forEach(d=>{const v=(r.days||{})[d];const dv=typeof v==='boolean'?(v?'✓':''):(v||'');c+=`<td style="padding:1px;border:1px solid #eee;text-align:center;background:${bg}"><input type="text" value="${String(dv).replace(/"/g,'&quot;')}" oninput="updateMedRecDay(${i},${d},this.value)" style="width:24px;padding:2px 1px;border:1px solid #ddd;border-radius:3px;font-size:10px;text-align:center;font-family:inherit;background:transparent"></td>`;});
