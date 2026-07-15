@@ -2787,7 +2787,8 @@ if ('serviceWorker' in navigator) {
       <div class="form-row">
         <div class="form-group">
           <label>ธนาคาร</label>
-          <select id="edit-bank">
+          <select id="edit-bank" onchange="onBankChange('edit')">
+            <option value="">— เลือกธนาคาร —</option>
             <option>ธนาคารกรุงเทพ</option>
             <option>ธนาคารไทยพาณิชย์</option>
             <option>ธนาคารกรุงไทย</option>
@@ -2797,7 +2798,10 @@ if ('serviceWorker' in navigator) {
         </div>
         <div class="form-group">
           <label>เลขที่บัญชี</label>
-          <input type="text" id="edit-accno">
+          <select id="edit-acc-sel" onchange="onAccSelChange('edit')" style="display:none">
+            <option value="">— เลือกเลขที่บัญชี —</option>
+          </select>
+          <input type="text" id="edit-accno" placeholder="เลขที่บัญชี">
         </div>
       </div>
       <div class="form-row">
@@ -3895,7 +3899,18 @@ function openEditModal(id) {
   document.getElementById('edit-phone').value    = c.phone;
   document.getElementById('edit-fee').value      = c.fee;
   document.getElementById('edit-bank').value     = c.bank;
-  document.getElementById('edit-accno').value    = c.account_no;
+  // populate account dropdown for selected bank
+  onBankChange('edit');
+  // try to match existing account_no in preset list
+  const _editAccSel = document.getElementById('edit-acc-sel');
+  const _editAccNo  = document.getElementById('edit-accno');
+  const _editAccs   = BANK_ACCOUNTS[c.bank] || [];
+  const _editIdx    = _editAccs.findIndex(a => a.no === c.account_no);
+  if (_editIdx >= 0 && _editAccSel.style.display !== 'none') {
+    _editAccSel.value = _editIdx;
+  }
+  // always restore values (onBankChange clears them)
+  _editAccNo.value = c.account_no;
   document.getElementById('edit-accname').value  = c.account_name;
   document.getElementById('edit-due').value      = c.due_date;
   document.getElementById('edit-modal').classList.add('open');
