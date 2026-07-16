@@ -3051,8 +3051,36 @@ if ('serviceWorker' in navigator) {
         <span style="font-size:12px;font-weight:600;color:var(--text2)">✏️ แก้ไขรายการ</span>
         <button class="btn btn-sm btn-primary" onclick="rcptAddRow()" style="font-size:11px;padding:3px 10px">+ เพิ่มแถว</button>
         <button class="btn btn-sm" onclick="reRenderReceipt()" style="font-size:11px;padding:3px 10px">🔄 อัพเดตใบเสร็จ</button>
+        <button class="btn btn-sm" onclick="rcptShowAddReqPanel()" style="font-size:11px;padding:3px 10px;background:#fffbeb;border-color:#f59e0b;color:#92400e">📦 เพิ่มรายการเบิก</button>
       </div>
       <div id="rcpt-items-editor" style="display:flex;flex-direction:column;gap:4px"></div>
+      <!-- Add-requisition inline panel -->
+      <div id="rcpt-add-req-panel" style="display:none;margin-top:8px;padding:10px 12px;background:#fffbeb;border:1px solid #f59e0b;border-radius:8px">
+        <div style="font-size:12px;font-weight:600;color:#92400e;margin-bottom:8px">📦 เพิ่มรายการเบิกของ (แอดมินเพิ่มแทนพนักงาน)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <div style="display:flex;flex-direction:column;gap:3px;flex:2;min-width:140px">
+            <label style="font-size:11px;color:#92400e">รายการ (catalog)</label>
+            <select id="rcpt-req-item-sel" style="padding:5px 8px;border:1px solid #f59e0b;border-radius:5px;font-size:12px;background:#fff">
+              <option value="">— เลือกรายการ —</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:64px">
+            <label style="font-size:11px;color:#92400e">จำนวน</label>
+            <input type="number" id="rcpt-req-qty" value="1" min="1" style="width:64px;padding:5px 6px;border:1px solid #f59e0b;border-radius:5px;font-size:12px;text-align:center">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:120px">
+            <label style="font-size:11px;color:#92400e">วันที่เบิก</label>
+            <input type="date" id="rcpt-req-date" style="padding:5px 6px;border:1px solid #f59e0b;border-radius:5px;font-size:12px">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:80px">
+            <label style="font-size:11px;color:#92400e">ราคา/หน่วย (ไม่บังคับ)</label>
+            <input type="number" id="rcpt-req-price" placeholder="ตาม catalog" style="width:100px;padding:5px 6px;border:1px solid #f59e0b;border-radius:5px;font-size:12px">
+          </div>
+          <button onclick="rcptConfirmAddReq()" style="padding:5px 14px;background:#f59e0b;color:#fff;border:none;border-radius:5px;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap">✔ เพิ่มเบิก</button>
+          <button onclick="document.getElementById('rcpt-add-req-panel').style.display='none'" style="padding:5px 10px;background:#fff;color:#92400e;border:1px solid #f59e0b;border-radius:5px;font-size:12px;cursor:pointer">ยกเลิก</button>
+        </div>
+        <div id="rcpt-req-status" style="font-size:11px;margin-top:6px;color:#059669;display:none"></div>
+      </div>
     </div>
     <div class="modal-body" style="padding:0">
       <div id="receipt-print-area"></div>
@@ -5099,6 +5127,7 @@ function nextReceiptNo(branch) {
 // Store current receipt context for re-render
 let _rcptCtx = null;
 let _rcptEditsCache = {}; // { "custId_safe_YYYY-MM": [...lineItems] }
+let _rcptDeletedReqIds = new Set(); // itemIds ที่แอดมินลบออกจากใบเสร็จแล้ว
 
 function _rcptKey(custId, month) {
   return custId.replace(/\//g,'_') + '_' + month;
@@ -5123,6 +5152,8 @@ function printReceipt(custId, month) {
 
   const _sameReceipt = _rcptCtx && _rcptCtx.custId === custId && _rcptCtx.targetMonth === targetMonth;
   _rcptCtx = { custId, targetMonth, rcptNo: nextReceiptNo(c.branch) };
+  // reset deleted-req tracking เมื่อเปิดใบเสร็จใหม่
+  if (!_sameReceipt) _rcptDeletedReqIds = new Set();
 
   // Build default line items from customer data
   const overrideDay0 = parseDueDay(c.due_date);
@@ -5299,7 +5330,96 @@ function rcptAddRow() {
   _saveRcptEdits();
 }
 
+function rcptShowAddReqPanel() {
+  const panel = document.getElementById('rcpt-add-req-panel');
+  if (!panel) return;
+  // populate catalog dropdown
+  const sel = document.getElementById('rcpt-req-item-sel');
+  sel.innerHTML = `<option value="">— เลือกรายการ —</option>` +
+    catalog.map(item => `<option value="${item.id}">${item.name}${item.price ? ' (฿'+item.price.toLocaleString()+')' : ''}</option>`).join('');
+  // set default date to today
+  document.getElementById('rcpt-req-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('rcpt-req-qty').value  = '1';
+  document.getElementById('rcpt-req-price').value = '';
+  const st = document.getElementById('rcpt-req-status');
+  if (st) { st.style.display = 'none'; st.textContent = ''; }
+  panel.style.display = 'block';
+  sel.focus();
+}
+
+function rcptConfirmAddReq() {
+  if (!_rcptCtx) return;
+  const itemId = document.getElementById('rcpt-req-item-sel').value;
+  const qty    = Math.max(1, parseInt(document.getElementById('rcpt-req-qty').value) || 1);
+  const date   = document.getElementById('rcpt-req-date').value || new Date().toISOString().split('T')[0];
+  const priceVal = document.getElementById('rcpt-req-price').value;
+  const price  = priceVal !== '' && priceVal != null ? parseFloat(priceVal) : undefined;
+
+  if (!itemId) { alert('กรุณาเลือกรายการ'); return; }
+
+  const { custId, targetMonth } = _rcptCtx;
+  // push เข้า requisitions ของ targetMonth
+  const k = reqKey(custId, targetMonth);
+  if (!requisitions[k]) requisitions[k] = [];
+  const entry = { itemId, qty, savedAt: date };
+  if (price !== undefined) entry.price = price;
+  requisitions[k].push(entry);
+  // ลบออกจาก deleted list ในกรณีที่เคยลบ item นี้ไปแล้วแต่ต้องการเพิ่มกลับ
+  _rcptDeletedReqIds.delete(itemId);
+  // save to Firebase
+  if (window._fbSave) window._fbSave('requisitions/' + k, requisitions[k]);
+
+  // แสดงผล
+  const item = catalog.find(x => x.id === itemId);
+  const st   = document.getElementById('rcpt-req-status');
+  if (st) {
+    st.textContent = `✔ เพิ่ม "${item?.name || itemId}" จำนวน ${qty} รายการ เรียบร้อยแล้ว`;
+    st.style.display = 'block';
+    setTimeout(() => { if (st) st.style.display = 'none'; }, 3000);
+  }
+  // reset form
+  document.getElementById('rcpt-req-item-sel').value = '';
+  document.getElementById('rcpt-req-qty').value = '1';
+  document.getElementById('rcpt-req-price').value = '';
+  // re-render receipt ให้แสดง req ใหม่
+  reRenderReceipt();
+  _saveRcptEdits();
+}
+window.rcptShowAddReqPanel = rcptShowAddReqPanel;
+window.rcptConfirmAddReq   = rcptConfirmAddReq;
+// receipt editor functions used in inline onclick
+window.rcptAddRow     = rcptAddRow;
+window.rcptRemoveRow  = rcptRemoveRow;
+window.rcptToggleSub  = rcptToggleSub;
+window.rcptUpdateRow  = rcptUpdateRow;
+window.reRenderReceipt = reRenderReceipt;
+window.printReceipt   = printReceipt;
+
 function rcptRemoveRow(i) {
+  const row = _rcptLineItems[i];
+  if (!row) return;
+
+  // ถ้าเป็นรายการที่มาจาก requisitions → ลบออกจาก Firebase ด้วย
+  if (row.isReq && row.id && row.id.startsWith('req_')) {
+    const itemId = row.id.slice(4); // ตัด 'req_' ออก
+    _rcptDeletedReqIds.add(itemId); // track ไม่ให้ re-add ในรอบ render นี้
+
+    if (_rcptCtx) {
+      const { custId, targetMonth } = _rcptCtx;
+      const [ty, tm] = targetMonth.split('-').map(Number);
+      const prevDate = new Date(ty, tm - 2, 1);
+      const prevYM   = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
+      // ลบ entries ทั้งสองเดือนที่เกี่ยวข้อง
+      [prevYM, targetMonth].forEach(ym => {
+        const k = reqKey(custId, ym);
+        if (requisitions[k] && requisitions[k].length > 0) {
+          requisitions[k] = requisitions[k].filter(e => e.itemId !== itemId);
+          if (window._fbSave) window._fbSave('requisitions/' + k, requisitions[k].length > 0 ? requisitions[k] : null);
+        }
+      });
+    }
+  }
+
   _rcptLineItems.splice(i, 1);
   renderRcptEditor();
   reRenderReceipt();
@@ -5342,8 +5462,13 @@ function renderReceiptContent() {
   });
 
   // Replace all isReq sub-items with freshly filtered ones
-  const nonReq    = _rcptLineItems.filter(r => !r.isReq);
-  const newSubItems = newDefaults.filter(r => r.isReq);
+  // (ยกเว้น itemIds ที่แอดมินลบออกไปแล้วในเซสชันนี้)
+  const nonReq      = _rcptLineItems.filter(r => !r.isReq);
+  const newSubItems = newDefaults.filter(r => {
+    if (!r.isReq) return false;
+    const itemId = r.id && r.id.startsWith('req_') ? r.id.slice(4) : r.id;
+    return !_rcptDeletedReqIds.has(itemId);
+  });
   _rcptLineItems  = [...nonReq, ...newSubItems];
 
   // Only re-render editor if not triggered by user typing in editor
