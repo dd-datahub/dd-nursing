@@ -2640,8 +2640,20 @@ if ('serviceWorker' in navigator) {
     <div class="modal-body">
       <div class="form-section">ข้อมูลส่วนตัว</div>
       <div class="form-row">
-        <div class="form-group"><label>รหัสลูกค้า</label><input type="text" id="add-id" placeholder="DD1/48"></div>
-        <div class="form-group"><label>สาขา</label><select id="add-branch"><option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option></select></div>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:6px">
+            รหัสลูกค้า
+            <span id="add-id-auto-badge" style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-weight:600">auto</span>
+            <button type="button" onclick="regenerateCustomerId()" title="สร้างรหัสใหม่"
+              style="font-size:10px;background:none;border:1px solid #93c5fd;color:#1d4ed8;padding:1px 6px;border-radius:4px;cursor:pointer;line-height:1.4">⟳ ใหม่</button>
+          </label>
+          <input type="text" id="add-id" placeholder="DD1/48" oninput="onAddIdInput()">
+        </div>
+        <div class="form-group"><label>สาขา</label>
+          <select id="add-branch" onchange="onAddBranchChange()">
+            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
+          </select>
+        </div>
       </div>
       <div class="form-group"><label>ชื่อลูกค้า</label><input type="text" id="add-name" placeholder="คุณ ชื่อ นามสกุล"></div>
       <div class="form-group"><label>ที่อยู่</label><textarea id="add-address" rows="2"></textarea></div>
@@ -4041,6 +4053,54 @@ function savePay(){
 }
 
 // ADD CUSTOMER
+// ===== AUTO-GENERATE CUSTOMER ID =====
+const _BRANCH_PREFIX = {
+  'สาขา 1':   'DD1/',
+  'สาขา 2':   'DD2/',
+  'สาขา 3':   'DD3/',
+  'สาขาอุดร': 'DDUD/',
+};
+
+function autoGenCustomerId(branch) {
+  const prefix = _BRANCH_PREFIX[branch] || 'DD?/';
+  let maxNum = 0;
+  customers.forEach(c => {
+    if (c.id && c.id.startsWith(prefix)) {
+      const num = parseInt(c.id.slice(prefix.length), 10);
+      if (!isNaN(num) && num > maxNum) maxNum = num;
+    }
+  });
+  const next = maxNum + 1;
+  const padded = next < 10 ? '0' + next : String(next);
+  return prefix + padded;
+}
+
+function onAddBranchChange() {
+  // เปลี่ยนสาขา → re-generate รหัส (เฉพาะถ้ายังไม่ได้แก้เอง)
+  const badge = document.getElementById('add-id-auto-badge');
+  if (badge && badge.style.display !== 'none') {
+    // ยังเป็น auto mode → update
+    const branch = document.getElementById('add-branch').value;
+    document.getElementById('add-id').value = autoGenCustomerId(branch);
+  }
+}
+
+function onAddIdInput() {
+  // admin แก้รหัสเอง → ซ่อน auto badge
+  const badge = document.getElementById('add-id-auto-badge');
+  if (badge) badge.style.display = 'none';
+}
+
+function regenerateCustomerId() {
+  const branch = document.getElementById('add-branch').value;
+  document.getElementById('add-id').value = autoGenCustomerId(branch);
+  const badge = document.getElementById('add-id-auto-badge');
+  if (badge) badge.style.display = '';
+}
+window.onAddBranchChange    = onAddBranchChange;
+window.onAddIdInput         = onAddIdInput;
+window.regenerateCustomerId = regenerateCustomerId;
+
 function openAddModal(){
   // Reset bank fields
   const bankSel = document.getElementById('add-bank');
@@ -4049,6 +4109,12 @@ function openAddModal(){
   if (bankSel)  bankSel.value = '';
   if (accSel)   { accSel.style.display='none'; accSel.innerHTML='<option value="">— เลือกบัญชี —</option>'; }
   if (accNo)    { accNo.style.display='block'; accNo.value=''; }
+  // Auto-fill customer ID from current branch
+  const branch = document.getElementById('add-branch').value;
+  const idField = document.getElementById('add-id');
+  if (idField) idField.value = autoGenCustomerId(branch);
+  const badge = document.getElementById('add-id-auto-badge');
+  if (badge) badge.style.display = '';
   document.getElementById('add-modal').classList.add('open');
 }
 function saveCustomer(){
