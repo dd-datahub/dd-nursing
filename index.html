@@ -4080,11 +4080,28 @@ function autoGenCustomerId(branch) {
 }
 
 function onAddBranchChange() {
-  // เปลี่ยนสาขา → re-generate รหัส (เฉพาะถ้ายังไม่ได้แก้เอง)
+  const branch = document.getElementById('add-branch').value;
+  const isUdon = branch === 'สาขาอุดร';
+
+  // อัปเดต dropdown ธนาคารตามสาขา
+  const bankSel = document.getElementById('add-bank');
+  const allBanks = ['ธนาคารกรุงเทพ','ธนาคารไทยพาณิชย์','ธนาคารกรุงไทย','ธนาคารกรุงศรีอยุธยา','ธนาคารกสิกรไทย'];
+  const shownBanks = isUdon ? UDON_BANKS : allBanks;
+  bankSel.innerHTML = '<option value="">— เลือกธนาคาร —</option>' +
+    shownBanks.map(b => `<option>${b}</option>`).join('');
+  bankSel.value = '';
+
+  // รีเซ็ตช่องบัญชี
+  const accSel = document.getElementById('add-acc-sel');
+  const accNo  = document.getElementById('add-accno');
+  if (accSel) { accSel.style.display = 'none'; accSel.innerHTML = '<option value="">— เลือกเลขที่บัญชี —</option>'; }
+  if (accNo)  { accNo.style.display = 'block'; accNo.value = ''; }
+  const accName = document.getElementById('add-accname');
+  if (accName) accName.value = '';
+
+  // re-generate รหัส (เฉพาะถ้ายังไม่ได้แก้เอง)
   const badge = document.getElementById('add-id-auto-badge');
   if (badge && badge.style.display !== 'none') {
-    // ยังเป็น auto mode → update
-    const branch = document.getElementById('add-branch').value;
     document.getElementById('add-id').value = autoGenCustomerId(branch);
   }
 }
@@ -6604,6 +6621,16 @@ function resetCatalogFromCSV() {
 }
 
 // ========== BANK ACCOUNTS ==========
+const BANK_ACCOUNTS_UDON = {
+  'ธนาคารไทยพาณิชย์': [
+    { no: '376-2-63366-8', name: 'บริษัท เนอร์สซิ่ง โฮมอุดร ดีดี จำกัด' },
+  ],
+  'ธนาคารกรุงศรีอยุธยา': [
+    { no: '444-1-23166-0', name: 'นาง พนมกร พลราชม' },
+  ],
+};
+const UDON_BANKS = ['ธนาคารไทยพาณิชย์', 'ธนาคารกรุงศรีอยุธยา'];
+
 const BANK_ACCOUNTS = {
   'ธนาคารไทยพาณิชย์': [
     { no: '328-2-11366-9', name: 'นายเศรษฐศักดิ์ สถิรวงศ์วรรณ' },
@@ -6631,7 +6658,10 @@ function onBankChange(prefix) {
   const accNo   = document.getElementById(`${prefix}-accno`);
   const accName = document.getElementById(`${prefix}-accname`);
 
-  const accounts = BANK_ACCOUNTS[bank] || [];
+  const branch     = prefix === 'add' ? document.getElementById('add-branch')?.value : null;
+  const isUdon     = branch === 'สาขาอุดร';
+  const accountsMap = isUdon ? BANK_ACCOUNTS_UDON : BANK_ACCOUNTS;
+  const accounts   = accountsMap[bank] || [];
   if (accounts.length > 0) {
     // Show dropdown
     accSel.style.display = 'block';
@@ -6655,7 +6685,9 @@ function onAccSelChange(prefix) {
   const accNo   = document.getElementById(`${prefix}-accno`);
   const accName = document.getElementById(`${prefix}-accname`);
   const idx     = parseInt(accSel.value);
-  const accounts = BANK_ACCOUNTS[bank] || [];
+  const branch  = prefix === 'add' ? document.getElementById('add-branch')?.value : null;
+  const isUdon  = branch === 'สาขาอุดร';
+  const accounts = (isUdon ? BANK_ACCOUNTS_UDON : BANK_ACCOUNTS)[bank] || [];
   if (!isNaN(idx) && accounts[idx]) {
     accNo.value   = accounts[idx].no;
     accName.value = accounts[idx].name;
