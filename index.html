@@ -5935,6 +5935,16 @@ function getMonthRangeLabel(ym) {
 }
 
 function doPrint() {
+  // mark invoiced (กรณีที่ยังไม่ได้ mark ตอนเปิด modal)
+  if (_rcptCtx) {
+    const { custId, targetMonth } = _rcptCtx;
+    const _invk = invKey(custId, targetMonth);
+    if (!invoiced[_invk]) {
+      invoiced[_invk] = { date: new Date().toISOString().split('T')[0], by: 'admin' };
+      if (window._fbSave) window._fbSave('invoiced', invoiced);
+    }
+  }
+
   const content = document.getElementById('receipt-print-area').innerHTML;
   const win = window.open('', '_blank', 'width=800,height=900');
   win.document.write(`<!DOCTYPE html>
@@ -6009,6 +6019,12 @@ window.onload = function() {
 </body>
 </html>`);
   win.document.close();
+
+  // ปิด modal และ refresh สถานะทันที
+  closeModal('receipt-modal');
+  renderBilling();
+  buildBillingReminders();
+  updateDashboard();
 }
 
 // ========== REFUND SYSTEM ==========
