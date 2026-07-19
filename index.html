@@ -3961,13 +3961,21 @@ function openEditModal(id) {
   document.getElementById('edit-address').value  = c.address;
   document.getElementById('edit-phone').value    = c.phone;
   document.getElementById('edit-fee').value      = c.fee;
-  document.getElementById('edit-bank').value     = c.bank;
+  // อัปเดต dropdown ธนาคารตามสาขา (อุดร = 2 ตัวเลือก)
+  const _isUdonEdit = c.branch === 'สาขาอุดร';
+  const _editBankSel = document.getElementById('edit-bank');
+  const _allBanks = ['ธนาคารกรุงเทพ','ธนาคารไทยพาณิชย์','ธนาคารกรุงไทย','ธนาคารกสิกรไทย','ธนาคารกรุงศรีอยุธยา'];
+  const _shownBanks = _isUdonEdit ? UDON_BANKS : _allBanks;
+  _editBankSel.innerHTML = '<option value="">— เลือกธนาคาร —</option>' +
+    _shownBanks.map(b => `<option>${b}</option>`).join('');
+  _editBankSel.value = c.bank;
   // populate account dropdown for selected bank
   onBankChange('edit');
   // try to match existing account_no in preset list
   const _editAccSel = document.getElementById('edit-acc-sel');
   const _editAccNo  = document.getElementById('edit-accno');
-  const _editAccs   = BANK_ACCOUNTS[c.bank] || [];
+  const _editAccMap = _isUdonEdit ? BANK_ACCOUNTS_UDON : BANK_ACCOUNTS;
+  const _editAccs   = _editAccMap[c.bank] || [];
   const _editIdx    = _editAccs.findIndex(a => a.no === c.account_no);
   if (_editIdx >= 0 && _editAccSel.style.display !== 'none') {
     _editAccSel.value = _editIdx;
@@ -6658,8 +6666,12 @@ function onBankChange(prefix) {
   const accNo   = document.getElementById(`${prefix}-accno`);
   const accName = document.getElementById(`${prefix}-accname`);
 
-  const branch     = prefix === 'add' ? document.getElementById('add-branch')?.value : null;
-  const isUdon     = branch === 'สาขาอุดร';
+  const branch = prefix === 'add'
+    ? document.getElementById('add-branch')?.value
+    : prefix === 'edit'
+      ? document.getElementById('edit-branch')?.value
+      : null;
+  const isUdon      = branch === 'สาขาอุดร';
   const accountsMap = isUdon ? BANK_ACCOUNTS_UDON : BANK_ACCOUNTS;
   const accounts   = accountsMap[bank] || [];
   if (accounts.length > 0) {
@@ -6685,9 +6697,13 @@ function onAccSelChange(prefix) {
   const accNo   = document.getElementById(`${prefix}-accno`);
   const accName = document.getElementById(`${prefix}-accname`);
   const idx     = parseInt(accSel.value);
-  const branch  = prefix === 'add' ? document.getElementById('add-branch')?.value : null;
-  const isUdon  = branch === 'สาขาอุดร';
-  const accounts = (isUdon ? BANK_ACCOUNTS_UDON : BANK_ACCOUNTS)[bank] || [];
+  const branch2 = prefix === 'add'
+    ? document.getElementById('add-branch')?.value
+    : prefix === 'edit'
+      ? document.getElementById('edit-branch')?.value
+      : null;
+  const isUdon2  = branch2 === 'สาขาอุดร';
+  const accounts = (isUdon2 ? BANK_ACCOUNTS_UDON : BANK_ACCOUNTS)[bank] || [];
   if (!isNaN(idx) && accounts[idx]) {
     accNo.value   = accounts[idx].no;
     accName.value = accounts[idx].name;
