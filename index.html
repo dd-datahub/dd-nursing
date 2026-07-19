@@ -1483,8 +1483,12 @@ async function fbSave(path, data) {
 // ใช้ทั้งตอนโหลดครั้งแรก (fbLoad) และตอน realtime listener (listenAllData)
 // ลูกค้าที่มีอยู่แล้ว (จาก RAW seed) → อัปเดตข้อมูล, ลูกค้าใหม่ที่ไม่มีใน RAW → เพิ่มเข้าไปในลิสต์
 function _mergeFirebaseCustomers(customersData) {
-  Object.values(customersData).forEach(v => {
-    if (!v || !v.id) return;
+  Object.entries(customersData).forEach(([fbKey, v]) => {
+    if (!v) return;
+    // ถ้า object ไม่มี id field (เช่น บันทึกจาก code เก่า) → derive จาก Firebase key
+    // Firebase key ใช้ _ แทน / เช่น DD2_43 → DD2/43, DDUD_01 → DDUD/01
+    if (!v.id) v = { ...v, id: fbKey.replace(/_(\d+)$/, '/$1') };
+    if (!v.id) return;
     const existing = customers.find(x => x.id === v.id);
     if (existing) Object.assign(existing, v);
     else customers.push({ _dupName: false, ...v });
