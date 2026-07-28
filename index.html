@@ -808,7 +808,7 @@ function _schedMainRenderTable() {
       : `<td style="white-space:nowrap"><button class="sched-del-btn" title="ย้ายสาขา" onclick="schedOpenTransferModal('main','${nid}','${safeName}','${nurse.branch||''}')">🔀</button><button class="sched-del-btn" title="ลบพนักงานออกจากตาราง" onclick="schedMainDeleteNurse('${nid}','${safeName}')">🗑️</button></td>`;
     const nameLabel = nurse.inactive
       ? `${nurse.name} <span style="color:#b91c1c;font-size:10.5px;font-weight:600">(ลาออกแล้ว)</span>`
-      : nurse.name;
+      : `${nurse.name} <button class="sched-del-btn" style="font-size:11px;padding:1px 5px;opacity:.55" title="แก้ไขชื่อ" onclick="schedEditNurseName('main','${nid}','${safeName}')">✏️</button>`;
 
     html += `<tr style="background:${rowBg}${nurse.inactive?';opacity:.7':''}">` +
             `<td class="sched-name-col" style="background:${rowBg}">${nameLabel}</td>` +
@@ -1104,7 +1104,7 @@ function _schedUdRenderTable() {
       : `<td style="white-space:nowrap"><button class="sched-del-btn" title="ย้ายสาขา" onclick="schedOpenTransferModal('ud','${nid}','${safeName}','')">🔀</button><button class="sched-del-btn" title="ลบพนักงานออกจากตาราง" onclick="schedUdDeleteNurse('${nid}','${safeName}')">🗑️</button></td>`;
     const nameLabel = nurse.inactive
       ? `${nurse.name} <span style="color:#b91c1c;font-size:10.5px;font-weight:600">(ลาออกแล้ว)</span>`
-      : nurse.name;
+      : `${nurse.name} <button class="sched-del-btn" style="font-size:11px;padding:1px 5px;opacity:.55" title="แก้ไขชื่อ" onclick="schedEditNurseName('ud','${nid}','${safeName}')">✏️</button>`;
 
     html += `<tr${nurse.inactive?' style="opacity:.7"':''}>` +
             `<td class="sched-name-col">${nameLabel}</td>` +
@@ -1265,6 +1265,26 @@ async function schedConfirmTransfer() {
 
 window.schedOpenTransferModal = schedOpenTransferModal;
 window.schedConfirmTransfer   = schedConfirmTransfer;
+
+// ════════════════════════════════════════════════════════════════
+// ตารางเวร: แก้ไขชื่อพนักงาน (inline)
+// ════════════════════════════════════════════════════════════════
+async function schedEditNurseName(system, nid, currentName) {
+  const newName = prompt('แก้ไขชื่อพนักงาน:', currentName);
+  if (newName === null) return; // ยกเลิก
+  const trimmed = newName.trim();
+  if (!trimmed) { alert('กรุณากรอกชื่อ'); return; }
+  if (trimmed === currentName) return; // ไม่มีการเปลี่ยนแปลง
+  const path = system === 'ud'
+    ? `schedule_ud_nurses/${nid}/name`
+    : `schedule_nurses/${nid}/name`;
+  try {
+    await set(ref(db, path), trimmed);
+  } catch (e) {
+    alert('เกิดข้อผิดพลาด: ' + e.message);
+  }
+}
+window.schedEditNurseName = schedEditNurseName;
 
 // ════════════════════════════════════════════════════════════════
 // ตารางเวร: บันทึกหมายเหตุประจำวัน (day-note row)
