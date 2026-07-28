@@ -805,7 +805,7 @@ function _schedMainRenderTable() {
     const moveCell = `<td style="white-space:nowrap"><button class="sched-del-btn" style="font-size:12px;${canUp?'':'opacity:.2;cursor:default'}" title="เลื่อนลำดับขึ้น" ${canUp?`onclick="schedMainMoveNurse('${nid}',-1)"`:''}>▲</button><button class="sched-del-btn" style="font-size:12px;${canDown?'':'opacity:.2;cursor:default'}" title="เลื่อนลำดับลง" ${canDown?`onclick="schedMainMoveNurse('${nid}',1)"`:''}>▼</button></td>`;
     const delCell = nurse.inactive
       ? `<td><button class="sched-del-btn" title="กู้คืนพนักงานคนนี้ (กลับมาทำงาน)" onclick="schedMainRestoreNurse('${nid}')">↩️</button></td>`
-      : `<td><button class="sched-del-btn" title="ลบพนักงานออกจากตาราง" onclick="schedMainDeleteNurse('${nid}','${safeName}')">🗑️</button></td>`;
+      : `<td style="white-space:nowrap"><button class="sched-del-btn" title="ย้ายสาขา" onclick="schedOpenTransferModal('main','${nid}','${safeName}','${nurse.branch||''}')">🔀</button><button class="sched-del-btn" title="ลบพนักงานออกจากตาราง" onclick="schedMainDeleteNurse('${nid}','${safeName}')">🗑️</button></td>`;
     const nameLabel = nurse.inactive
       ? `${nurse.name} <span style="color:#b91c1c;font-size:10.5px;font-weight:600">(ลาออกแล้ว)</span>`
       : nurse.name;
@@ -1101,7 +1101,7 @@ function _schedUdRenderTable() {
     const moveCell = `<td style="white-space:nowrap"><button class="sched-del-btn" style="font-size:12px;${canUp?'':'opacity:.2;cursor:default'}" title="เลื่อนลำดับขึ้น" ${canUp?`onclick="schedUdMoveNurse('${nid}',-1)"`:''}>▲</button><button class="sched-del-btn" style="font-size:12px;${canDown?'':'opacity:.2;cursor:default'}" title="เลื่อนลำดับลง" ${canDown?`onclick="schedUdMoveNurse('${nid}',1)"`:''}>▼</button></td>`;
     const delCell = nurse.inactive
       ? `<td><button class="sched-del-btn" title="กู้คืนพนักงานคนนี้ (กลับมาทำงาน)" onclick="schedUdRestoreNurse('${nid}')">↩️</button></td>`
-      : `<td><button class="sched-del-btn" title="ลบพนักงานออกจากตาราง" onclick="schedUdDeleteNurse('${nid}','${safeName}')">🗑️</button></td>`;
+      : `<td style="white-space:nowrap"><button class="sched-del-btn" title="ย้ายสาขา" onclick="schedOpenTransferModal('ud','${nid}','${safeName}','')">🔀</button><button class="sched-del-btn" title="ลบพนักงานออกจากตาราง" onclick="schedUdDeleteNurse('${nid}','${safeName}')">🗑️</button></td>`;
     const nameLabel = nurse.inactive
       ? `${nurse.name} <span style="color:#b91c1c;font-size:10.5px;font-weight:600">(ลาออกแล้ว)</span>`
       : nurse.name;
@@ -1207,6 +1207,64 @@ window.schedUdRestoreNurse = schedUdRestoreNurse;
 window.schedUdMoveNurse    = schedUdMoveNurse;
 window.schedUdEditCell     = schedUdEditCell;
 window.schedUdEditOT       = schedUdEditOT;
+
+// ════════════════════════════════════════════════════════════════
+// ตารางเวร: ย้ายสาขาพนักงาน
+// ════════════════════════════════════════════════════════════════
+let _schedTransferCtx = null; // { system:'main'|'ud', nid, name, currentBranch }
+
+function schedOpenTransferModal(system, nid, name, currentBranch) {
+  _schedTransferCtx = { system, nid, name, currentBranch };
+  document.getElementById('sched-transfer-name').textContent = name;
+  const curLabel = system === 'ud'
+    ? 'สาขาอุดร'
+    : `สาขาหลัก — สาขา ${currentBranch || '?'}`;
+  document.getElementById('sched-transfer-current').textContent = `สาขาปัจจุบัน: ${curLabel}`;
+
+  const allOpts = [
+    { value: 'main_1', label: 'สาขาหลัก — สาขา 1' },
+    { value: 'main_2', label: 'สาขาหลัก — สาขา 2' },
+    { value: 'main_3', label: 'สาขาหลัก — สาขา 3' },
+    { value: 'ud',     label: 'สาขาอุดร' },
+  ];
+  const curVal = system === 'ud' ? 'ud' : `main_${currentBranch}`;
+  const sel = document.getElementById('sched-transfer-branch');
+  sel.innerHTML = allOpts
+    .filter(o => o.value !== curVal)
+    .map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+  document.getElementById('sched-transfer-modal').classList.add('open');
+}
+
+async function schedConfirmTransfer() {
+  if (!_schedTransferCtx) return;
+  const { system, nid, name } = _schedTransferCtx;
+  const dest = document.getElementById('sched-transfer-branch').value;
+
+  try {
+    if (system === 'main' && dest === 'ud') {
+      // สาขาหลัก → สาขาอุดร
+      const nurse = _schedMainNurses[nid] || {};
+      await set(ref(db, `schedule_ud_nurses/${nid}`), { name: nurse.name || name, order: nurse.order || 99 });
+      await set(ref(db, `schedule_nurses/${nid}`), null);
+    } else if (system === 'ud' && dest !== 'ud') {
+      // สาขาอุดร → สาขาหลัก
+      const nurse = _schedUdNurses[nid] || {};
+      const newBranch = dest.replace('main_', '');
+      await set(ref(db, `schedule_nurses/${nid}`), { name: nurse.name || name, order: nurse.order || 99, branch: newBranch });
+      await set(ref(db, `schedule_ud_nurses/${nid}`), null);
+    } else if (system === 'main' && dest !== 'ud') {
+      // สาขาหลัก → สาขาหลัก (เปลี่ยนสาขา)
+      const newBranch = dest.replace('main_', '');
+      await update(ref(db, `schedule_nurses/${nid}`), { branch: newBranch });
+    }
+    closeModal('sched-transfer-modal');
+  } catch (e) {
+    alert('เกิดข้อผิดพลาด: ' + e.message);
+  }
+}
+
+window.schedOpenTransferModal = schedOpenTransferModal;
+window.schedConfirmTransfer   = schedConfirmTransfer;
 
 // ════════════════════════════════════════════════════════════════
 // ตารางเวร: บันทึกหมายเหตุประจำวัน (day-note row)
@@ -2572,6 +2630,30 @@ if ('serviceWorker' in navigator) {
 
   </div>
 </div>
+</div>
+
+<!-- Transfer Branch Modal -->
+<div class="modal-overlay" id="sched-transfer-modal">
+  <div class="modal" style="width:340px">
+    <div class="modal-head">
+      <h2>🔀 ย้ายสาขาพนักงาน</h2>
+      <span class="modal-close" onclick="closeModal('sched-transfer-modal')">×</span>
+    </div>
+    <div class="modal-body">
+      <p id="sched-transfer-name" style="font-weight:600;font-size:15px;margin-bottom:4px"></p>
+      <p id="sched-transfer-current" style="font-size:12px;color:var(--text2);margin-bottom:16px"></p>
+      <div class="form-group">
+        <label>ย้ายไปสาขา</label>
+        <select id="sched-transfer-branch" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text)">
+        </select>
+      </div>
+      <p style="font-size:11px;color:var(--text3);margin-top:8px">※ ข้อมูลกะของเดือนก่อนหน้าจะยังแสดงในตารางสาขาเดิม</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" onclick="schedConfirmTransfer()">✔ ย้ายสาขา</button>
+      <button class="btn" onclick="closeModal('sched-transfer-modal')">ยกเลิก</button>
+    </div>
+  </div>
 </div>
 
 <!-- Customer Detail Modal -->
