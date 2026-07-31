@@ -3180,6 +3180,14 @@ if ('serviceWorker' in navigator) {
         <label style="font-size:12px;color:var(--text2)">เดือนที่ออกใบเสร็จ</label>
         <select id="rcpt-override-month" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px" onchange="reRenderReceipt()"></select>
       </div>
+      <div style="width:1px;height:20px;background:var(--border)"></div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:12px;color:var(--text2)">ช่องทางชำระ</label>
+        <select id="rcpt-pay-method" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px" onchange="reRenderReceipt()">
+          <option value="transfer">💳 โอนบัญชี</option>
+          <option value="cash">💵 เงินสด</option>
+        </select>
+      </div>
       <span style="font-size:11px;color:var(--text3)">※ เปลี่ยนแปลงเฉพาะใบเสร็จนี้</span>
     </div>
     <!-- Line items editor -->
@@ -5830,7 +5838,9 @@ function renderReceiptContent() {
     `<tr class="rcpt-empty-rows"><td></td><td></td><td></td><td></td><td></td></tr>`
   ).join('');
 
-  const payChannel = p?.channel || '—';
+  const rcptPayMethod = document.getElementById('rcpt-pay-method')?.value || 'transfer';
+  const isCash        = rcptPayMethod === 'cash';
+  const payChannel = isCash ? 'เงินสด' : (p?.channel || '—');
   const payDate    = p?.date ? fmtDateThai(p.date) : '—';
 
     const isUdonBranch = c.branch === 'สาขาอุดร';
@@ -5912,19 +5922,19 @@ document.getElementById('receipt-print-area').innerHTML = `
         <span style="font-weight:600">(${bahtText(grandTotal)})</span>
       </div>
     </div>
-    <div class="rcpt-payment-section">
+    <div class="rcpt-payment-section" style="grid-template-columns:${isCash ? '1fr' : '1fr 1fr'}">
       <div class="rcpt-pay-block">
         <div class="rcpt-pay-title">ช่องทางชำระเงิน</div>
         <div class="rcpt-pay-row"><span class="rcpt-pay-label">ช่องทาง</span><span class="rcpt-pay-value">${payChannel}</span></div>
         <div class="rcpt-pay-row"><span class="rcpt-pay-label">วันที่ชำระ</span><span class="rcpt-pay-value">${payDate}</span></div>
         <div class="rcpt-pay-row"><span class="rcpt-pay-label">จำนวน</span><span class="rcpt-pay-value" style="color:#111">฿${fmt(grandTotal)}</span></div>
       </div>
-      <div class="rcpt-pay-block">
+      ${isCash ? '' : `<div class="rcpt-pay-block">
         <div class="rcpt-pay-title">ข้อมูลธนาคาร (โอนเงิน)</div>
         <div class="rcpt-pay-row"><span class="rcpt-pay-label">ธนาคาร</span><span class="rcpt-pay-value" style="font-size:12px">${c.bank}</span></div>
         <div class="rcpt-pay-row"><span class="rcpt-pay-label">เลขที่บัญชี</span><span class="rcpt-pay-value">${c.account_no}</span></div>
         <div class="rcpt-pay-row"><span class="rcpt-pay-label">ชื่อบัญชี</span><span class="rcpt-pay-value" style="font-size:12px">${c.account_name}</span></div>
-      </div>
+      </div>`}
     </div>
     <div class="rcpt-sig-section">
       <div class="rcpt-sig-box">
