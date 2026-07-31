@@ -5567,6 +5567,16 @@ function rcptBuildDefaultItems(c, overrideDay, targetMonth, prevYM, allReqList) 
 function renderRcptEditor() {
   const el = document.getElementById('rcpt-items-editor');
   if (!el) return;
+
+  // บันทึก focus state ก่อน rebuild DOM
+  const activeEl = document.activeElement;
+  let savedRow = null, savedField = null, savedPos = null;
+  if (activeEl && el.contains(activeEl)) {
+    savedRow   = activeEl.dataset.rcptRow;
+    savedField = activeEl.dataset.rcptField;
+    try { savedPos = activeEl.selectionStart; } catch(e) {}
+  }
+
   el.innerHTML = _rcptLineItems.map((row, i) => {
     const isSubBg = row.isSub ? 'background:#f9f9f6;border-left:3px solid var(--accent);padding-left:10px;' : '';
     return `<div style="display:flex;flex-direction:column;gap:4px;padding:6px 4px;border-bottom:1px solid var(--border-light,#f0ede8);${isSubBg}">
@@ -5574,22 +5584,33 @@ function renderRcptEditor() {
         <span style="font-size:11px;color:var(--text3);width:18px;text-align:right;flex-shrink:0">${i+1}</span>
         <button onclick="rcptToggleSub(${i})" title="${row.isSub?'ยกเลิกหัวข้อย่อย':'ทำเป็นหัวข้อย่อย'}"
           style="width:24px;height:24px;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:11px;flex-shrink:0;background:${row.isSub?'var(--accent-light)':'var(--surface)'};color:${row.isSub?'var(--accent)':'var(--text3)'}">↳</button>
-        <input type="text" value="${row.label.replace(/"/g,'&quot;')}" oninput="rcptUpdateRow(${i},'label',this.value)"
+        <input type="text" data-rcpt-row="${i}" data-rcpt-field="label" value="${row.label.replace(/"/g,'&quot;')}" oninput="rcptUpdateRow(${i},'label',this.value)"
           placeholder="รายการ..."
           style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;min-width:0;width:100%">
         <button onclick="rcptRemoveRow(${i})" style="width:24px;height:24px;border:1px solid #f5b8b0;border-radius:4px;cursor:pointer;font-size:14px;color:var(--danger);background:var(--danger-light);flex-shrink:0">×</button>
       </div>
       <div style="display:flex;align-items:center;gap:4px;padding-left:46px">
         <span style="font-size:11px;color:var(--text3);flex-shrink:0">จำนวน</span>
-        <input type="number" value="${row.qty}" placeholder="—" oninput="rcptUpdateRow(${i},'qty',this.value)"
+        <input type="number" data-rcpt-row="${i}" data-rcpt-field="qty" value="${row.qty}" placeholder="—" oninput="rcptUpdateRow(${i},'qty',this.value)"
           style="width:64px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;text-align:center">
         <span style="font-size:11px;color:var(--text3);flex-shrink:0">ราคา/หน่วย</span>
-        <input type="number" value="${row.price}" placeholder="—" oninput="rcptUpdateRow(${i},'price',this.value)"
+        <input type="number" data-rcpt-row="${i}" data-rcpt-field="price" value="${row.price}" placeholder="—" oninput="rcptUpdateRow(${i},'price',this.value)"
           style="width:96px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;text-align:right">
         <span style="font-size:11px;color:var(--text3);margin-left:4px">= ฿${(((parseFloat(row.qty)||0)*(parseFloat(row.price)||0))||parseFloat(row.amount)||0).toLocaleString()}</span>
       </div>
     </div>`;
   }).join('');
+
+  // คืน focus กลับไปยัง input เดิมหลัง rebuild
+  if (savedRow !== null && savedField !== null) {
+    const target = el.querySelector(`[data-rcpt-row="${savedRow}"][data-rcpt-field="${savedField}"]`);
+    if (target) {
+      target.focus();
+      if (savedPos !== null && target.setSelectionRange) {
+        try { target.setSelectionRange(savedPos, savedPos); } catch(e) {}
+      }
+    }
+  }
 }
 
 let _rcptLabelDebounce = null;
@@ -5603,7 +5624,13 @@ function rcptUpdateRow(i, field, val) {
     if (_rcptLineItems[i].isOther) _rcptLineItems[i].isOther = false;
     // debounce receipt re-render so cursor stays while typing
     clearTimeout(_rcptLabelDebounce);
-    _rcptLabelDebounce = setTimeout(() => { reRenderReceipt(); _saveRcptEdits(); }, 800);
+    _rcptLabelDebounce = setTimeout(() => {
+      // อัพเดตแค่ใบเสร็จ preview ไม่ rebuild editor ขณะที่ user กำลัง focus อยู่
+      window._rcptEditorTyping = true;
+      reRenderReceipt();
+      window._rcptEditorTyping = false;
+      _saveRcptEdits();
+    }, 800);
     return; // don't re-render now
   }
   if (field === 'qty' || field === 'price') {
