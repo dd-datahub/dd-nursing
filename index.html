@@ -3197,6 +3197,10 @@ if ('serviceWorker' in navigator) {
           <option value="cash">💵 เงินสด</option>
         </select>
       </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:12px;color:var(--text2)">วันที่ชำระ</label>
+        <input type="date" id="rcpt-pay-date" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px" oninput="reRenderReceipt()">
+      </div>
       <span style="font-size:11px;color:var(--text3)">※ เปลี่ยนแปลงเฉพาะใบเสร็จนี้</span>
     </div>
     <!-- Line items editor -->
@@ -5523,6 +5527,9 @@ function printReceipt(custId, month) {
   document.getElementById('rcpt-override-day').value = parseDueDay(c.due_date);
   // Init issue date to today
   document.getElementById('rcpt-issue-date').value = new Date().toISOString().split('T')[0];
+  // Init pay date from payment record (ถ้ามี) หรือเว้นว่างให้แก้เอง
+  const _pRec = payments[payKey(custId, targetMonth)];
+  document.getElementById('rcpt-pay-date').value = _pRec?.date || '';
 
   // auto-mark as invoiced when opening receipt
   const _invk = invKey(custId, targetMonth);
@@ -5899,7 +5906,8 @@ function renderReceiptContent() {
   const rcptPayMethod = document.getElementById('rcpt-pay-method')?.value || 'transfer';
   const isCash        = rcptPayMethod === 'cash';
   const payChannel = isCash ? 'เงินสด' : (p?.channel || '—');
-  const payDate    = p?.date ? fmtDateThai(p.date) : '—';
+  const rcptPayDateRaw = document.getElementById('rcpt-pay-date')?.value;
+  const payDate = rcptPayDateRaw ? fmtDateThai(rcptPayDateRaw) : (p?.date ? fmtDateThai(p.date) : '—');
 
     const isUdonBranch = c.branch === 'สาขาอุดร';
   const rcptLogoSrc  = isUdonBranch ? _DD_LOGO_UDON : _DD_LOGO_MAIN;
