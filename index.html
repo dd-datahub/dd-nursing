@@ -5751,7 +5751,9 @@ function renderReceiptContent() {
   _rcptLineItems.forEach(row => {
     if (row.id === 'row_1') {
       if (!row._labelEdited) row.label = newDefaults.find(r=>r.id==='row_1')?.label || row.label;
-      row.price = c.fee; row.qty = 1; row.amount = c.fee;
+      if (!row._qtyPriceEdited) {
+        row.price = c.fee; row.qty = 1; row.amount = c.fee;
+      }
     }
     if (row.id === 'row_2') {
       if (!row._labelEdited) row.label = newDefaults.find(r=>r.id==='row_2')?.label || row.label;
