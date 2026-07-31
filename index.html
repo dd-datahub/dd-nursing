@@ -2285,7 +2285,16 @@ if ('serviceWorker' in navigator) {
     <!-- HISTORY PAGE -->
     <div class="page" id="page-history">
       <div class="table-wrap">
-        <div class="table-header"><h3>ประวัติการชำระเงิน</h3></div>
+        <div class="table-header">
+          <h3>ประวัติการชำระเงิน</h3>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select id="hist-branch" onchange="renderHistory()" style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text)">
+              <option value="">ทุกสาขา</option><option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
+            </select>
+            <input type="text" id="hist-search" placeholder="🔍 ค้นหาชื่อ / รหัส / เดือน..." oninput="renderHistory()"
+              style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;width:220px;background:var(--surface);color:var(--text)">
+          </div>
+        </div>
         <div style="overflow-x:auto">
           <table>
             <thead><tr>
@@ -4370,10 +4379,32 @@ let _editHistIdx = -1;
 function renderHistory(){
   const tbody = document.getElementById('hist-tbody');
   const empty = document.getElementById('hist-empty');
-  if(payHistory.length===0){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  const searchQ  = (document.getElementById('hist-search')?.value || '').trim().toLowerCase();
+  const branchF  = document.getElementById('hist-branch')?.value || '';
+
+  // กรองตาม search + branch
+  const filtered = payHistory.filter((p, i) => {
+    if (branchF) {
+      const cust = customers.find(x => x.id === p.id);
+      if (!cust || cust.branch !== branchF) return false;
+    }
+    if (searchQ) {
+      const hay = `${p.id} ${p.name} ${p.month} ${p.channel} ${p.note||''}`.toLowerCase();
+      if (!hay.includes(searchQ)) return false;
+    }
+    return true;
+  });
+
+  if(filtered.length===0){ tbody.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
-  tbody.innerHTML = payHistory.slice(0,100).map((p,i)=>`
-    <tr>
+
+  // map กลับไปยัง index จริงใน payHistory สำหรับ edit/delete
+  const realIndexMap = [];
+  payHistory.forEach((p, i) => { if (filtered.includes(p)) realIndexMap.push(i); });
+
+  tbody.innerHTML = filtered.slice(0,200).map((p, fi)=>{
+    const i = realIndexMap[fi];
+    return `<tr>
       <td style="font-size:12px">${p.date}</td>
       <td class="td-id">${p.id}</td>
       <td>${p.name}</td>
@@ -4385,8 +4416,8 @@ function renderHistory(){
         <button class="btn btn-sm" onclick="openEditHistory(${i})" title="แก้ไข">✏️</button>
         <button class="btn btn-sm" onclick="deleteHistory(${i})" style="color:var(--danger);margin-left:2px" title="ลบ">🗑</button>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
 function openEditHistory(idx) {
