@@ -1563,11 +1563,16 @@ async function fbSave(path, data) {
 function _mergeFirebaseCustomers(customersData) {
   Object.entries(customersData).forEach(([fbKey, v]) => {
     if (!v) return;
-    // ถ้า object ไม่มี id field (เช่น บันทึกจาก code เก่า) → derive จาก Firebase key
-    // Firebase key ใช้ _ แทน / เช่น DD2_43 → DD2/43, DDUD_01 → DDUD/01
-    if (!v.id) v = { ...v, id: fbKey.replace(/_(\d+)$/, '/$1') };
-    if (!v.id) return;
-    const existing = customers.find(x => x.id === v.id);
+    // Normalize id: ใช้ Firebase key เพื่อ derive id เสมอเมื่อ id ว่างหรือไม่มี '/'
+    // (กรณี id ถูกบันทึกด้วย _ แทน / หรือไม่มี id field เลย)
+    // Firebase key ใช้ _ แทน / เช่น DD2_43 → DD2/43, DDUD_31 → DDUD/31
+    let id = v.id;
+    if (!id || !id.includes('/')) {
+      id = fbKey.replace(/_(\d+)$/, '/$1');
+    }
+    if (!id || !id.includes('/')) return;
+    v = { ...v, id };
+    const existing = customers.find(x => x.id === id);
     if (existing) Object.assign(existing, v);
     else customers.push({ _dupName: false, ...v });
   });
