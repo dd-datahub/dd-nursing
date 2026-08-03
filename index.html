@@ -1585,8 +1585,8 @@ function _restoreCustKey(k) {
       return c.id + k.slice(sanitized.length);
     }
   }
-  // fallback heuristic เดิม เผื่อรหัสนั้นไม่อยู่ใน customers แล้ว (เช่นถูกลบไปแล้ว)
-  return k.replace(/^(DD\d+)_(\d+)_?/, (m, a, b) => `${a}/${b}${m.endsWith('_') ? '_' : ''}`);
+  // fallback heuristic — รองรับทุก prefix (DD1, DD2, DD3, DDUD, ฯลฯ)
+  return k.replace(/^(DD[A-Z0-9]*)_(\d+)(_|$)/, (m, a, b, rest) => `${a}/${b}${rest === '_' ? '_' : ''}`);
 }
 window._restoreCustKey = _restoreCustKey;
 
@@ -1766,23 +1766,33 @@ function listenAllData() {
     if (snap.exists()) Object.assign(CAT_META, snap.val());
   });
 
+  // cache customers_extra snapshot เพื่อ re-apply หลัง customers โหลด (ป้องกัน race condition)
+  let _lastCustomersExtra = null;
+
+  function _applyCustomersExtra(data) {
+    if (!data) return;
+    Object.entries(data).forEach(([rawId, extra]) => {
+      if (!extra) return;
+      const realId = _restoreCustKey(rawId);
+      const c = customers.find(x => x.id === realId);
+      if (c) Object.assign(c, extra);
+    });
+  }
+
   // customers — sync ลูกค้าใหม่ที่เพิ่ม/แก้ไขแบบ realtime (ลูกค้าที่ไม่ได้อยู่ใน RAW seed)
   onValue(ref(db, "customers"), snap => {
     if (snap.exists()) _mergeFirebaseCustomers(snap.val());
+    // re-apply customers_extra ที่อาจ fire ก่อนหน้านี้ (กรณี race condition)
+    if (_lastCustomersExtra) _applyCustomersExtra(_lastCustomersExtra);
     updateDashboard?.();
     renderTable?.();
   });
 
   // customers_extra — sync การแก้ไขข้อมูลลูกค้าแบบ realtime
-  // Note: Firebase keys use _ instead of / (e.g. DD1_03) — restore before lookup
+  // Note: Firebase keys use _ instead of / (e.g. DD1_03, DDUD_01) — restore before lookup
   onValue(ref(db, "customers_extra"), snap => {
-    if (snap.exists()) {
-      Object.entries(snap.val()).forEach(([rawId, extra]) => {
-        const realId = _restoreCustKey(rawId);
-        const c = customers.find(x => x.id === realId);
-        if (c) Object.assign(c, extra);
-      });
-    }
+    _lastCustomersExtra = snap.exists() ? snap.val() : null;
+    _applyCustomersExtra(_lastCustomersExtra);
     updateDashboard?.();
     renderTable?.();
   });
