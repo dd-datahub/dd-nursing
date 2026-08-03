@@ -1805,6 +1805,53 @@ function listenAllData() {
 
 window._fbSave = fbSave;
 
+// ===== DIAGNOSTIC: ตรวจสอบข้อมูลลูกค้าใน Firebase =====
+window.fbDiagnose = async function(branchPrefix) {
+  branchPrefix = (branchPrefix || 'DDUD').toUpperCase();
+  try {
+    const snap = await get(ref(db, 'customers'));
+    const snapEx = await get(ref(db, 'customers_extra'));
+    const snapDis = await get(ref(db, 'discharged'));
+    const fbData = snap.exists() ? snap.val() : {};
+    const fbExtra = snapEx.exists() ? snapEx.val() : {};
+    const fbDischarged = snapDis.exists() ? snapDis.val() : {};
+
+    const lines = [`🔍 Firebase Diagnostic — prefix: ${branchPrefix}\n`];
+    const keys = Object.keys(fbData).filter(k => k.startsWith(branchPrefix));
+    const exKeys = Object.keys(fbExtra).filter(k => k.startsWith(branchPrefix));
+    const disKeys = Object.keys(fbDischarged).filter(k => k.startsWith(branchPrefix));
+
+    lines.push(`📦 customers/ keys (${keys.length} รายการ):`);
+    keys.forEach(k => {
+      const v = fbData[k];
+      const inLocal = !!(window._customers||[]).find(c=>c.id===v?.id||c.id===k.replace(/_(\d+)$/,'/$1'));
+      lines.push(`  ${k} → id="${v?.id}" branch="${v?.branch}" name="${v?.name}" [local:${inLocal?'✓':'✗'}]`);
+    });
+    if (keys.length === 0) lines.push('  (ไม่พบ)');
+
+    lines.push(`\n📝 customers_extra/ keys (${exKeys.length} รายการ):`);
+    exKeys.forEach(k => lines.push(`  ${k}`));
+    if (exKeys.length === 0) lines.push('  (ไม่พบ)');
+
+    lines.push(`\n🚪 discharged/ keys (${disKeys.length} รายการ):`);
+    disKeys.forEach(k => lines.push(`  ${k}`));
+    if (disKeys.length === 0) lines.push('  (ไม่พบ)');
+
+    lines.push(`\n🧑‍💻 Local customers array (${branchPrefix}):`);
+    const allLocal = window.customers || [];
+    const local = allLocal.filter(c=>c.id&&c.id.toUpperCase().startsWith(branchPrefix));
+    lines.push(`\n🧑‍💻 Local customers array (${branchPrefix}) — ${local.length} รายการ:`);
+    local.forEach(c=>lines.push(`  id="${c.id}" branch="${c.branch}" name="${c.name}"`));
+    if (local.length === 0) lines.push('  (ไม่พบใน local array)');
+
+    const msg = lines.join('\n');
+    console.log(msg);
+    alert(msg);
+  } catch(e) {
+    alert('เกิดข้อผิดพลาด: ' + e.message);
+  }
+};
+
 // หมายเหตุ: การโหลดข้อมูลครั้งแรก + เปิด realtime listeners ทั้งหมด
 // จะถูกเรียกหลัง Google Sign-In สำเร็จและผ่านการตรวจสิทธิ์แอดมินแล้วเท่านั้น
 // (ดู _grantAdminAccess() ด้านบน) — ไม่เรียกตรงนี้เพราะยังไม่ผ่าน auth
@@ -2037,6 +2084,7 @@ if ('serviceWorker' in navigator) {
             <option value="active">เฉพาะที่ใช้บริการอยู่</option>
             <option value="all">ทั้งหมด (รวมออกแล้ว)</option>
           </select>
+          <button class="btn" style="font-size:11px;padding:4px 10px" onclick="if(window.fbDiagnose){const b=document.getElementById('f-branch')?.value||'DDUD';window.fbDiagnose(b.replace('สาขาอุดร','DDUD').replace('สาขา 1','DD1').replace('สาขา 2','DD2').replace('สาขา 3','DD3')||'DDUD');}else{alert('กรุณา login ก่อน');}">🔍 ตรวจสอบ Firebase</button>
         </div>
         <div style="overflow-x:auto">
           <table>
@@ -3703,6 +3751,7 @@ const RAW = [{"id": "DD1/03", "name": "คุณ สามารถ สถิต
 const DUP_NAMES = [];
 
 let customers = RAW.map(r => ({...r, _dupName: false}));
+window.customers = customers; // expose for diagnostic / module script access
 let payments = {}; // { "customerId_YYYY-MM": { amount, channel, date, note } }
 let invoiced = {}; // { "customerId_YYYY-MM": { date, by } } — ออกบิลแล้ว
 let searchQuery = '';
