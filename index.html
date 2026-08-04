@@ -5898,11 +5898,28 @@ function renderReceiptContent() {
 
   // Replace all isReq sub-items with freshly filtered ones
   // (ยกเว้น itemIds ที่แอดมินลบออกไปแล้วในเซสชันนี้)
+  // บันทึก user-edits ของ req sub-items ก่อน replace เพื่อ preserve การแก้ไข
+  const _existingReqMap = {};
+  _rcptLineItems.forEach(r => { if (r.isReq) _existingReqMap[r.id] = r; });
+
   const nonReq      = _rcptLineItems.filter(r => !r.isReq);
   const newSubItems = newDefaults.filter(r => {
     if (!r.isReq) return false;
     const itemId = r.id && r.id.startsWith('req_') ? r.id.slice(4) : r.id;
     return !_rcptDeletedReqIds.has(itemId);
+  }).map(r => {
+    const prev = _existingReqMap[r.id];
+    if (!prev) return r;
+    // ถ้าผู้ใช้เคยแก้ label หรือ qty/price ให้คงค่าที่แก้ไว้
+    return {
+      ...r,
+      label:  prev._labelEdited    ? prev.label  : r.label,
+      qty:    prev._qtyPriceEdited ? prev.qty    : r.qty,
+      price:  prev._qtyPriceEdited ? prev.price  : r.price,
+      amount: prev._qtyPriceEdited ? prev.amount : r.amount,
+      _labelEdited:    prev._labelEdited    || false,
+      _qtyPriceEdited: prev._qtyPriceEdited || false,
+    };
   });
   _rcptLineItems  = [...nonReq, ...newSubItems];
 
