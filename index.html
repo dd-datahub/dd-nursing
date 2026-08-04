@@ -5715,7 +5715,7 @@ function renderRcptEditor() {
   }
 }
 
-let _rcptLabelDebounce = null;
+let _rcptSaveDebounce = null;
 function rcptUpdateRow(i, field, val) {
   if (!_rcptLineItems[i]) return;
   _rcptLineItems[i][field] = val;
@@ -5724,16 +5724,14 @@ function rcptUpdateRow(i, field, val) {
     _rcptLineItems[i]._labelEdited = true;
     // if row was "isOther" (ค่าส่วนต่างอื่นๆ placeholder), clear it so qty/price show
     if (_rcptLineItems[i].isOther) _rcptLineItems[i].isOther = false;
-    // debounce receipt re-render so cursor stays while typing
-    clearTimeout(_rcptLabelDebounce);
-    _rcptLabelDebounce = setTimeout(() => {
-      // อัพเดตแค่ใบเสร็จ preview ไม่ rebuild editor ขณะที่ user กำลัง focus อยู่
-      window._rcptEditorTyping = true;
-      reRenderReceipt();
-      window._rcptEditorTyping = false;
-      _saveRcptEdits();
-    }, 800);
-    return; // don't re-render now
+    // อัปเดต receipt preview ทันที แต่ไม่ rebuild editor (ป้องกัน cursor หาย)
+    window._rcptEditorTyping = true;
+    reRenderReceipt();
+    window._rcptEditorTyping = false;
+    // debounce Firebase save เพื่อไม่ให้ write บ่อยเกินไป
+    clearTimeout(_rcptSaveDebounce);
+    _rcptSaveDebounce = setTimeout(() => { _saveRcptEdits(); }, 800);
+    return;
   }
   if (field === 'qty' || field === 'price') {
     const q = parseFloat(_rcptLineItems[i].qty) || 0;
