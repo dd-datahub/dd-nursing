@@ -3911,9 +3911,12 @@ let _billYear = parseInt(currentMonth.split('-')[0]) || 2026;
 function renderYearTabs() {
   const el = document.getElementById('year-tabs');
   if (!el) return;
-  el.innerHTML = (_SYSTEM_YEARS || [{year:2026}]).map(y =>
-    `<div class="month-tab ${y.year===_billYear?'active':''}" onclick="setBillYear(${y.year})">${y.year+543}</div>`
-  ).join('');
+  el.innerHTML =
+    (_SYSTEM_YEARS || [{year:2026}]).map(y =>
+      `<div class="month-tab ${y.year===_billYear?'active':''}" onclick="setBillYear(${y.year})">${y.year+543}</div>`
+    ).join('') +
+    `<div class="month-tab" onclick="dashAddYear()" title="เพิ่มปีใหม่"
+      style="border-style:dashed;color:var(--accent);padding:5px 10px">＋ เพิ่มปี</div>`;
 }
 
 function renderMonthTabs() {
@@ -4673,6 +4676,7 @@ function dashAddYear() {
   if(window._fbSave) window._fbSave('system_years',_SYSTEM_YEARS);
   renderDashYearTabs();
   renderDashMonthBtns();
+  renderYearTabs?.();   // refresh billing year tabs
   renderMonthTabs?.();
   alert(`✓ เพิ่มปี ${next+543} แล้วค่ะ`);
 }
