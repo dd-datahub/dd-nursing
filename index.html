@@ -1601,7 +1601,7 @@ async function fbLoad() {
     // อ่านทีละ node (ไม่อ่านที่ root "/" รวดเดียว) เพราะ Firebase Security Rules
     // กำหนดสิทธิ์ไว้เฉพาะ path ย่อยแต่ละตัว ไม่ได้กำหนดไว้ที่ root — การอ่าน root
     // ทั้งก้อนจะถูกปฏิเสธสิทธิ์เสมอ ไม่ว่าจะ login ถูกหรือไม่ก็ตาม
-    const _fbPaths = ['payHistory','payments','requisitions','discharged','invoiced','rcpt_edits','refunds','catalog','system_years','cat_meta','customers','customers_extra'];
+    const _fbPaths = ['payHistory','payments','requisitions','discharged','invoiced','rcpt_edits','refunds','catalog','system_years','cat_meta','customers','customers_extra','bed_map'];
     const _fbSnaps = await Promise.all(_fbPaths.map(p =>
       get(ref(db, p)).catch(e => { console.warn(`fbLoad: อ่าน "${p}" ไม่ได้:`, e); return null; })
     ));
@@ -1681,6 +1681,9 @@ async function fbLoad() {
     if (d.cat_meta) {
       // Merge Firebase cat_meta with defaults (keep defaults as fallback)
       Object.assign(CAT_META, d.cat_meta);
+    }
+    if (d.bed_map) {
+      _bedMapData = d.bed_map;
     }
     // (merge ลูกค้า/customers_extra ทำไปแล้วด้านบนแล้ว ก่อนการ restore key ของ payments/discharged)
     // Render after load
@@ -1939,6 +1942,7 @@ if ('serviceWorker' in navigator) {
     <div class="nav-item" onclick="goPage('refund')" title="คืนเงินลูกค้า"><span class="nav-icon">↩️</span> <span class="nav-label">คืนเงินลูกค้า</span></div>
     <div class="nav-item" onclick="goPage('issues')" title="ปัญหาข้อมูล"><span class="nav-icon">⚠️</span> <span class="nav-label">ปัญหาข้อมูล</span> <span class="nav-badge" style="background:var(--text3)">0</span></div>
     <div class="nav-item" onclick="goPage('sched')" title="ตารางเวร"><span class="nav-icon">🗓️</span> <span class="nav-label">ตารางเวร</span></div>
+    <div class="nav-item" onclick="goPage('bedmap')" title="แผนผังเตียง"><span class="nav-icon">🛏</span> <span class="nav-label">แผนผังเตียง</span></div>
     <div class="nav-item" onclick="goPage('permission')" title="สิทธิ์การเข้าถึง"><span class="nav-icon">🔐</span> <span class="nav-label">สิทธิ์การเข้าถึง</span> <span class="nav-badge" id="perm-badge" style="display:none;background:#c0392b">0</span></div>
   </nav>
   <div class="sidebar-footer">
@@ -2491,6 +2495,30 @@ if ('serviceWorker' in navigator) {
     </div>
 
     <style>
+    /* ===== Bed Map ===== */
+    .bed-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; margin-top:4px; }
+    .bed-card { border-radius:12px; padding:14px 14px 12px; cursor:pointer; border:2px solid transparent;
+      transition:transform .12s,box-shadow .12s; position:relative; user-select:none; }
+    .bed-card:hover { transform:translateY(-2px); box-shadow:0 4px 16px rgba(0,0,0,.1); }
+    .bed-card.vacant  { background:#f0fdf4; border-color:#86efac; }
+    .bed-card.occupied{ background:#fff7ed; border-color:#fdba74; }
+    .bed-card.reserved{ background:#f0f9ff; border-color:#7dd3fc; }
+    .bed-card .bed-no { font-size:22px; font-weight:800; color:var(--text); letter-spacing:.5px; }
+    .bed-card .bed-icon{ font-size:28px; line-height:1; margin-bottom:4px; }
+    .bed-card .bed-name{ font-size:12px; color:var(--text2); margin-top:6px; min-height:16px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
+    .bed-card .bed-status{ display:inline-flex; align-items:center; gap:4px; font-size:11px;
+      margin-top:6px; padding:2px 8px; border-radius:20px; font-weight:600; }
+    .bed-card.vacant  .bed-status{ background:#dcfce7; color:#16a34a; }
+    .bed-card.occupied .bed-status{ background:#ffedd5; color:#ea580c; }
+    .bed-card.reserved .bed-status{ background:#e0f2fe; color:#0284c7; }
+    .bed-add-card { border-radius:12px; padding:14px; border:2px dashed var(--border); cursor:pointer;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+      min-height:110px; color:var(--text3); transition:border-color .15s,color .15s; }
+    .bed-add-card:hover { border-color:var(--accent); color:var(--accent); }
+    </style>
+
+    <style>
     .sched-table{border-collapse:collapse;width:100%;min-width:max-content;font-size:15px;font-family:inherit}
     .sched-table th{position:sticky;top:0;z-index:2;background:var(--surface2);color:#555;font-weight:600;padding:7px 4px;text-align:center;border-bottom:2px solid #e0dbd2;border-right:1px solid #ddd6cc;white-space:nowrap;min-width:26px}
     .sched-table td{padding:5px 4px;text-align:center;border-bottom:1px solid #e9e5dd;border-right:1px solid #e9e5dd;vertical-align:middle;min-width:26px}
@@ -2723,6 +2751,57 @@ if ('serviceWorker' in navigator) {
 
   </div>
 </div>
+</div>
+
+<!-- ===== Bed Map Page ===== -->
+<div class="page" id="page-bedmap">
+  <!-- Branch tabs -->
+  <div class="month-tabs" id="bedmap-branch-tabs" style="margin-bottom:16px"></div>
+  <!-- Summary bar -->
+  <div id="bedmap-summary" style="display:flex;gap:16px;margin-bottom:18px;flex-wrap:wrap"></div>
+  <!-- Bed grid -->
+  <div class="bed-grid" id="bedmap-grid"></div>
+</div>
+
+<!-- Bed Assign Modal -->
+<div class="modal-overlay" id="bedmap-modal">
+  <div class="modal" style="width:360px">
+    <div class="modal-head">
+      <h2 id="bedmap-modal-title">🛏 กำหนดผู้พัก</h2>
+      <span class="modal-close" onclick="closeModal('bedmap-modal')">×</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>หมายเลขเตียง</label>
+          <input type="text" id="bedmap-edit-no" placeholder="เช่น 01, A-1" maxlength="10">
+        </div>
+        <div class="form-group">
+          <label>สถานะ</label>
+          <select id="bedmap-edit-status">
+            <option value="vacant">🟢 ว่าง</option>
+            <option value="occupied">🟠 มีผู้พัก</option>
+            <option value="reserved">🔵 จอง</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" id="bedmap-cust-group">
+        <label>ผู้พัก (ลูกค้า)</label>
+        <select id="bedmap-edit-cust">
+          <option value="">— ไม่ระบุ —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>หมายเหตุ</label>
+        <input type="text" id="bedmap-edit-note" placeholder="เช่น ต้องการออกซิเจน">
+      </div>
+    </div>
+    <div class="modal-foot" style="gap:8px">
+      <button class="btn btn-primary" onclick="bedMapSaveAssign()">💾 บันทึก</button>
+      <button class="btn" id="bedmap-delete-btn" onclick="bedMapDeleteBed()" style="border-color:#f5b8b0;color:var(--danger)">🗑 ลบเตียง</button>
+      <button class="btn" onclick="closeModal('bedmap-modal')">ยกเลิก</button>
+    </div>
+  </div>
 </div>
 
 <!-- Transfer Branch Modal -->
@@ -6800,7 +6879,7 @@ function goPage(id) {
   });
   // Auto-close sidebar on mobile
   if (window.innerWidth <= 640) closeSidebar();
-  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',reminders:'แจ้งเตือนบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',sched:'ตารางเวร',permission:'จัดการสิทธิ์การเข้าถึง'};
+  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',reminders:'แจ้งเตือนบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',sched:'ตารางเวร',permission:'จัดการสิทธิ์การเข้าถึง',bedmap:'แผนผังเตียง'};
   document.getElementById('page-title').textContent = titles[id]||'';
   if(id==='customers')    renderTable();
   if(id==='discharged')   renderDischarged();
@@ -6813,6 +6892,127 @@ function goPage(id) {
   if(id==='dashboard')    updateDashboard();
   if(id==='sched')        renderSchedPage();
   if(id==='permission')   renderPermissionPage();
+  if(id==='bedmap')       renderBedMap();
+}
+
+// ========== แผนผังเตียง ==========
+const _BEDMAP_BRANCHES = ['สาขา 1','สาขา 2','สาขา 3','สาขาอุดร'];
+let _bedMapData   = {};  // { "สาขา 1": [ {bedNo, custId, custName, status, note} ] }
+let _bedMapBranch = 'สาขา 1';
+let _bedEditIdx   = -1;  // -1 = new bed
+
+function _bedKey(branch) { return branch; }
+
+function renderBedMap() {
+  // render branch tabs
+  const tabEl = document.getElementById('bedmap-branch-tabs');
+  if (tabEl) {
+    tabEl.innerHTML = _BEDMAP_BRANCHES.map(b =>
+      `<div class="month-tab ${b===_bedMapBranch?'active':''}" onclick="setBedMapBranch('${b}')">${b}</div>`
+    ).join('');
+  }
+  // render summary
+  const beds = _bedMapData[_bedKey(_bedMapBranch)] || [];
+  const total    = beds.length;
+  const occupied = beds.filter(b=>b.status==='occupied').length;
+  const vacant   = beds.filter(b=>b.status==='vacant').length;
+  const reserved = beds.filter(b=>b.status==='reserved').length;
+  const sumEl = document.getElementById('bedmap-summary');
+  if (sumEl) sumEl.innerHTML = [
+    `<span style="font-size:13px;padding:4px 14px;border-radius:20px;background:#f0fdf4;color:#16a34a;font-weight:600">🟢 ว่าง ${vacant}</span>`,
+    `<span style="font-size:13px;padding:4px 14px;border-radius:20px;background:#fff7ed;color:#ea580c;font-weight:600">🟠 มีผู้พัก ${occupied}</span>`,
+    `<span style="font-size:13px;padding:4px 14px;border-radius:20px;background:#f0f9ff;color:#0284c7;font-weight:600">🔵 จอง ${reserved}</span>`,
+    `<span style="font-size:13px;color:var(--text3)">ทั้งหมด ${total} เตียง</span>`,
+  ].join('');
+  // render grid
+  const gridEl = document.getElementById('bedmap-grid');
+  if (!gridEl) return;
+  const statusLabel = {vacant:'ว่าง',occupied:'มีผู้พัก',reserved:'จอง'};
+  const cards = beds.map((bed, i) => `
+    <div class="bed-card ${bed.status||'vacant'}" onclick="bedMapOpenEdit(${i})">
+      <div class="bed-icon">🛏</div>
+      <div class="bed-no">เตียง ${bed.bedNo}</div>
+      <div class="bed-name">${bed.custName || '—'}</div>
+      ${bed.note ? `<div style="font-size:10px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${bed.note}</div>` : ''}
+      <div class="bed-status">● ${statusLabel[bed.status]||'ว่าง'}</div>
+    </div>`).join('');
+  gridEl.innerHTML = cards + `
+    <div class="bed-add-card" onclick="bedMapOpenNew()">
+      <div style="font-size:28px">＋</div>
+      <div style="font-size:12px;font-weight:600">เพิ่มเตียง</div>
+    </div>`;
+}
+
+function setBedMapBranch(branch) {
+  _bedMapBranch = branch;
+  renderBedMap();
+}
+
+function bedMapOpenNew() {
+  _bedEditIdx = -1;
+  document.getElementById('bedmap-modal-title').textContent = '🛏 เพิ่มเตียงใหม่';
+  document.getElementById('bedmap-edit-no').value    = '';
+  document.getElementById('bedmap-edit-status').value = 'vacant';
+  document.getElementById('bedmap-edit-cust').value  = '';
+  document.getElementById('bedmap-edit-note').value  = '';
+  document.getElementById('bedmap-delete-btn').style.display = 'none';
+  _bedMapPopulateCusts();
+  document.getElementById('bedmap-modal').classList.add('open');
+}
+
+function bedMapOpenEdit(idx) {
+  _bedEditIdx = idx;
+  const beds = _bedMapData[_bedKey(_bedMapBranch)] || [];
+  const bed  = beds[idx];
+  if (!bed) return;
+  document.getElementById('bedmap-modal-title').textContent = `🛏 แก้ไขเตียง ${bed.bedNo}`;
+  document.getElementById('bedmap-edit-no').value    = bed.bedNo   || '';
+  document.getElementById('bedmap-edit-status').value = bed.status || 'vacant';
+  document.getElementById('bedmap-edit-note').value  = bed.note    || '';
+  document.getElementById('bedmap-delete-btn').style.display = '';
+  _bedMapPopulateCusts(bed.custId);
+  document.getElementById('bedmap-modal').classList.add('open');
+}
+
+function _bedMapPopulateCusts(selectedId) {
+  const sel = document.getElementById('bedmap-edit-cust');
+  const branchCusts = customers.filter(c => c.branch === _bedMapBranch && !isInactive(c.id));
+  sel.innerHTML = '<option value="">— ไม่ระบุ / เตียงว่าง —</option>' +
+    branchCusts.map(c => `<option value="${c.id}" ${c.id===selectedId?'selected':''}>${c.name} (${c.id})</option>`).join('');
+}
+
+function bedMapSaveAssign() {
+  const bedNo  = document.getElementById('bedmap-edit-no').value.trim();
+  if (!bedNo) { alert('กรุณากรอกหมายเลขเตียง'); return; }
+  const status = document.getElementById('bedmap-edit-status').value;
+  const custId = document.getElementById('bedmap-edit-cust').value;
+  const note   = document.getElementById('bedmap-edit-note').value.trim();
+  const custObj = customers.find(c=>c.id===custId);
+  const custName = custObj ? custObj.name : '';
+  const key = _bedKey(_bedMapBranch);
+  if (!_bedMapData[key]) _bedMapData[key] = [];
+  const bed = { bedNo, status, custId, custName, note };
+  if (_bedEditIdx === -1) {
+    _bedMapData[key].push(bed);
+  } else {
+    _bedMapData[key][_bedEditIdx] = bed;
+  }
+  if (window._fbSave) window._fbSave('bed_map', _bedMapData);
+  closeModal('bedmap-modal');
+  renderBedMap();
+}
+
+function bedMapDeleteBed() {
+  if (_bedEditIdx < 0) return;
+  const key = _bedKey(_bedMapBranch);
+  const beds = _bedMapData[key] || [];
+  const bed  = beds[_bedEditIdx];
+  if (!bed) return;
+  if (!confirm(`ลบเตียง ${bed.bedNo} ออกจากระบบ?`)) return;
+  _bedMapData[key].splice(_bedEditIdx, 1);
+  if (window._fbSave) window._fbSave('bed_map', _bedMapData);
+  closeModal('bedmap-modal');
+  renderBedMap();
 }
 
 // ========== ตารางเวร: รวมเมนู + สลับแท็บสาขาหลัก/อุดร ==========
