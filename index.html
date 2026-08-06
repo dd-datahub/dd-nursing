@@ -5569,12 +5569,38 @@ function printReceipt(custId, month) {
   const reqListCur  = requisitions[reqKey(custId, targetMonth)] || [];
   const reqListPrev = requisitions[reqKey(custId, prevYM0)] || [];
   const reqList0    = [...reqListPrev, ...reqListCur];
-  // โหลด edits ที่บันทึกไว้ หรือ build default ถ้ายังไม่มี
-  const _savedEdits = _loadRcptEdits(custId, targetMonth);
-  if (_savedEdits && _savedEdits.length > 0) {
-    _rcptLineItems = _savedEdits;
-  } else if (!_sameReceipt || _rcptLineItems.length === 0) {
-    _rcptLineItems = rcptBuildDefaultItems(c, overrideDay0, targetMonth, prevYM0, reqList0);
+  // สร้าง fresh defaults เสมอ (รวม req sub-items ล่าสุด) แล้วค่อย merge เฉพาะส่วนที่ user แก้ไว้
+  // ป้องกัน req items หายเมื่อมี saved edits เก่าที่บันทึกก่อนจะมีการเบิกของ
+  if (!_sameReceipt || _rcptLineItems.length === 0) {
+    const _freshItems  = rcptBuildDefaultItems(c, overrideDay0, targetMonth, prevYM0, reqList0);
+    const _savedEdits  = _loadRcptEdits(custId, targetMonth);
+    if (_savedEdits && _savedEdits.length > 0) {
+      // Map saved edits ตาม id เพื่อ lookup
+      const _savedMap = {};
+      _savedEdits.forEach(r => { _savedMap[r.id] = r; });
+      // merge: ใช้ fresh structure แต่คง user edits (label / qty / price)
+      _rcptLineItems = _freshItems.map(r => {
+        const sv = _savedMap[r.id];
+        if (!sv) return r;
+        return {
+          ...r,
+          label:  sv._labelEdited    ? sv.label  : r.label,
+          qty:    sv._qtyPriceEdited ? sv.qty    : r.qty,
+          price:  sv._qtyPriceEdited ? sv.price  : r.price,
+          amount: sv._qtyPriceEdited ? sv.amount : r.amount,
+          _labelEdited:    sv._labelEdited    || false,
+          _qtyPriceEdited: sv._qtyPriceEdited || false,
+        };
+      });
+      // เพิ่ม rows ที่ user สร้างเอง (id ไม่ match fresh items)
+      _savedEdits.forEach(r => {
+        if (!r.isReq && !_freshItems.find(f => f.id === r.id)) {
+          _rcptLineItems.push(r);
+        }
+      });
+    } else {
+      _rcptLineItems = _freshItems;
+    }
   }
 
   // Init month select (current ± 3 months)
