@@ -2495,27 +2495,118 @@ if ('serviceWorker' in navigator) {
     </div>
 
     <style>
-    /* ===== Bed Map ===== */
-    .bed-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; margin-top:4px; }
-    .bed-card { border-radius:12px; padding:14px 14px 12px; cursor:pointer; border:2px solid transparent;
-      transition:transform .12s,box-shadow .12s; position:relative; user-select:none; }
-    .bed-card:hover { transform:translateY(-2px); box-shadow:0 4px 16px rgba(0,0,0,.1); }
-    .bed-card.vacant  { background:#f0fdf4; border-color:#86efac; }
-    .bed-card.occupied{ background:#fff7ed; border-color:#fdba74; }
-    .bed-card.reserved{ background:#f0f9ff; border-color:#7dd3fc; }
-    .bed-card .bed-no { font-size:22px; font-weight:800; color:var(--text); letter-spacing:.5px; }
-    .bed-card .bed-icon{ font-size:28px; line-height:1; margin-bottom:4px; }
-    .bed-card .bed-name{ font-size:12px; color:var(--text2); margin-top:6px; min-height:16px;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
-    .bed-card .bed-status{ display:inline-flex; align-items:center; gap:4px; font-size:11px;
-      margin-top:6px; padding:2px 8px; border-radius:20px; font-weight:600; }
-    .bed-card.vacant  .bed-status{ background:#dcfce7; color:#16a34a; }
-    .bed-card.occupied .bed-status{ background:#ffedd5; color:#ea580c; }
-    .bed-card.reserved .bed-status{ background:#e0f2fe; color:#0284c7; }
-    .bed-add-card { border-radius:12px; padding:14px; border:2px dashed var(--border); cursor:pointer;
-      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
-      min-height:110px; color:var(--text3); transition:border-color .15s,color .15s; }
-    .bed-add-card:hover { border-color:var(--accent); color:var(--accent); }
+    /* ===== Bed Map — Building Layout ===== */
+    #bedmap-root { display:flex; flex-direction:column; gap:0; }
+
+    /* Branch tab strip */
+    #bedmap-branch-tabs { display:flex; gap:0; flex-wrap:wrap; margin-bottom:20px; }
+
+    /* Summary pills */
+    #bedmap-summary { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:24px; }
+    .bm-pill { font-size:13px; padding:5px 16px; border-radius:20px; font-weight:600; }
+
+    /* ── Building (per branch) ── */
+    .bm-building {
+      background: var(--surface);
+      border-radius: 16px;
+      overflow: hidden;
+      /* 3D offset shadow */
+      box-shadow: 5px 5px 0 #c5c1b8, 0 8px 28px rgba(0,0,0,.10);
+      border: 1.5px solid var(--border2);
+      margin-bottom: 28px;
+      position: relative;
+    }
+
+    /* Roof / Building header */
+    .bm-roof {
+      background: linear-gradient(135deg, #b85450 0%, #7a3330 100%);
+      padding: 12px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px;
+    }
+    .bm-roof-name { color:#fff; font-weight:700; font-size:16px; letter-spacing:.3px; }
+    .bm-roof-icon { font-size:22px; }
+    .bm-roof-stats { display:flex; gap:8px; flex-wrap:wrap; }
+    .bm-roof-stat {
+      font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px;
+      background:rgba(255,255,255,.18); color:#fff;
+    }
+
+    /* ── Floor Section ── */
+    .bm-floor {
+      border-top: 1.5px solid var(--border);
+      padding: 16px 20px 20px;
+      position: relative;
+    }
+    /* 3D "wall" left stripe per floor */
+    .bm-floor::before {
+      content:'';
+      position:absolute; left:0; top:0; bottom:0; width:6px;
+    }
+    .bm-floor.floor-2::before { background: linear-gradient(180deg,#b85450,#c07060); }
+    .bm-floor.floor-1::before { background: linear-gradient(180deg,#c07060,#8b6050); }
+
+    .bm-floor-label {
+      font-size:12px; font-weight:700; color:var(--text2); text-transform:uppercase;
+      letter-spacing:1.2px; margin-bottom:14px; padding-left:8px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .bm-floor-label .fl-badge {
+      background:var(--surface2); border:1px solid var(--border); color:var(--text2);
+      padding:2px 10px; border-radius:6px; font-size:11px;
+    }
+
+    /* ── Bed cell grid ── */
+    .bm-floor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 10px;
+    }
+
+    /* ── Individual bed cell ── */
+    .bm-cell {
+      border-radius: 10px; padding: 11px 12px 10px; cursor: pointer;
+      border: 2px solid transparent; transition: all .14s; user-select:none;
+      /* Subtle 3D depth via bottom shadow */
+      box-shadow: 0 3px 0 rgba(0,0,0,.10);
+      position: relative;
+    }
+    .bm-cell:hover { transform:translateY(-3px); box-shadow:0 6px 14px rgba(0,0,0,.12); }
+    .bm-cell:active { transform:translateY(0); box-shadow:0 2px 0 rgba(0,0,0,.08); }
+
+    .bm-cell.vacant   { background:#f0fdf4; border-color:#86efac; }
+    .bm-cell.occupied { background:#fff7ed; border-color:#fdba74; }
+    .bm-cell.reserved { background:#f0f9ff; border-color:#7dd3fc; }
+
+    .bm-cell .bc-icon  { font-size:22px; line-height:1; margin-bottom:5px; }
+    .bm-cell .bc-no    { font-size:17px; font-weight:800; color:var(--text); }
+    .bm-cell .bc-name  { font-size:11px; color:var(--text2); margin-top:5px; font-weight:500;
+                         white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .bm-cell .bc-note  { font-size:10px; color:var(--text3); margin-top:2px;
+                         white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .bm-cell .bc-badge {
+      display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700;
+      margin-top:6px; padding:2px 7px; border-radius:12px;
+    }
+    .bm-cell.vacant   .bc-badge { background:#dcfce7; color:#16a34a; }
+    .bm-cell.occupied .bc-badge { background:#ffedd5; color:#ea580c; }
+    .bm-cell.reserved .bc-badge { background:#e0f2fe; color:#0284c7; }
+
+    /* Add bed cell */
+    .bm-add-cell {
+      border-radius:10px; padding:11px 12px; border:2px dashed var(--border); cursor:pointer;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
+      min-height:96px; color:var(--text3); transition:border-color .15s,color .15s,background .15s;
+      font-size:12px; font-weight:600;
+    }
+    .bm-add-cell:hover { border-color:var(--accent); color:var(--accent); background:#f0fdf4; }
+    .bm-add-cell .add-icon { font-size:22px; line-height:1; }
+
+    @media(max-width:640px) {
+      .bm-floor-grid { grid-template-columns: repeat(auto-fill, minmax(100px,1fr)); gap:8px; }
+      .bm-floor { padding:12px 14px 16px; }
+      .bm-roof { padding:10px 14px; }
+    }
     </style>
 
     <style>
@@ -2751,12 +2842,7 @@ if ('serviceWorker' in navigator) {
 
     <!-- ===== Bed Map Page ===== -->
     <div class="page" id="page-bedmap">
-      <!-- Branch tabs -->
-      <div class="month-tabs" id="bedmap-branch-tabs" style="margin-bottom:16px"></div>
-      <!-- Summary bar -->
-      <div id="bedmap-summary" style="display:flex;gap:16px;margin-bottom:18px;flex-wrap:wrap"></div>
-      <!-- Bed grid -->
-      <div class="bed-grid" id="bedmap-grid"></div>
+      <div id="bedmap-root"></div>
     </div>
 
   </div>
@@ -2775,6 +2861,13 @@ if ('serviceWorker' in navigator) {
         <div class="form-group">
           <label>หมายเลขเตียง</label>
           <input type="text" id="bedmap-edit-no" placeholder="เช่น 01, A-1" maxlength="10">
+        </div>
+        <div class="form-group">
+          <label>ชั้น</label>
+          <select id="bedmap-edit-floor">
+            <option value="1">ชั้น 1</option>
+            <option value="2">ชั้น 2</option>
+          </select>
         </div>
         <div class="form-group">
           <label>สถานะ</label>
@@ -6903,44 +6996,99 @@ let _bedEditIdx   = -1;  // -1 = new bed
 
 function _bedKey(branch) { return branch; }
 
+// ── helper: label & icon per status ──
+const _bmStatusLabel = {vacant:'ว่าง', occupied:'มีผู้พัก', reserved:'จอง'};
+const _bmStatusIcon  = {vacant:'🟢', occupied:'🟠', reserved:'🔵'};
+
 function renderBedMap() {
-  // render branch tabs
-  const tabEl = document.getElementById('bedmap-branch-tabs');
-  if (tabEl) {
-    tabEl.innerHTML = _BEDMAP_BRANCHES.map(b =>
-      `<div class="month-tab ${b===_bedMapBranch?'active':''}" onclick="setBedMapBranch('${b}')">${b}</div>`
-    ).join('');
-  }
-  // render summary
-  const beds = _bedMapData[_bedKey(_bedMapBranch)] || [];
-  const total    = beds.length;
-  const occupied = beds.filter(b=>b.status==='occupied').length;
-  const vacant   = beds.filter(b=>b.status==='vacant').length;
-  const reserved = beds.filter(b=>b.status==='reserved').length;
-  const sumEl = document.getElementById('bedmap-summary');
-  if (sumEl) sumEl.innerHTML = [
-    `<span style="font-size:13px;padding:4px 14px;border-radius:20px;background:#f0fdf4;color:#16a34a;font-weight:600">🟢 ว่าง ${vacant}</span>`,
-    `<span style="font-size:13px;padding:4px 14px;border-radius:20px;background:#fff7ed;color:#ea580c;font-weight:600">🟠 มีผู้พัก ${occupied}</span>`,
-    `<span style="font-size:13px;padding:4px 14px;border-radius:20px;background:#f0f9ff;color:#0284c7;font-weight:600">🔵 จอง ${reserved}</span>`,
-    `<span style="font-size:13px;color:var(--text3)">ทั้งหมด ${total} เตียง</span>`,
-  ].join('');
-  // render grid
-  const gridEl = document.getElementById('bedmap-grid');
-  if (!gridEl) return;
-  const statusLabel = {vacant:'ว่าง',occupied:'มีผู้พัก',reserved:'จอง'};
-  const cards = beds.map((bed, i) => `
-    <div class="bed-card ${bed.status||'vacant'}" onclick="bedMapOpenEdit(${i})">
-      <div class="bed-icon">🛏</div>
-      <div class="bed-no">เตียง ${bed.bedNo}</div>
-      <div class="bed-name">${bed.custName || '—'}</div>
-      ${bed.note ? `<div style="font-size:10px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${bed.note}</div>` : ''}
-      <div class="bed-status">● ${statusLabel[bed.status]||'ว่าง'}</div>
-    </div>`).join('');
-  gridEl.innerHTML = cards + `
-    <div class="bed-add-card" onclick="bedMapOpenNew()">
-      <div style="font-size:28px">＋</div>
-      <div style="font-size:12px;font-weight:600">เพิ่มเตียง</div>
+  const root = document.getElementById('bedmap-root');
+  if (!root) return;
+
+  // ── Branch tabs ──
+  const tabsHtml = `
+    <div class="month-tabs" id="bedmap-branch-tabs" style="margin-bottom:20px">
+      ${_BEDMAP_BRANCHES.map(b =>
+        `<div class="month-tab ${b===_bedMapBranch?'active':''}" onclick="setBedMapBranch('${b}')">${b}</div>`
+      ).join('')}
     </div>`;
+
+  // ── All-branch summary ──
+  let totalV=0, totalO=0, totalR=0, totalAll=0;
+  _BEDMAP_BRANCHES.forEach(b => {
+    const bb = _bedMapData[b] || [];
+    totalV   += bb.filter(x=>x.status==='vacant').length;
+    totalO   += bb.filter(x=>x.status==='occupied').length;
+    totalR   += bb.filter(x=>x.status==='reserved').length;
+    totalAll += bb.length;
+  });
+  const summaryHtml = `
+    <div id="bedmap-summary" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px">
+      <span class="bm-pill" style="background:#f0fdf4;color:#16a34a">🟢 ว่าง ${totalV}</span>
+      <span class="bm-pill" style="background:#fff7ed;color:#ea580c">🟠 มีผู้พัก ${totalO}</span>
+      <span class="bm-pill" style="background:#f0f9ff;color:#0284c7">🔵 จอง ${totalR}</span>
+      <span class="bm-pill" style="background:var(--surface2);color:var(--text2)">ทั้งหมด ${totalAll} เตียง</span>
+    </div>`;
+
+  // ── Building for current branch ──
+  const key  = _bedKey(_bedMapBranch);
+  const allBeds = (_bedMapData[key] || []).map((b, i) => ({...b, _idx: i, floor: b.floor || '1'}));
+  const floor2  = allBeds.filter(b => b.floor === '2');
+  const floor1  = allBeds.filter(b => b.floor === '1');
+
+  function renderFloor(beds, floorNum) {
+    const label = `ชั้น ${floorNum}`;
+    const cells = beds.map(bed => {
+      const st = bed.status || 'vacant';
+      return `
+        <div class="bm-cell ${st}" onclick="bedMapOpenEdit(${bed._idx})">
+          <div class="bc-icon">🛏</div>
+          <div class="bc-no">เตียง ${bed.bedNo}</div>
+          <div class="bc-name">${bed.custName || '—'}</div>
+          ${bed.note ? `<div class="bc-note">${bed.note}</div>` : ''}
+          <div class="bc-badge">${_bmStatusIcon[st]} ${_bmStatusLabel[st]||'ว่าง'}</div>
+        </div>`;
+    }).join('');
+    const addCell = `
+      <div class="bm-add-cell" onclick="bedMapOpenNew('${floorNum}')">
+        <div class="add-icon">＋</div>
+        <div>เพิ่มเตียง ${label}</div>
+      </div>`;
+    return `
+      <div class="bm-floor floor-${floorNum}">
+        <div class="bm-floor-label">
+          <span class="fl-badge">🏠 ${label}</span>
+          <span style="color:var(--text3);font-weight:400">${beds.length} เตียง</span>
+        </div>
+        <div class="bm-floor-grid">
+          ${cells}${addCell}
+        </div>
+      </div>`;
+  }
+
+  // Roof stats for this branch
+  const bV = allBeds.filter(b=>b.status==='vacant').length;
+  const bO = allBeds.filter(b=>b.status==='occupied').length;
+  const bR = allBeds.filter(b=>b.status==='reserved').length;
+
+  const buildingHtml = `
+    <div class="bm-building">
+      <div class="bm-roof">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="bm-roof-icon">🏥</span>
+          <span class="bm-roof-name">${_bedMapBranch}</span>
+        </div>
+        <div class="bm-roof-stats">
+          <span class="bm-roof-stat">🟢 ${bV}</span>
+          <span class="bm-roof-stat">🟠 ${bO}</span>
+          <span class="bm-roof-stat">🔵 ${bR}</span>
+          <span class="bm-roof-stat">รวม ${allBeds.length}</span>
+        </div>
+      </div>
+      ${renderFloor(floor2, '2')}
+      ${renderFloor(floor1, '1')}
+    </div>`;
+
+  root.innerHTML = tabsHtml + summaryHtml + buildingHtml;
 }
 
 function setBedMapBranch(branch) {
@@ -6948,10 +7096,11 @@ function setBedMapBranch(branch) {
   renderBedMap();
 }
 
-function bedMapOpenNew() {
+function bedMapOpenNew(defaultFloor) {
   _bedEditIdx = -1;
   document.getElementById('bedmap-modal-title').textContent = '🛏 เพิ่มเตียงใหม่';
   document.getElementById('bedmap-edit-no').value    = '';
+  document.getElementById('bedmap-edit-floor').value = defaultFloor || '1';
   document.getElementById('bedmap-edit-status').value = 'vacant';
   document.getElementById('bedmap-edit-cust').value  = '';
   document.getElementById('bedmap-edit-note').value  = '';
@@ -6966,9 +7115,10 @@ function bedMapOpenEdit(idx) {
   const bed  = beds[idx];
   if (!bed) return;
   document.getElementById('bedmap-modal-title').textContent = `🛏 แก้ไขเตียง ${bed.bedNo}`;
-  document.getElementById('bedmap-edit-no').value    = bed.bedNo   || '';
-  document.getElementById('bedmap-edit-status').value = bed.status || 'vacant';
-  document.getElementById('bedmap-edit-note').value  = bed.note    || '';
+  document.getElementById('bedmap-edit-no').value     = bed.bedNo   || '';
+  document.getElementById('bedmap-edit-floor').value  = bed.floor   || '1';
+  document.getElementById('bedmap-edit-status').value = bed.status  || 'vacant';
+  document.getElementById('bedmap-edit-note').value   = bed.note    || '';
   document.getElementById('bedmap-delete-btn').style.display = '';
   _bedMapPopulateCusts(bed.custId);
   document.getElementById('bedmap-modal').classList.add('open');
@@ -6984,14 +7134,15 @@ function _bedMapPopulateCusts(selectedId) {
 function bedMapSaveAssign() {
   const bedNo  = document.getElementById('bedmap-edit-no').value.trim();
   if (!bedNo) { alert('กรุณากรอกหมายเลขเตียง'); return; }
-  const status = document.getElementById('bedmap-edit-status').value;
+  const floor  = document.getElementById('bedmap-edit-floor').value  || '1';
+  const status = document.getElementById('bedmap-edit-status').value || 'vacant';
   const custId = document.getElementById('bedmap-edit-cust').value;
   const note   = document.getElementById('bedmap-edit-note').value.trim();
-  const custObj = customers.find(c=>c.id===custId);
+  const custObj  = customers.find(c=>c.id===custId);
   const custName = custObj ? custObj.name : '';
   const key = _bedKey(_bedMapBranch);
   if (!_bedMapData[key]) _bedMapData[key] = [];
-  const bed = { bedNo, status, custId, custName, note };
+  const bed = { bedNo, floor, status, custId, custName, note };
   if (_bedEditIdx === -1) {
     _bedMapData[key].push(bed);
   } else {
@@ -7004,11 +7155,11 @@ function bedMapSaveAssign() {
 
 function bedMapDeleteBed() {
   if (_bedEditIdx < 0) return;
-  const key = _bedKey(_bedMapBranch);
+  const key  = _bedKey(_bedMapBranch);
   const beds = _bedMapData[key] || [];
   const bed  = beds[_bedEditIdx];
   if (!bed) return;
-  if (!confirm(`ลบเตียง ${bed.bedNo} ออกจากระบบ?`)) return;
+  if (!confirm(`ลบเตียง ${bed.bedNo} (ชั้น ${bed.floor||'1'}) ออกจากระบบ?`)) return;
   _bedMapData[key].splice(_bedEditIdx, 1);
   if (window._fbSave) window._fbSave('bed_map', _bedMapData);
   closeModal('bedmap-modal');
