@@ -3575,9 +3575,9 @@ function buildBillingReminders() {
   const prevDate = new Date(curYear, curMo - 2, 1);
   const prevMo   = prevDate.getMonth() + 1; // 1-based
 
-  // กรองลูกค้า active + ยังไม่จ่าย + branch filter
+  // กรองลูกค้า active + ยังไม่จ่าย + branch filter + ต้องเริ่มบริการแล้ว
   const activeAll = customers.filter(c =>
-    !isInactive(c.id) && (!_reminderBranch || c.branch === _reminderBranch)
+    !isInactive(c.id) && (!_reminderBranch || c.branch === _reminderBranch) && !isBeforeStart(c, currentMonth)
   );
 
   /*
@@ -3785,6 +3785,8 @@ function payKey(id, month) { return `${id}_${month}`; }
 function calcTotalBill(custId, month) {
   const c = customers.find(x => x.id === custId);
   if (!c) return 0;
+  // ลูกค้ายังไม่ถึงรอบเริ่มบริการ → ยอดบิล = 0
+  if (isBeforeStart(c, month)) return 0;
   const dueDay   = parseDueDay(c.due_date);
   const [ty, tm] = month.split('-').map(Number);
   const prevDate = new Date(ty, tm - 2, 1);
@@ -3921,7 +3923,7 @@ function thaiMonth(ym) {
 function setMonth(m){ currentMonth=m; renderMonthTabs(); renderBilling(); updateDashboard(); }
 
 function filteredBilling() {
-  let data = customers.filter(c => !isInactive(c.id)); // never show discharged in billing
+  let data = customers.filter(c => !isInactive(c.id) && !isBeforeStart(c, currentMonth)); // ไม่แสดงลูกค้าที่ยังไม่ถึงเดือนเริ่มบริการ
   const branch = document.getElementById('bf-branch')?.value;
   const status = document.getElementById('bf-status')?.value;
   if(branch) data = data.filter(c=>c.branch===branch);
@@ -6195,6 +6197,26 @@ function parseDueDay(due_date) {
   if (!due_date) return 1;
   const d = parseInt(due_date.split('-')[0]);
   return isNaN(d) ? 1 : d;
+}
+
+// แยก YYYY-MM (AD) จาก due_date เพื่อตรวจว่าลูกค้าเริ่มบริการเดือนนั้นๆ แล้วหรือยัง
+function parseStartYM(due_date) {
+  // format: "10-ส.ค.-2569" → "2026-08"
+  if (!due_date) return null;
+  const parts = due_date.split('-');
+  if (parts.length < 3) return null;
+  const _thM = {'ม.ค.':1,'ก.พ.':2,'มี.ค.':3,'เม.ย.':4,'พ.ค.':5,'มิ.ย.':6,
+                 'ก.ค.':7,'ส.ค.':8,'ก.ย.':9,'ต.ค.':10,'พ.ย.':11,'ธ.ค.':12};
+  const mo = _thM[parts[1]];
+  const yr = parseInt(parts[2]) - 543; // พ.ศ. → ค.ศ.
+  if (!mo || isNaN(yr) || yr < 2000) return null;
+  return `${yr}-${String(mo).padStart(2,'0')}`;
+}
+
+// คืนค่า true ถ้าลูกค้ายังไม่ถึงรอบเริ่มบริการสำหรับเดือน ym (YYYY-MM)
+function isBeforeStart(c, ym) {
+  const startYM = parseStartYM(c.due_date);
+  return startYM ? ym < startYM : false;
 }
 
 function getDateRangeLabel(startDay, ym) {
