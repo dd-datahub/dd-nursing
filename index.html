@@ -2293,6 +2293,7 @@ if ('serviceWorker' in navigator) {
 
     <!-- BILLING PAGE -->
     <div class="page" id="page-billing">
+      <div id="year-tabs" class="month-tabs" style="margin-bottom:8px"></div>
       <div class="month-tabs" id="month-tabs"></div>
       <div class="stats-row" style="grid-template-columns:repeat(3,1fr)">
         <div class="stat-card green">
@@ -3905,22 +3906,55 @@ function renderTable() {
 }
 
 // BILLING
+let _billYear = parseInt(currentMonth.split('-')[0]) || 2026;
+
+function renderYearTabs() {
+  const el = document.getElementById('year-tabs');
+  if (!el) return;
+  el.innerHTML = (_SYSTEM_YEARS || [{year:2026}]).map(y =>
+    `<div class="month-tab ${y.year===_billYear?'active':''}" onclick="setBillYear(${y.year})">${y.year+543}</div>`
+  ).join('');
+}
+
 function renderMonthTabs() {
-  // Fixed range: Mar–Dec 2026 (มี.ค.–ธ.ค. 2569)
+  const yearDef = (_SYSTEM_YEARS||[]).find(x=>x.year===_billYear) || {startMonth:1,endMonth:12};
   const months = [];
-  for (let mo = 3; mo <= 12; mo++) {
-    months.push(`2026-${String(mo).padStart(2,'0')}`);
+  for (let mo = yearDef.startMonth; mo <= yearDef.endMonth; mo++) {
+    months.push(`${_billYear}-${String(mo).padStart(2,'0')}`);
   }
   document.getElementById('month-tabs').innerHTML = months.map(m=>`
     <div class="month-tab ${m===currentMonth?'active':''}" onclick="setMonth('${m}')">${thaiMonth(m)}</div>
   `).join('');
 }
+
 function thaiMonth(ym) {
   const [y,m] = ym.split('-');
   const names = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   return `${names[+m]} ${+y+543}`;
 }
-function setMonth(m){ currentMonth=m; renderMonthTabs(); renderBilling(); updateDashboard(); }
+
+function setBillYear(year) {
+  _billYear = year;
+  // เลือกเดือนแรกของปีที่เลือก (ถ้า currentMonth ไม่อยู่ในปีนี้)
+  const [curY] = currentMonth.split('-').map(Number);
+  if (curY !== year) {
+    const yearDef = (_SYSTEM_YEARS||[]).find(x=>x.year===year) || {startMonth:1};
+    currentMonth = `${year}-${String(yearDef.startMonth).padStart(2,'0')}`;
+  }
+  renderYearTabs();
+  renderMonthTabs();
+  renderBilling();
+  updateDashboard();
+}
+
+function setMonth(m){
+  currentMonth = m;
+  _billYear = parseInt(m.split('-')[0]) || _billYear;
+  renderYearTabs();
+  renderMonthTabs();
+  renderBilling();
+  updateDashboard();
+}
 
 function filteredBilling() {
   let data = customers.filter(c => !isInactive(c.id) && !isBeforeStart(c, currentMonth)); // ไม่แสดงลูกค้าที่ยังไม่ถึงเดือนเริ่มบริการ
@@ -6766,7 +6800,7 @@ function goPage(id) {
   document.getElementById('page-title').textContent = titles[id]||'';
   if(id==='customers')    renderTable();
   if(id==='discharged')   renderDischarged();
-  if(id==='billing')      { renderMonthTabs(); renderBilling(); }
+  if(id==='billing')      { renderYearTabs(); renderMonthTabs(); renderBilling(); }
   if(id==='reminders')    buildBillingReminders();
   if(id==='requisition')  { initReqSelects(); switchReqTab('record'); }
   if(id==='refund')       renderRefundList();
