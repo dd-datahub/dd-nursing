@@ -3451,6 +3451,7 @@ if ('serviceWorker' in navigator) {
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="font-size:12px;font-weight:600;color:var(--text2)">✏️ แก้ไขรายการ</span>
         <button class="btn btn-sm btn-primary" onclick="rcptAddRow()" style="font-size:11px;padding:3px 10px">+ เพิ่มแถว</button>
+        <button class="btn btn-sm" onclick="rcptAddDiscount()" style="font-size:11px;padding:3px 10px;background:#fff0f0;border-color:#fca5a5;color:#b91c1c;font-weight:600">🏷️ เพิ่มส่วนลด</button>
         <button class="btn btn-sm" onclick="reRenderReceipt()" style="font-size:11px;padding:3px 10px">🔄 อัพเดตใบเสร็จ</button>
         <button class="btn btn-sm" onclick="rcptShowAddReqPanel()" style="font-size:11px;padding:3px 10px;background:#fffbeb;border-color:#f59e0b;color:#92400e">📦 เพิ่มรายการเบิก</button>
       </div>
@@ -5925,25 +5926,38 @@ function renderRcptEditor() {
   }
 
   el.innerHTML = _rcptLineItems.map((row, i) => {
-    const isSubBg = row.isSub ? 'background:#f9f9f6;border-left:3px solid var(--accent);padding-left:10px;' : '';
-    return `<div style="display:flex;flex-direction:column;gap:4px;padding:6px 4px;border-bottom:1px solid var(--border-light,#f0ede8);${isSubBg}">
+    const isDiscBg = row.isDiscount ? 'background:#fff5f5;border-left:3px solid #f87171;padding-left:10px;' : '';
+    const isSubBg  = row.isSub      ? 'background:#f9f9f6;border-left:3px solid var(--accent);padding-left:10px;' : '';
+    const rowBg    = row.isDiscount ? isDiscBg : isSubBg;
+    const rawAmt   = ((parseFloat(row.qty)||0)*(parseFloat(row.price)||0)) || parseFloat(row.amount) || 0;
+    const amtDisplay = row.isDiscount
+      ? `<span style="font-size:11px;color:#b91c1c;font-weight:700;margin-left:4px">= -฿${Math.abs(rawAmt).toLocaleString()}</span>`
+      : `<span style="font-size:11px;color:var(--text3);margin-left:4px">= ฿${rawAmt.toLocaleString()}</span>`;
+    const subBtn = row.isDiscount ? '' :
+      `<button onclick="rcptToggleSub(${i})" title="${row.isSub?'ยกเลิกหัวข้อย่อย':'ทำเป็นหัวข้อย่อย'}"
+        style="width:24px;height:24px;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:11px;flex-shrink:0;background:${row.isSub?'var(--accent-light)':'var(--surface)'};color:${row.isSub?'var(--accent)':'var(--text3)'}">↳</button>`;
+    const labelPlaceholder = row.isDiscount ? 'ระบุรายการส่วนลด เช่น ส่วนลดค่าดูแล เดือนสิงหาคม' : 'รายการ...';
+    const labelBorder      = row.isDiscount ? 'border:1px solid #fca5a5;' : 'border:1px solid var(--border);';
+    const priceLbl  = row.isDiscount ? 'จำนวนส่วนลด (฿)' : 'ราคา/หน่วย';
+    const discTag   = row.isDiscount ? `<span style="font-size:10px;padding:1px 6px;border-radius:10px;background:#fee2e2;color:#b91c1c;font-weight:700;flex-shrink:0">🏷️ ส่วนลด</span>` : '';
+    return `<div style="display:flex;flex-direction:column;gap:4px;padding:6px 4px;border-bottom:1px solid var(--border-light,#f0ede8);${rowBg}">
       <div style="display:flex;align-items:center;gap:4px">
         <span style="font-size:11px;color:var(--text3);width:18px;text-align:right;flex-shrink:0">${i+1}</span>
-        <button onclick="rcptToggleSub(${i})" title="${row.isSub?'ยกเลิกหัวข้อย่อย':'ทำเป็นหัวข้อย่อย'}"
-          style="width:24px;height:24px;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:11px;flex-shrink:0;background:${row.isSub?'var(--accent-light)':'var(--surface)'};color:${row.isSub?'var(--accent)':'var(--text3)'}">↳</button>
+        ${subBtn}
+        ${discTag}
         <input type="text" data-rcpt-row="${i}" data-rcpt-field="label" value="${row.label.replace(/"/g,'&quot;')}" oninput="rcptUpdateRow(${i},'label',this.value)"
-          placeholder="รายการ..."
-          style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;min-width:0;width:100%">
+          placeholder="${labelPlaceholder}"
+          style="flex:1;padding:5px 8px;${labelBorder}border-radius:5px;font-size:13px;min-width:0;width:100%">
         <button onclick="rcptRemoveRow(${i})" style="width:24px;height:24px;border:1px solid #f5b8b0;border-radius:4px;cursor:pointer;font-size:14px;color:var(--danger);background:var(--danger-light);flex-shrink:0">×</button>
       </div>
-      <div style="display:flex;align-items:center;gap:4px;padding-left:46px">
-        <span style="font-size:11px;color:var(--text3);flex-shrink:0">จำนวน</span>
+      <div style="display:flex;align-items:center;gap:4px;padding-left:${row.isDiscount?'24px':'46px'}">
+        ${!row.isDiscount ? `<span style="font-size:11px;color:var(--text3);flex-shrink:0">จำนวน</span>
         <input type="number" data-rcpt-row="${i}" data-rcpt-field="qty" value="${row.qty}" placeholder="—" oninput="rcptUpdateRow(${i},'qty',this.value)"
-          style="width:64px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;text-align:center">
-        <span style="font-size:11px;color:var(--text3);flex-shrink:0">ราคา/หน่วย</span>
-        <input type="number" data-rcpt-row="${i}" data-rcpt-field="price" value="${row.price}" placeholder="—" oninput="rcptUpdateRow(${i},'price',this.value)"
-          style="width:96px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;text-align:right">
-        <span style="font-size:11px;color:var(--text3);margin-left:4px">= ฿${(((parseFloat(row.qty)||0)*(parseFloat(row.price)||0))||parseFloat(row.amount)||0).toLocaleString()}</span>
+          style="width:64px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;text-align:center">` : ''}
+        <span style="font-size:11px;color:${row.isDiscount?'#b91c1c':'var(--text3)'};flex-shrink:0">${priceLbl}</span>
+        <input type="number" data-rcpt-row="${i}" data-rcpt-field="price" value="${row.price}" placeholder="0" oninput="rcptUpdateRow(${i},'price',this.value)"
+          style="width:${row.isDiscount?'120px':'96px'};padding:4px 6px;border:1px solid ${row.isDiscount?'#fca5a5':'var(--border)'};border-radius:5px;font-size:12px;text-align:right;color:${row.isDiscount?'#b91c1c':'inherit'}">
+        ${amtDisplay}
       </div>
     </div>`;
   }).join('');
@@ -5981,7 +5995,8 @@ function rcptUpdateRow(i, field, val) {
   if (field === 'qty' || field === 'price') {
     const q = parseFloat(_rcptLineItems[i].qty) || 0;
     const p = parseFloat(_rcptLineItems[i].price) || 0;
-    _rcptLineItems[i].amount = q * p;
+    // discount: store amount as positive — grand total will subtract it
+    _rcptLineItems[i].amount = Math.abs(q * p);
     if (_rcptLineItems[i].isOther) _rcptLineItems[i].isOther = false;
     _rcptLineItems[i]._qtyPriceEdited = true;
   }
@@ -6002,7 +6017,14 @@ function rcptToggleSub(i) {
 }
 
 function rcptAddRow() {
-  _rcptLineItems.push({ id:'row_'+Date.now(), label:'', qty:1, price:0, amount:0, isSub:false, isOther:false, isReq:false });
+  _rcptLineItems.push({ id:'row_'+Date.now(), label:'', qty:1, price:0, amount:0, isSub:false, isOther:false, isReq:false, isDiscount:false });
+  renderRcptEditor();
+  reRenderReceipt();
+  _saveRcptEdits();
+}
+
+function rcptAddDiscount() {
+  _rcptLineItems.push({ id:'disc_'+Date.now(), label:'', qty:1, price:0, amount:0, isSub:false, isOther:false, isReq:false, isDiscount:true });
   renderRcptEditor();
   reRenderReceipt();
   _saveRcptEdits();
@@ -6183,7 +6205,21 @@ function renderReceiptContent() {
     const isSub  = item.isSub;
     const qty    = parseFloat(item.qty) || 0;
     const price  = parseFloat(item.price) || 0;
-    const amount = parseFloat(item.amount) || qty * price;
+    const amount = Math.abs(parseFloat(item.amount) || qty * price);
+
+    // ── Discount row — render separately ──
+    if (item.isDiscount) {
+      mainIdx++;
+      rowsArr.push({ html: `<tr style="background:#fff5f5">
+        <td style="color:#b91c1c">${mainIdx}</td>
+        <td style="color:#b91c1c;font-weight:500">🏷️ ${item.label || 'ส่วนลด'}</td>
+        <td></td>
+        <td></td>
+        <td style="color:#b91c1c;font-weight:700;font-family:monospace;text-align:right">-฿${fmt(amount)}</td>
+      </tr>`, isSub: false, isDiscount: true });
+      return;
+    }
+
     if (!isSub) mainIdx++;
     const numCell = isSub
       ? `<td style="color:var(--text3);font-size:11px;text-align:center">↳</td>`
@@ -6217,10 +6253,16 @@ function renderReceiptContent() {
     }
   });
 
-  const grandTotal = _rcptLineItems.reduce((s, item) => {
-    if (item.isOther) return s; // header row only — skip
+  // คำนวณส่วนลดทั้งหมด
+  const totalDiscount = _rcptLineItems.filter(d => d.isDiscount).reduce((s, d) => {
+    return s + Math.abs(parseFloat(d.amount) || (parseFloat(d.qty)||0)*(parseFloat(d.price)||0));
+  }, 0);
+  const subTotalBeforeDisc = _rcptLineItems.reduce((s, item) => {
+    if (item.isOther || item.isDiscount) return s;
     return s + (parseFloat(item.amount) || (parseFloat(item.qty)||0)*(parseFloat(item.price)||0));
   }, 0);
+  const grandTotal = subTotalBeforeDisc - totalDiscount;
+  const hasDiscounts = totalDiscount > 0;
 
   const TOTAL_ROWS = Math.max(5, _rcptLineItems.length + 1);
   const emptyRows  = Array(Math.max(0, TOTAL_ROWS - _rcptLineItems.length)).fill(0).map(() =>
@@ -6302,6 +6344,21 @@ document.getElementById('receipt-print-area').innerHTML = `
       </thead>
       <tbody>${rows}${emptyRows}</tbody>
     </table>
+    ${hasDiscounts ? `
+    <div style="margin:0 0 6px;padding:8px 14px;background:#fff5f5;border:1px solid #fecaca;border-radius:8px;font-size:13px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:#555">
+        <span>ยอดรวมก่อนหักส่วนลด</span>
+        <span style="font-family:monospace">฿${fmt(subTotalBeforeDisc)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;color:#b91c1c;font-weight:600">
+        <span>🏷️ ส่วนลดทั้งหมด</span>
+        <span style="font-family:monospace">-฿${fmt(totalDiscount)}</span>
+      </div>
+      <div style="border-top:1px dashed #fca5a5;padding-top:6px;display:flex;justify-content:space-between;font-weight:700;font-size:14px;color:#166534">
+        <span>ยอดสุทธิหลังส่วนลด</span>
+        <span style="font-family:monospace">฿${fmt(grandTotal)}</span>
+      </div>
+    </div>` : ''}
     <div class="rcpt-total-section">
       <div class="rcpt-grand-row">
         <div class="rcpt-grand-label">จำนวนเงินทั้งสิ้น</div>
