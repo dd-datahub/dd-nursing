@@ -3460,11 +3460,16 @@ if ('serviceWorker' in navigator) {
       <div id="rcpt-add-req-panel" style="display:none;margin-top:8px;padding:10px 12px;background:#fffbeb;border:1px solid #f59e0b;border-radius:8px">
         <div style="font-size:12px;font-weight:600;color:#92400e;margin-bottom:8px">📦 เพิ่มรายการเบิกของ (แอดมินเพิ่มแทนพนักงาน)</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-          <div style="display:flex;flex-direction:column;gap:3px;flex:2;min-width:140px">
+          <div style="display:flex;flex-direction:column;gap:3px;flex:2;min-width:180px;position:relative">
             <label style="font-size:11px;color:#92400e">รายการ (catalog)</label>
-            <select id="rcpt-req-item-sel" style="padding:5px 8px;border:1px solid #f59e0b;border-radius:5px;font-size:12px;background:#fff">
-              <option value="">— เลือกรายการ —</option>
-            </select>
+            <input type="text" id="rcpt-req-item-search" placeholder="🔍 พิมพ์ค้นหารายการ..." autocomplete="off"
+              style="padding:5px 8px;border:1px solid #f59e0b;border-radius:5px;font-size:12px;background:#fff;width:100%;box-sizing:border-box"
+              oninput="_rcptReqFilter(this.value)" onfocus="_rcptReqFilter(this.value)" onblur="setTimeout(()=>{ const d=document.getElementById('rcpt-req-dropdown'); if(d) d.style.display='none'; },180)">
+            <input type="hidden" id="rcpt-req-item-sel" value="">
+            <div id="rcpt-req-dropdown"
+              style="display:none;position:absolute;top:100%;left:0;right:0;max-height:180px;overflow-y:auto;
+                     background:#fff;border:1px solid #f59e0b;border-top:none;border-radius:0 0 6px 6px;
+                     box-shadow:0 4px 12px rgba(0,0,0,.12);z-index:9999;margin-top:1px"></div>
           </div>
           <div style="display:flex;flex-direction:column;gap:3px;min-width:64px">
             <label style="font-size:11px;color:#92400e">จำนวน</label>
@@ -6033,10 +6038,13 @@ function rcptAddDiscount() {
 function rcptShowAddReqPanel() {
   const panel = document.getElementById('rcpt-add-req-panel');
   if (!panel) return;
-  // populate catalog dropdown
-  const sel = document.getElementById('rcpt-req-item-sel');
-  sel.innerHTML = `<option value="">— เลือกรายการ —</option>` +
-    catalog.map(item => `<option value="${item.id}">${item.name}${item.price ? ' (฿'+item.price.toLocaleString()+')' : ''}</option>`).join('');
+  // reset search combobox
+  const searchEl = document.getElementById('rcpt-req-item-search');
+  const hiddenEl = document.getElementById('rcpt-req-item-sel');
+  if (searchEl) searchEl.value = '';
+  if (hiddenEl) hiddenEl.value = '';
+  const dd = document.getElementById('rcpt-req-dropdown');
+  if (dd) dd.style.display = 'none';
   // set default date to today
   document.getElementById('rcpt-req-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('rcpt-req-qty').value  = '1';
@@ -6044,8 +6052,48 @@ function rcptShowAddReqPanel() {
   const st = document.getElementById('rcpt-req-status');
   if (st) { st.style.display = 'none'; st.textContent = ''; }
   panel.style.display = 'block';
-  sel.focus();
+  if (searchEl) searchEl.focus();
 }
+
+function _rcptReqFilter(q) {
+  const dd = document.getElementById('rcpt-req-dropdown');
+  if (!dd) return;
+  const term = (q || '').trim().toLowerCase();
+  const items = (window.catalog || []).filter(it =>
+    !term || it.name.toLowerCase().includes(term) || (it.id+'').toLowerCase().includes(term)
+  );
+  if (!items.length) {
+    dd.innerHTML = `<div style="padding:8px 10px;font-size:12px;color:#9ca3af">ไม่พบรายการ</div>`;
+  } else {
+    dd.innerHTML = items.map(it => {
+      const priceStr = it.price ? ` <span style="color:#92400e;font-size:11px">(฿${Number(it.price).toLocaleString()})</span>` : '';
+      return `<div data-rcptid="${it.id}" data-rcptname="${it.name}"
+        style="padding:7px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #fef3c7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+        onmousedown="_rcptReqSelect('${it.id}', '${it.name.replace(/'/g,"\\'")}'"
+        onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background=''">
+        ${it.name}${priceStr}
+      </div>`;
+    }).join('');
+  }
+  dd.style.display = 'block';
+}
+
+function _rcptReqSelect(id, name) {
+  const searchEl = document.getElementById('rcpt-req-item-search');
+  const hiddenEl = document.getElementById('rcpt-req-item-sel');
+  const dd       = document.getElementById('rcpt-req-dropdown');
+  if (searchEl) searchEl.value = name;
+  if (hiddenEl) hiddenEl.value = id;
+  if (dd) dd.style.display = 'none';
+  // auto-fill price from catalog
+  const item = (window.catalog || []).find(x => x.id === id);
+  if (item && item.price) {
+    const priceEl = document.getElementById('rcpt-req-price');
+    if (priceEl && !priceEl.value) priceEl.value = item.price;
+  }
+}
+window._rcptReqFilter = _rcptReqFilter;
+window._rcptReqSelect = _rcptReqSelect;
 
 function rcptConfirmAddReq() {
   if (!_rcptCtx) return;
@@ -6079,6 +6127,8 @@ function rcptConfirmAddReq() {
   }
   // reset form
   document.getElementById('rcpt-req-item-sel').value = '';
+  const _srch = document.getElementById('rcpt-req-item-search');
+  if (_srch) _srch.value = '';
   document.getElementById('rcpt-req-qty').value = '1';
   document.getElementById('rcpt-req-price').value = '';
   // re-render receipt ให้แสดง req ใหม่
