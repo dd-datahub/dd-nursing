@@ -6069,7 +6069,7 @@ function _rcptReqFilter(q) {
       const priceStr = it.price ? ` <span style="color:#92400e;font-size:11px">(฿${Number(it.price).toLocaleString()})</span>` : '';
       return `<div data-rcptid="${it.id}" data-rcptname="${it.name}"
         style="padding:7px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #fef3c7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
-        onmousedown="_rcptReqSelect('${it.id}', '${it.name.replace(/'/g,"\\'")}'"
+        onmousedown="_rcptReqSelect('${it.id}', '${it.name.replace(/'/g,"\\'")}' )"
         onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background=''">
         ${it.name}${priceStr}
       </div>`;
