@@ -6059,7 +6059,7 @@ function _rcptReqFilter(q) {
   const dd = document.getElementById('rcpt-req-dropdown');
   if (!dd) return;
   const term = (q || '').trim().toLowerCase();
-  const items = (window.catalog || []).filter(it =>
+  const items = (catalog || []).filter(it =>
     !term || it.name.toLowerCase().includes(term) || (it.id+'').toLowerCase().includes(term)
   );
   if (!items.length) {
@@ -6086,7 +6086,7 @@ function _rcptReqSelect(id, name) {
   if (hiddenEl) hiddenEl.value = id;
   if (dd) dd.style.display = 'none';
   // auto-fill price from catalog
-  const item = (window.catalog || []).find(x => x.id === id);
+  const item = (catalog || []).find(x => x.id === id);
   if (item && item.price) {
     const priceEl = document.getElementById('rcpt-req-price');
     if (priceEl && !priceEl.value) priceEl.value = item.price;
