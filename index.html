@@ -3311,7 +3311,7 @@ if ('serviceWorker' in navigator) {
 
         <!-- Installment 1 -->
         <div class="pm-inst-card" id="pm-inst-card-1">
-          <div class="pm-inst-head"><span class="pm-inst-num">งวดที่ 1</span><span id="pm-i1-status-tag"></span></div>
+          <div class="pm-inst-head"><span class="pm-inst-num">งวดที่ 1</span><span id="pm-i1-status-tag"></span><button class="btn btn-sm" onclick="printInstallmentBillFromModal(1)" title="พิมพ์ใบวางบิลงวด 1 ให้ลูกค้า" style="margin-left:auto;font-size:11px;padding:3px 9px;color:var(--accent);border-color:var(--accent)">📄 พิมพ์บิล</button></div>
           <div class="form-row">
             <div class="form-group">
               <label>จำนวนเงิน (บาท)</label>
@@ -3346,7 +3346,7 @@ if ('serviceWorker' in navigator) {
 
         <!-- Installment 2 -->
         <div class="pm-inst-card" id="pm-inst-card-2">
-          <div class="pm-inst-head"><span class="pm-inst-num">งวดที่ 2</span><span id="pm-i2-status-tag"></span></div>
+          <div class="pm-inst-head"><span class="pm-inst-num">งวดที่ 2</span><span id="pm-i2-status-tag"></span><button class="btn btn-sm" onclick="printInstallmentBillFromModal(2)" title="พิมพ์ใบวางบิลงวด 2 ให้ลูกค้า" style="margin-left:auto;font-size:11px;padding:3px 9px;color:var(--accent);border-color:var(--accent)">📄 พิมพ์บิล</button></div>
           <div class="form-row">
             <div class="form-group">
               <label>จำนวนเงิน (บาท)</label>
@@ -4632,6 +4632,8 @@ function renderBilling() {
       <td style="white-space:nowrap">
         <button class="btn btn-sm btn-primary" onclick="openPayModal('${c.id}')">💳 ${s==='unpaid'?'ชำระ':'แก้ไข'}</button>
         ${p?.installments?.length === 2 ? `
+          <button class="btn btn-sm" onclick="printInstallmentBill('${c.id}','${currentMonth}',0)" style="margin-left:4px;font-size:11px;padding:3px 7px;color:#1a6b4a;border-color:#1a6b4a" title="พิมพ์ใบวางบิลงวด 1">📄 บิล1</button>
+          <button class="btn btn-sm" onclick="printInstallmentBill('${c.id}','${currentMonth}',1)" style="margin-left:4px;font-size:11px;padding:3px 7px;color:#1a6b4a;border-color:#1a6b4a" title="พิมพ์ใบวางบิลงวด 2">📄 บิล2</button>
           <button class="btn btn-sm" onclick="printInstallmentReceipt('${c.id}','${currentMonth}',0)" style="margin-left:4px;font-size:11px;padding:3px 7px" title="พิมพ์ใบเสร็จงวด 1">🖨 งวด1</button>
           <button class="btn btn-sm" onclick="printInstallmentReceipt('${c.id}','${currentMonth}',1)" style="margin-left:4px;font-size:11px;padding:3px 7px" title="พิมพ์ใบเสร็จงวด 2">🖨 งวด2</button>
         ` : `<button class="btn btn-sm" onclick="printReceipt('${c.id}')" style="margin-left:4px" title="พิมพ์ใบเสร็จ">🖨</button>`}
@@ -7396,6 +7398,202 @@ ${content}
 </body>
 </html>`);
   win.document.close();
+}
+
+// ========== INSTALLMENT BILL (INVOICE) PRINT — before payment ==========
+function _buildInstallmentBillHTML(c, instNo, amount, channel, dateFrom, dateTo, noteText) {
+  const isUdonBranch = c.branch === 'สาขาอุดร';
+  const rcptLogoSrc  = isUdonBranch ? _DD_LOGO_UDON : _DD_LOGO_MAIN;
+  const issueDate    = fmtDateThai(new Date().toISOString().split('T')[0]);
+
+  const periodLabel = (dateFrom && dateTo)
+    ? `${fmtDateThai(dateFrom)} – ${fmtDateThai(dateTo)}`
+    : '—';
+
+  const companyHtml = isUdonBranch
+    ? `<div class="rcpt-company-name">บริษัท เนอร์สซิ่ง โฮมอุดร ดีดี จำกัด</div>
+       <div class="rcpt-company-en">NURSING HOMEUDON DD CO., LTD.</div>
+       <div class="rcpt-company-addr">288 หมู่ที่ 8 ซอยบ้านดงวัด ตำบลหมากแข้ง อำเภอเมืองอุดรธานี จ.อุดรธานี 41000<br>โทร : 089-944-4987 , 080-821-8363<br>เลขประจำตัวผู้เสียภาษีอากร : <b>0415565000188</b></div>`
+    : `<div class="rcpt-company-name">บริษัท เนอร์สซิ่งโฮม ดีดี จำกัด</div>
+       <div class="rcpt-company-en">NURSING HOME DD CO.,LTD.</div>
+       <div class="rcpt-company-addr">1 หมู่บ้าน ประชานิเวศน์ 4 ตำบลท่าทราย อำเภอเมืองนนทบุรี จ.นนทบุรี 11000<br>โทร : 089-9444987 , 085-0015884&nbsp;&nbsp;|&nbsp;&nbsp;Email : DDnursinghome@outlook.com<br>เลขประจำตัวผู้เสียภาษีอากร : <b>0125562018704</b></div>`;
+
+  const isCash = channel.includes('เงินสด');
+  const bankBlock = isCash ? '' : `<div class="rcpt-pay-block" style="border-color:#1a6b4a">
+    <div class="rcpt-pay-title" style="color:#1a6b4a">ข้อมูลการโอนเงิน</div>
+    <div class="rcpt-pay-row"><span class="rcpt-pay-label">ธนาคาร</span><span class="rcpt-pay-value" style="font-size:12px">${c.bank||'—'}</span></div>
+    <div class="rcpt-pay-row"><span class="rcpt-pay-label">เลขที่บัญชี</span><span class="rcpt-pay-value">${c.account_no||'—'}</span></div>
+    <div class="rcpt-pay-row"><span class="rcpt-pay-label">ชื่อบัญชี</span><span class="rcpt-pay-value" style="font-size:12px">${c.account_name||'—'}</span></div>
+  </div>`;
+
+  return `
+  <div class="rcpt-header">
+    <img src="${rcptLogoSrc}" style="width:${isUdonBranch?150:80}px;height:${isUdonBranch?140:80}px;object-fit:contain;flex-shrink:0" alt="DD Logo">
+    <div style="flex:1">${companyHtml}</div>
+    <div style="text-align:center;flex-shrink:0;margin-left:8px">
+      <div class="rcpt-copy-box" style="border-color:#1a6b4a">
+        <div class="rcpt-copy-title" style="color:#1a6b4a">ใบวางบิล</div>
+        <div class="rcpt-copy-sub">งวดที่ ${instNo}/2</div>
+      </div>
+    </div>
+  </div>
+  <hr class="rcpt-divider">
+  <div class="rcpt-title-row">
+    <div class="rcpt-title" style="color:#1a6b4a">ใบวางบิล / BILLING NOTE</div>
+    <div class="rcpt-title-en">งวดที่ ${instNo} จาก 2 งวด (แบ่งชำระ)</div>
+  </div>
+  <div class="rcpt-info-grid">
+    <div class="rcpt-info-row"><span class="rcpt-info-label">นามลูกค้า :&nbsp;</span><span class="rcpt-info-value">${c.name}</span></div>
+    <div class="rcpt-info-row"><span class="rcpt-info-label">รหัสลูกค้า :&nbsp;</span><span class="rcpt-info-value">${c.id}</span></div>
+    <div class="rcpt-info-row" style="grid-column:1/-1"><span class="rcpt-info-label">ที่อยู่ :&nbsp;</span><span class="rcpt-info-value">${c.address||'—'}</span></div>
+    <div class="rcpt-info-row"><span class="rcpt-info-label">เบอร์โทรศัพท์ :&nbsp;</span><span class="rcpt-info-value">${c.phone||'—'}</span></div>
+    <div class="rcpt-info-row"><span class="rcpt-info-label">วันที่ออกใบวางบิล :&nbsp;</span><span class="rcpt-info-value">${issueDate}</span></div>
+  </div>
+  <table class="rcpt-table">
+    <thead><tr>
+      <th style="width:44px">ลำดับ</th>
+      <th>รายการ</th>
+      <th style="width:90px">จำนวน</th>
+      <th style="width:110px">ราคา/หน่วย</th>
+      <th style="width:120px">จำนวนเงิน (บาท)</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>ค่าบริการดูแล (งวดที่ ${instNo}/2)<br><span style="font-size:11px;color:#666">ช่วงบริการ : ${periodLabel}</span>${noteText ? `<br><span style="font-size:11px;color:#888">${noteText}</span>` : ''}</td>
+        <td>1</td>
+        <td>฿${fmt(amount)}</td>
+        <td>฿${fmt(amount)}</td>
+      </tr>
+      <tr class="rcpt-empty-rows"><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr class="rcpt-empty-rows"><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr class="rcpt-empty-rows"><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr class="rcpt-empty-rows"><td></td><td></td><td></td><td></td><td></td></tr>
+    </tbody>
+  </table>
+  <div class="rcpt-total-section">
+    <div class="rcpt-grand-row" style="border-top-color:#1a6b4a;background:#f0fdf4">
+      <div class="rcpt-grand-label">ยอดเงินที่ต้องชำระ</div>
+      <div class="rcpt-grand-value">฿${fmt(amount)}</div>
+    </div>
+    <div class="rcpt-words">
+      <span style="color:#555;white-space:nowrap">ตัวอักษร : </span>
+      <span style="font-weight:600">(${bahtText(amount)})</span>
+    </div>
+  </div>
+  <div class="rcpt-payment-section" style="grid-template-columns:${isCash?'1fr':'1fr 1fr'}">
+    <div class="rcpt-pay-block">
+      <div class="rcpt-pay-title">ช่องทางชำระเงิน</div>
+      <div class="rcpt-pay-row"><span class="rcpt-pay-label">ช่องทาง</span><span class="rcpt-pay-value">${channel||'—'}</span></div>
+      <div class="rcpt-pay-row"><span class="rcpt-pay-label">กำหนดชำระ</span><span class="rcpt-pay-value">${dateTo ? fmtDateThai(dateTo) : '—'}</span></div>
+      <div class="rcpt-pay-row"><span class="rcpt-pay-label">จำนวน</span><span class="rcpt-pay-value" style="color:#1a6b4a;font-weight:700">฿${fmt(amount)}</span></div>
+    </div>
+    ${bankBlock}
+  </div>
+  <div style="margin-top:14px;padding:10px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;font-size:12px;color:#92400e">
+    ⚠️ กรุณาชำระค่าบริการงวดที่ ${instNo} ภายในวันที่ ${dateTo ? fmtDateThai(dateTo) : '—'} เพื่อความต่อเนื่องในการรับบริการ
+  </div>
+  <div class="rcpt-sig-section" style="margin-top:24px">
+    <div class="rcpt-sig-box">
+      <div class="rcpt-sig-line"></div>
+      <div class="rcpt-sig-label">ผู้วางบิล / Issued by</div>
+      <div class="rcpt-sig-date">ลงวันที่ ............................................</div>
+    </div>
+    <div class="rcpt-sig-box">
+      <div class="rcpt-sig-line"></div>
+      <div class="rcpt-sig-label">ผู้รับใบวางบิล / Received by</div>
+      <div class="rcpt-sig-date">ลงวันที่ ............................................</div>
+    </div>
+  </div>`;
+}
+
+function _openBillWindow(title, htmlContent) {
+  const win = window.open('', '_blank', 'width=800,height=900');
+  win.document.write(`<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>${title}</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'IBM Plex Sans Thai', 'Sarabun', sans-serif; font-size: 13px; color: #111; background: #fff; padding: 16mm 14mm; line-height: 1.55; }
+.rcpt-header { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
+.rcpt-company-name { font-size: 16px; font-weight: 700; color: #c45570; margin-bottom: 2px; }
+.rcpt-company-en { font-size: 12px; color: #555; margin-bottom: 4px; }
+.rcpt-company-addr { font-size: 10.5px; color: #444; line-height: 1.6; }
+.rcpt-copy-box { text-align: center; border: 1.5px solid #333; padding: 6px 14px; border-radius: 4px; }
+.rcpt-copy-title { font-size: 12px; font-weight: 700; }
+.rcpt-copy-sub { font-size: 11px; color: #555; margin-top: 2px; }
+.rcpt-divider { border: none; border-top: 1.5px solid #111; margin: 10px 0 14px; }
+.rcpt-title-row { text-align: center; margin-bottom: 14px; }
+.rcpt-title { font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+.rcpt-title-en { font-size: 13px; color: #555; margin-top: 2px; }
+.rcpt-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; margin-bottom: 16px; font-size: 13px; }
+.rcpt-info-row { display: flex; gap: 4px; align-items: baseline; }
+.rcpt-info-label { color: #555; white-space: nowrap; flex-shrink: 0; }
+.rcpt-info-value { font-weight: 500; border-bottom: 1px dotted #aaa; flex: 1; min-width: 0; padding-bottom: 1px; }
+.rcpt-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 13px; }
+.rcpt-table th { background: #1a6b4a; color: #fff; padding: 7px 10px; text-align: center; font-weight: 600; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.rcpt-table th:nth-child(2) { text-align: left; }
+.rcpt-table td { padding: 7px 10px; border-bottom: 1px solid #ddd; vertical-align: middle; text-align: center; }
+.rcpt-table td:nth-child(2) { text-align: left; }
+.rcpt-table td:nth-child(4) { text-align: right; font-family: monospace; }
+.rcpt-table td:last-child { text-align: right; font-family: monospace; font-weight: 600; }
+.rcpt-empty-rows td { height: 26px; }
+.rcpt-total-section { border-top: 2px solid #111; }
+.rcpt-grand-row { padding: 8px 10px; border-top: 2px solid #1a6b4a; display: flex; justify-content: space-between; align-items: center; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.rcpt-grand-label { font-size: 13px; font-weight: 600; }
+.rcpt-grand-value { font-size: 16px; font-weight: 700; font-family: monospace; color: #111; }
+.rcpt-words { display: flex; gap: 8px; align-items: center; padding: 8px 10px 12px; font-size: 12.5px; border-bottom: 1px solid #ddd; }
+.rcpt-payment-section { display: grid; gap: 16px; margin: 14px 0; font-size: 13px; }
+.rcpt-pay-block { border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; }
+.rcpt-pay-title { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
+.rcpt-pay-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.rcpt-pay-label { color: #555; }
+.rcpt-pay-value { font-weight: 500; font-family: monospace; }
+.rcpt-sig-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.rcpt-sig-box { text-align: center; }
+.rcpt-sig-line { border-top: 1px solid #555; margin: 28px 12px 6px; }
+.rcpt-sig-label { font-size: 12px; color: #444; }
+.rcpt-sig-date { font-size: 11px; color: #888; margin-top: 3px; }
+@media print { body { padding: 8mm 10mm; } @page { margin: 0; size: A4; } }
+</style>
+</head>
+<body>
+${htmlContent}
+<script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };<\/script>
+</body>
+</html>`);
+  win.document.close();
+}
+
+// Print installment BILL (invoice) from the pay modal form — before payment
+function printInstallmentBillFromModal(instNo) {
+  const c = customers.find(x => x.id === currentCustomer);
+  if (!c) { alert('ไม่พบข้อมูลลูกค้า'); return; }
+  const n = instNo;
+  const amount   = parseFloat(document.getElementById(`pm-i${n}-amt`).value) || 0;
+  const channel  = document.getElementById(`pm-i${n}-ch`).value || '—';
+  const dateFrom = document.getElementById(`pm-i${n}-from`).value;
+  const dateTo   = document.getElementById(`pm-i${n}-to`).value;
+  const noteText = document.getElementById(`pm-i${n}-note`).value;
+  if (!amount) { alert('กรุณากรอกจำนวนเงินก่อนพิมพ์บิล'); return; }
+  const html = _buildInstallmentBillHTML(c, n, amount, channel, dateFrom, dateTo, noteText);
+  _openBillWindow(`ใบวางบิล งวดที่ ${n}/2 — ${c.name}`, html);
+}
+
+// Print installment BILL (invoice) from saved payment record — re-print anytime
+function printInstallmentBill(custId, month, instIdx) {
+  const c = customers.find(x => x.id === custId);
+  if (!c) return;
+  const k = payKey(custId, month);
+  const p = payments[k];
+  if (!p?.installments?.[instIdx]) { alert('ไม่พบข้อมูลงวดนี้'); return; }
+  const inst    = p.installments[instIdx];
+  const instNo  = instIdx + 1;
+  const html = _buildInstallmentBillHTML(c, instNo, inst.amount, inst.channel, inst.dateFrom, inst.dateTo, inst.note);
+  _openBillWindow(`ใบวางบิล งวดที่ ${instNo}/2 — ${c.name}`, html);
 }
 
 // ========== REFUND SYSTEM ==========
