@@ -4631,12 +4631,7 @@ function renderBilling() {
       </td>
       <td style="white-space:nowrap">
         <button class="btn btn-sm btn-primary" onclick="openPayModal('${c.id}')">💳 ${s==='unpaid'?'ชำระ':'แก้ไข'}</button>
-        ${p?.installments?.length === 2 ? `
-          <button class="btn btn-sm" onclick="printInstallmentBill('${c.id}','${currentMonth}',0)" style="margin-left:4px;font-size:11px;padding:3px 7px;color:#1a6b4a;border-color:#1a6b4a" title="พิมพ์ใบวางบิลงวด 1">📄 บิล1</button>
-          <button class="btn btn-sm" onclick="printInstallmentBill('${c.id}','${currentMonth}',1)" style="margin-left:4px;font-size:11px;padding:3px 7px;color:#1a6b4a;border-color:#1a6b4a" title="พิมพ์ใบวางบิลงวด 2">📄 บิล2</button>
-          <button class="btn btn-sm" onclick="printInstallmentReceipt('${c.id}','${currentMonth}',0)" style="margin-left:4px;font-size:11px;padding:3px 7px" title="พิมพ์ใบเสร็จงวด 1">🖨 งวด1</button>
-          <button class="btn btn-sm" onclick="printInstallmentReceipt('${c.id}','${currentMonth}',1)" style="margin-left:4px;font-size:11px;padding:3px 7px" title="พิมพ์ใบเสร็จงวด 2">🖨 งวด2</button>
-        ` : `<button class="btn btn-sm" onclick="printReceipt('${c.id}')" style="margin-left:4px" title="พิมพ์ใบเสร็จ">🖨</button>`}
+        <button class="btn btn-sm" onclick="${p?.installments?.length === 2 ? `openInstPrintMenu('${c.id}','${currentMonth}')` : `printReceipt('${c.id}')`}" style="margin-left:4px" title="${p?.installments?.length === 2 ? 'พิมพ์บิล / ใบเสร็จ (แบ่งงวด)' : 'พิมพ์ใบเสร็จ'}">🖨${p?.installments?.length === 2 ? ' <span style="font-size:10px;vertical-align:middle">▾</span>' : ''}</button>
         <button class="btn btn-sm" onclick="openRefundModal(null,'${c.id}')" style="margin-left:4px;color:var(--danger);border-color:var(--danger)" title="คืนเงิน">↩️</button>
       </td>
     </tr>`;
@@ -7581,6 +7576,88 @@ function printInstallmentBillFromModal(instNo) {
   if (!amount) { alert('กรุณากรอกจำนวนเงินก่อนพิมพ์บิล'); return; }
   const html = _buildInstallmentBillHTML(c, n, amount, channel, dateFrom, dateTo, noteText);
   _openBillWindow(`ใบวางบิล งวดที่ ${n}/2 — ${c.name}`, html);
+}
+
+// Mini print-menu dialog for installment customers
+function openInstPrintMenu(custId, month) {
+  const c = customers.find(x => x.id === custId);
+  if (!c) return;
+  const k = payKey(custId, month);
+  const p = payments[k];
+  if (!p?.installments?.length) { printReceipt(custId, month); return; }
+
+  // Remove old menu if exists
+  const old = document.getElementById('inst-print-menu');
+  if (old) old.remove();
+
+  const i1 = p.installments[0], i2 = p.installments[1];
+  const p1 = !!i1?.paidDate, p2 = !!i2?.paidDate;
+
+  function periodStr(inst) {
+    if (!inst) return '';
+    return (inst.dateFrom && inst.dateTo) ? `${fmtDateThai(inst.dateFrom)} – ${fmtDateThai(inst.dateTo)}` : '';
+  }
+
+  const menu = document.createElement('div');
+  menu.id = 'inst-print-menu';
+  menu.innerHTML = `
+    <div id="inst-print-menu-backdrop" onclick="document.getElementById('inst-print-menu').remove()" style="position:fixed;inset:0;z-index:3999;background:rgba(0,0,0,.35)"></div>
+    <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4000;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,.22);overflow:hidden">
+      <div style="background:var(--accent-light);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:700;font-size:14px">🖨 พิมพ์เอกสาร</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:1px">${c.name} · แบ่งจ่าย 2 งวด</div>
+        </div>
+        <span onclick="document.getElementById('inst-print-menu').remove()" style="cursor:pointer;font-size:18px;color:var(--text3);line-height:1;padding:4px 6px">×</span>
+      </div>
+      <div style="padding:14px 16px">
+        <div style="font-size:11px;font-weight:700;color:#1a6b4a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📄 ใบวางบิล — ออกให้ลูกค้าก่อนชำระ</div>
+
+        <button onclick="printInstallmentBill('${custId}','${month}',0);document.getElementById('inst-print-menu').remove()"
+          style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #b0d8c0;border-radius:9px;background:#f0fdf4;cursor:pointer;margin-bottom:8px;text-align:left;font-family:inherit">
+          <span style="font-size:20px">📄</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:13px;color:#1a6b4a">ใบวางบิล งวดที่ 1</div>
+            <div style="font-size:11px;color:#555">${periodStr(i1)} · ฿${fmt(i1?.amount||0)}</div>
+          </div>
+          <span style="font-size:11px;color:#1a6b4a;font-weight:600">พิมพ์ →</span>
+        </button>
+
+        <button onclick="printInstallmentBill('${custId}','${month}',1);document.getElementById('inst-print-menu').remove()"
+          style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #b0d8c0;border-radius:9px;background:#f0fdf4;cursor:pointer;margin-bottom:14px;text-align:left;font-family:inherit">
+          <span style="font-size:20px">📄</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:13px;color:#1a6b4a">ใบวางบิล งวดที่ 2</div>
+            <div style="font-size:11px;color:#555">${periodStr(i2)} · ฿${fmt(i2?.amount||0)}</div>
+          </div>
+          <span style="font-size:11px;color:#1a6b4a;font-weight:600">พิมพ์ →</span>
+        </button>
+
+        <div style="border-top:1px solid var(--border);margin-bottom:10px"></div>
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🖨 ใบเสร็จรับเงิน — หลังรับชำระแล้ว</div>
+
+        <button onclick="printInstallmentReceipt('${custId}','${month}',0);document.getElementById('inst-print-menu').remove()"
+          style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid ${p1?'var(--accent)':'var(--border)'};border-radius:9px;background:${p1?'var(--accent-light)':'var(--bg)'};cursor:pointer;margin-bottom:8px;text-align:left;font-family:inherit">
+          <span style="font-size:20px">🖨</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:13px">ใบเสร็จ งวดที่ 1 ${p1 ? '<span style="font-size:10px;color:var(--paid)">✓ ชำระแล้ว</span>' : '<span style="font-size:10px;color:var(--text3)">○ ยังไม่ชำระ</span>'}</div>
+            <div style="font-size:11px;color:#555">${periodStr(i1)} · ฿${fmt(i1?.amount||0)}</div>
+          </div>
+          <span style="font-size:11px;color:var(--text2);font-weight:600">พิมพ์ →</span>
+        </button>
+
+        <button onclick="printInstallmentReceipt('${custId}','${month}',1);document.getElementById('inst-print-menu').remove()"
+          style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid ${p2?'var(--accent)':'var(--border)'};border-radius:9px;background:${p2?'var(--accent-light)':'var(--bg)'};cursor:pointer;text-align:left;font-family:inherit">
+          <span style="font-size:20px">🖨</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:13px">ใบเสร็จ งวดที่ 2 ${p2 ? '<span style="font-size:10px;color:var(--paid)">✓ ชำระแล้ว</span>' : '<span style="font-size:10px;color:var(--text3)">○ ยังไม่ชำระ</span>'}</div>
+            <div style="font-size:11px;color:#555">${periodStr(i2)} · ฿${fmt(i2?.amount||0)}</div>
+          </div>
+          <span style="font-size:11px;color:var(--text2);font-weight:600">พิมพ์ →</span>
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(menu);
 }
 
 // Print installment BILL (invoice) from saved payment record — re-print anytime
