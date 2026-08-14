@@ -342,6 +342,12 @@ tr.row-inactive:hover { background: #f3f2ef !important; }
 /* Compact topbar: ลด 56px → 48px */
 .topbar { height: 48px !important; padding: 0 16px !important; }
 
+/* Topbar home button */
+#topbar-home-btn { display: none; }
+#topbar-home-btn.visible { display: flex !important; }
+#topbar-home-btn:hover { background: var(--accent-light) !important; color: var(--accent) !important; border-color: var(--accent) !important; }
+@media (max-width: 480px) { .topbar-home-label { display: none; } }
+
 /* Compact stats cards */
 .stat-card { padding: 14px 16px; }
 .stat-value { font-size: 26px; }
@@ -2128,9 +2134,11 @@ if ('serviceWorker' in navigator) {
 <div class="sidebar" id="main-sidebar">
   <div class="brand">
     <div class="brand-row" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <div class="brand-text">
-        <div class="brand-logo">DD Nursing</div>
-        <div class="brand-sub">ระบบจัดการบ้านดูแลผู้สูงอายุ</div>
+      <div class="brand-text" onclick="goPage('home')" title="กลับหน้าหลัก"
+           style="cursor:pointer;flex:1;min-width:0;padding:2px 4px;border-radius:6px;transition:background .15s"
+           onmouseover="this.style.background='rgba(255,255,255,.12)'" onmouseout="this.style.background=''">
+        <div class="brand-logo">🏥 DD Nursing</div>
+        <div class="brand-sub">กดเพื่อกลับหน้าหลัก</div>
       </div>
       <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="toggleSidebarCollapse()" title="ย่อ/ขยายเมนู">◀</button>
     </div>
@@ -2164,7 +2172,17 @@ if ('serviceWorker' in navigator) {
 <div class="main">
   <div class="topbar">
     <div class="hamburger" onclick="toggleSidebar()">☰</div>
-    <div class="topbar-title" id="page-title">หน้าหลัก</div>
+    <!-- Home button: ปรากฏเมื่อออกจากหน้าหลัก -->
+    <button id="topbar-home-btn" onclick="goPage('home')" title="กลับหน้าหลัก"
+      style="display:none;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--border);
+             border-radius:8px;background:var(--surface2);color:var(--text2);cursor:pointer;
+             font-size:13px;font-family:inherit;transition:all .15s;flex-shrink:0;white-space:nowrap">
+      🏠 <span class="topbar-home-label">หน้าหลัก</span>
+    </button>
+    <!-- Breadcrumb title -->
+    <div class="topbar-breadcrumb" id="topbar-breadcrumb" style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden">
+      <div class="topbar-title" id="page-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">หน้าหลัก</div>
+    </div>
     <div class="search-wrap">
       <span class="search-icon">🔍</span>
       <input type="text" id="global-search" placeholder="ค้นหาชื่อ, รหัส, เบอร์..." oninput="handleSearch(this.value)">
@@ -7461,7 +7479,17 @@ function goPage(id) {
   // Auto-close sidebar on mobile
   if (window.innerWidth <= 640) closeSidebar();
   const titles = {home:'หน้าหลัก',dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',reminders:'แจ้งเตือนบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',sched:'ตารางเวร',permission:'จัดการสิทธิ์การเข้าถึง',bedmap:'แผนผังเตียง'};
-  document.getElementById('page-title').textContent = titles[id]||'';
+  const title = titles[id] || '';
+  // Update topbar: home button + breadcrumb
+  const homeBtn = document.getElementById('topbar-home-btn');
+  const titleEl = document.getElementById('page-title');
+  if (id === 'home') {
+    if (homeBtn) homeBtn.classList.remove('visible');
+    if (titleEl) titleEl.textContent = 'หน้าหลัก';
+  } else {
+    if (homeBtn) homeBtn.classList.add('visible');
+    if (titleEl) titleEl.textContent = title;
+  }
   if(id==='home')         renderHomePage();
   if(id==='customers')    renderTable();
   if(id==='discharged')   renderDischarged();
