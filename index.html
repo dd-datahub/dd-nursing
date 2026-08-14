@@ -56,11 +56,11 @@ input, select, textarea, button { font-family: inherit; font-size: 14px; }
 .sidebar-toggle-btn:hover { background: var(--border); }
 .sidebar.collapsed { width: 68px; min-width: 68px; }
 .sidebar.collapsed .brand-row { justify-content: center; }
-.sidebar.collapsed .brand-text, .sidebar.collapsed .nav-label, .sidebar.collapsed .nav-badge, .sidebar.collapsed #admin-user-name { display: none; }
+.sidebar.collapsed .brand-text, .sidebar.collapsed .nav-label, .sidebar.collapsed .nav-badge, .sidebar.collapsed .nav-section-label, .sidebar.collapsed #admin-user-name { display: none; }
 .sidebar.collapsed .nav-item { justify-content: center; padding: 10px 0; gap: 0; }
 .sidebar.collapsed .sidebar-footer { padding: 12px 8px; display: flex; flex-direction: column; align-items: center; }
 .sidebar.collapsed .sidebar-signout-btn { width: auto; padding: 8px; }
-@media (max-width: 640px) { .sidebar.collapsed { width: 240px !important; min-width: 240px !important; } .sidebar.collapsed .brand-text, .sidebar.collapsed .nav-label, .sidebar.collapsed .nav-badge, .sidebar.collapsed #admin-user-name { display: block; } .sidebar.collapsed .nav-item { justify-content: flex-start; padding: 10px 16px; gap: 10px; } .sidebar.collapsed .sidebar-footer { display: block; } .sidebar.collapsed .sidebar-signout-btn { width: 100%; } .sidebar.collapsed .brand-row { justify-content: space-between; } }
+@media (max-width: 640px) { .sidebar.collapsed { width: 240px !important; min-width: 240px !important; } .sidebar.collapsed .brand-text, .sidebar.collapsed .nav-label, .sidebar.collapsed .nav-badge, .sidebar.collapsed .nav-section-label, .sidebar.collapsed #admin-user-name { display: block; } .sidebar.collapsed .nav-item { justify-content: flex-start; padding: 10px 16px; gap: 10px; } .sidebar.collapsed .sidebar-footer { display: block; } .sidebar.collapsed .sidebar-signout-btn { width: 100%; } .sidebar.collapsed .brand-row { justify-content: space-between; } }
 .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 20px; height: 56px; display: flex; align-items: center; gap: 12px; }
 .content { flex: 1; overflow-y: auto; padding: 20px; }
 
@@ -295,6 +295,134 @@ tr.row-inactive:hover { background: #f3f2ef !important; }
 
 /* Print */
 @media print { .sidebar, .topbar { display: none; } .content { padding: 0; } }
+
+/* ===== SIDEBAR REDESIGN ===== */
+.brand {
+  background: linear-gradient(155deg, #0f4a33 0%, #1a6b4a 60%, #1a5c9e 100%);
+  padding: 18px 16px 14px;
+}
+.brand-logo { color: #fff; font-size: 18px; letter-spacing: -.3px; }
+.brand-sub { color: rgba(255,255,255,.6); font-size: 10px; margin-top: 2px; }
+.brand-row { display:flex; align-items:center; justify-content:space-between; }
+.sidebar-toggle-btn {
+  background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.25);
+  color: rgba(255,255,255,.85);
+}
+.sidebar-toggle-btn:hover { background: rgba(255,255,255,.28); }
+
+/* Pill-style nav */
+.nav { padding: 6px 0; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; cursor: pointer; color: var(--text2);
+  font-size: 13px; transition: all .15s;
+  border-left: 3px solid transparent;
+  border-radius: 0; margin: 0;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active {
+  background: var(--accent-light); color: var(--accent);
+  border-left-color: var(--accent); font-weight: 500;
+}
+.nav-section-label {
+  font-size: 10px; font-weight: 600; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .7px;
+  padding: 12px 16px 4px; pointer-events: none;
+}
+
+/* Topbar improvements */
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 20px; height: 56px; display: flex; align-items: center; gap: 12px; }
+
+/* ===== HOMEPAGE ===== */
+.hp-wrap { max-width: 1100px; }
+
+.hp-hero {
+  background: linear-gradient(135deg, #0f4a33 0%, #1a6b4a 45%, #1a5c9e 100%);
+  border-radius: 16px; padding: 28px 32px; margin-bottom: 24px;
+  color: #fff; position: relative; overflow: hidden;
+}
+.hp-hero::before {
+  content: ''; position: absolute; top: -50px; right: -50px;
+  width: 220px; height: 220px; background: rgba(255,255,255,.06);
+  border-radius: 50%;
+}
+.hp-hero::after {
+  content: ''; position: absolute; bottom: -70px; right: 80px;
+  width: 180px; height: 180px; background: rgba(255,255,255,.04);
+  border-radius: 50%;
+}
+.hp-hero-inner { position: relative; z-index: 1; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.hp-greeting { font-size: 24px; font-weight: 600; margin-bottom: 4px; }
+.hp-date { font-size: 13px; opacity: .7; }
+.hp-hero-badge { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25); border-radius: 20px; padding: 5px 14px; font-size: 12px; white-space: nowrap; }
+
+.hp-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.hp-stat {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 18px 20px;
+  display: flex; align-items: center; gap: 14px;
+  cursor: pointer; transition: box-shadow .18s, transform .18s;
+}
+.hp-stat:hover { box-shadow: 0 6px 20px rgba(0,0,0,.10); transform: translateY(-2px); }
+.hp-stat-icon { font-size: 28px; flex-shrink: 0; }
+.hp-stat-val { font-size: 26px; font-weight: 600; font-family: 'IBM Plex Mono', monospace; line-height: 1; }
+.hp-stat-lbl { font-size: 11px; color: var(--text3); margin-top: 3px; text-transform: uppercase; letter-spacing: .4px; }
+
+.hp-section { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .7px; margin: 0 0 12px; }
+
+.hp-modules { display: grid; grid-template-columns: repeat(auto-fill, minmax(172px, 1fr)); gap: 10px; margin-bottom: 24px; }
+.hp-mod {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 18px 16px;
+  cursor: pointer; transition: border-color .16s, box-shadow .16s, transform .16s;
+  display: flex; flex-direction: column; gap: 7px;
+  position: relative; overflow: hidden;
+}
+.hp-mod::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--mc, var(--accent)); opacity: 0; transition: opacity .16s;
+}
+.hp-mod:hover { border-color: var(--mc, var(--accent)); box-shadow: 0 4px 18px rgba(0,0,0,.09); transform: translateY(-2px); }
+.hp-mod:hover::after { opacity: 1; }
+.hp-mod-icon { font-size: 26px; }
+.hp-mod-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.hp-mod-desc { font-size: 11px; color: var(--text3); line-height: 1.5; }
+.hp-mod-badge {
+  position: absolute; top: 11px; right: 11px;
+  background: var(--danger); color: #fff;
+  font-size: 10px; padding: 1px 7px; border-radius: 20px; font-weight: 600;
+}
+
+.hp-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.hp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; }
+.hp-card-title { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.hp-card-title a { font-size: 11px; font-weight: 500; color: var(--accent); cursor: pointer; text-transform: none; letter-spacing: 0; }
+.hp-alert-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 13px; cursor: pointer; border-bottom: .5px solid var(--border); transition: color .1s; }
+.hp-alert-row:last-child { border-bottom: none; }
+.hp-alert-row:hover { color: var(--accent); }
+.hp-alert-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.hp-quick-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 13px; cursor: pointer; border-bottom: .5px solid var(--border); transition: background .1s; }
+.hp-quick-row:last-child { border-bottom: none; }
+.hp-quick-row:hover .hp-quick-name { color: var(--accent); }
+.hp-quick-icon { font-size: 18px; flex-shrink: 0; }
+.hp-quick-name { font-weight: 500; flex: 1; }
+.hp-quick-arr { color: var(--text3); font-size: 12px; }
+
+@keyframes hpFadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.hp-wrap > * { animation: hpFadeUp .3s ease both; }
+.hp-wrap > *:nth-child(2) { animation-delay: .05s; }
+.hp-wrap > *:nth-child(3) { animation-delay: .10s; }
+.hp-wrap > *:nth-child(4) { animation-delay: .15s; }
+.hp-wrap > *:nth-child(5) { animation-delay: .20s; }
+
+@media (max-width: 640px) {
+  .hp-stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .hp-hero { padding: 20px 18px; border-radius: 12px; }
+  .hp-greeting { font-size: 18px; }
+  .hp-modules { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .hp-bottom { grid-template-columns: 1fr; }
+  .hp-stat-val { font-size: 20px; }
+}
 </style>
 
 <!-- Firebase -->
@@ -1690,6 +1818,7 @@ async function fbLoad() {
     }
     // (merge ลูกค้า/customers_extra ทำไปแล้วด้านบนแล้ว ก่อนการ restore key ของ payments/discharged)
     // Render after load
+    renderHomePage();
     updateDashboard();
     renderTable();
     if (typeof renderPayHistory === 'function') renderPayHistory();
@@ -1935,17 +2064,22 @@ if ('serviceWorker' in navigator) {
     </div>
   </div>
   <nav class="nav">
-    <div class="nav-item active" onclick="goPage('dashboard')" title="ภาพรวม"><span class="nav-icon">📊</span> <span class="nav-label">ภาพรวม</span></div>
+    <div class="nav-item active" onclick="goPage('home')" title="หน้าหลัก"><span class="nav-icon">🏠</span> <span class="nav-label">หน้าหลัก</span></div>
+    <div class="nav-item" onclick="goPage('dashboard')" title="ภาพรวม"><span class="nav-icon">📊</span> <span class="nav-label">ภาพรวม</span></div>
+    <div class="nav-section-label nav-label">ลูกค้า</div>
     <div class="nav-item" onclick="goPage('customers')" title="ลูกค้าทั้งหมด"><span class="nav-icon">👥</span> <span class="nav-label">ลูกค้าทั้งหมด</span></div>
     <div class="nav-item" onclick="goPage('discharged')" title="คืนเคส"><span class="nav-icon">🚪</span> <span class="nav-label">คืนเคส</span> <span class="nav-badge" id="discharged-badge" style="background:var(--text3)">0</span></div>
+    <div class="nav-section-label nav-label">การเงิน</div>
     <div class="nav-item" onclick="goPage('billing')" title="ชำระบิล"><span class="nav-icon">💳</span> <span class="nav-label">ชำระบิล</span> <span class="nav-badge" id="unpaid-badge">0</span></div>
     <div class="nav-item" onclick="goPage('reminders')" title="แจ้งเตือนบิล"><span class="nav-icon">🔔</span> <span class="nav-label">แจ้งเตือนบิล</span> <span class="nav-badge" id="reminder-badge" style="display:none;background:#c0392b">0</span></div>
-    <div class="nav-item" onclick="goPage('requisition')" title="เบิกของ"><span class="nav-icon">📦</span> <span class="nav-label">เบิกของ</span></div>
     <div class="nav-item" onclick="goPage('history')" title="ประวัติการชำระ"><span class="nav-icon">📋</span> <span class="nav-label">ประวัติการชำระ</span></div>
     <div class="nav-item" onclick="goPage('refund')" title="คืนเงินลูกค้า"><span class="nav-icon">↩️</span> <span class="nav-label">คืนเงินลูกค้า</span></div>
-    <div class="nav-item" onclick="goPage('issues')" title="ปัญหาข้อมูล"><span class="nav-icon">⚠️</span> <span class="nav-label">ปัญหาข้อมูล</span> <span class="nav-badge" style="background:var(--text3)">0</span></div>
+    <div class="nav-section-label nav-label">ปฏิบัติการ</div>
+    <div class="nav-item" onclick="goPage('requisition')" title="เบิกของ"><span class="nav-icon">📦</span> <span class="nav-label">เบิกของ</span></div>
     <div class="nav-item" onclick="goPage('sched')" title="ตารางเวร"><span class="nav-icon">🗓️</span> <span class="nav-label">ตารางเวร</span></div>
     <div class="nav-item" onclick="goPage('bedmap')" title="แผนผังเตียง"><span class="nav-icon">🛏</span> <span class="nav-label">แผนผังเตียง</span></div>
+    <div class="nav-section-label nav-label">ระบบ</div>
+    <div class="nav-item" onclick="goPage('issues')" title="ปัญหาข้อมูล"><span class="nav-icon">⚠️</span> <span class="nav-label">ปัญหาข้อมูล</span> <span class="nav-badge" id="issues-badge" style="background:var(--text3)">0</span></div>
     <div class="nav-item" onclick="goPage('permission')" title="สิทธิ์การเข้าถึง"><span class="nav-icon">🔐</span> <span class="nav-label">สิทธิ์การเข้าถึง</span> <span class="nav-badge" id="perm-badge" style="display:none;background:#c0392b">0</span></div>
   </nav>
   <div class="sidebar-footer">
@@ -1958,7 +2092,7 @@ if ('serviceWorker' in navigator) {
 <div class="main">
   <div class="topbar">
     <div class="hamburger" onclick="toggleSidebar()">☰</div>
-    <div class="topbar-title" id="page-title">ภาพรวม</div>
+    <div class="topbar-title" id="page-title">หน้าหลัก</div>
     <div class="search-wrap">
       <span class="search-icon">🔍</span>
       <input type="text" id="global-search" placeholder="ค้นหาชื่อ, รหัส, เบอร์..." oninput="handleSearch(this.value)">
@@ -1967,8 +2101,13 @@ if ('serviceWorker' in navigator) {
   </div>
   <div class="content">
 
+    <!-- HOME PAGE -->
+    <div class="page active" id="page-home">
+      <div class="hp-wrap" id="hp-wrap-inner"></div>
+    </div>
+
     <!-- DASHBOARD PAGE (ภาพรวม: chart + dashboard เท่านั้น) -->
-    <div class="page page-fill active" id="page-dashboard">
+    <div class="page page-fill" id="page-dashboard">
 
       <!-- ตัวกรองสาขา (อยู่บนสุดของหน้าภาพรวม) -->
       <div id="dash-branch-filter" style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap">
@@ -7076,6 +7215,169 @@ window.onload = function() { setTimeout(function() { window.print(); }, 600); };
 }
 
 // ========== goPage (includes requisition) ==========
+// ========== HOMEPAGE ==========
+const _HP_MODULES = [
+  { id:'dashboard',  icon:'📊', name:'ภาพรวม',          desc:'สถิติและกราฟแสดงผลรวม',      color:'#1a6b4a' },
+  { id:'customers',  icon:'👥', name:'ลูกค้าทั้งหมด',   desc:'จัดการข้อมูลผู้พักอาศัย',    color:'#1a5c9e' },
+  { id:'billing',    icon:'💳', name:'ชำระบิล',          desc:'บิลรายเดือนและใบเสร็จ',      color:'#7c3aed', badge:'unpaid' },
+  { id:'reminders',  icon:'🔔', name:'แจ้งเตือนบิล',    desc:'ค้างชำระและใกล้ครบกำหนด',   color:'#b8620a', badge:'reminder' },
+  { id:'requisition',icon:'📦', name:'เบิกของ',          desc:'สั่งเบิกวัสดุสิ้นเปลือง',   color:'#0e7490' },
+  { id:'history',    icon:'📋', name:'ประวัติการชำระ',   desc:'บันทึกการชำระทั้งหมด',      color:'#6b7280' },
+  { id:'refund',     icon:'↩️', name:'คืนเงินลูกค้า',   desc:'จัดการรายการคืนเงิน',       color:'#dc2626' },
+  { id:'sched',      icon:'🗓️', name:'ตารางเวร',         desc:'จัดตารางเวรพนักงาน',        color:'#7c3aed' },
+  { id:'bedmap',     icon:'🛏', name:'แผนผังเตียง',      desc:'สถานะเตียงแบบ visual',      color:'#b85450' },
+  { id:'discharged', icon:'🚪', name:'คืนเคส',           desc:'รายชื่อผู้พักที่จำหน่ายแล้ว',color:'#6b7280' },
+  { id:'permission', icon:'🔐', name:'สิทธิ์การเข้าถึง', desc:'จัดการผู้ใช้และสิทธิ์',    color:'#374151' },
+];
+
+function renderHomePage() {
+  const wrap = document.getElementById('hp-wrap-inner');
+  if (!wrap) return;
+
+  // ── Stats ──
+  const totalCust  = customers.filter(c => c.status !== 'discharged').length;
+  const unpaidCnt  = parseInt(document.getElementById('unpaid-badge')?.textContent || '0');
+  const reminderCnt= parseInt(document.getElementById('reminder-badge')?.textContent || '0');
+  // นับเตียงว่าง
+  let vacantBeds = 0;
+  Object.values(_bedMapData || {}).forEach(arr => {
+    arr.forEach(b => { if (b.status === 'vacant') vacantBeds++; });
+  });
+
+  // ── Greeting ──
+  const now   = new Date();
+  const hour  = now.getHours();
+  const greet = hour < 12 ? 'อรุณสวัสดิ์' : hour < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น';
+  const adminName = document.getElementById('admin-user-name')?.textContent?.trim() || 'Admin';
+  const dateStr = now.toLocaleDateString('th-TH', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+  // ── Unpaid list (top 5) ──
+  const unpaidList = customers
+    .filter(c => c.status !== 'discharged')
+    .filter(c => {
+      const py = payments[c.id];
+      if (!py) return false;
+      return Object.values(py).some(p => p.status === 'unpaid' || p.status === 'partial');
+    })
+    .slice(0, 5);
+
+  // ── Quick links ──
+  const quickLinks = [
+    { icon:'💳', name:'ชำระบิลเดือนนี้',   page:'billing' },
+    { icon:'👥', name:'เพิ่มลูกค้าใหม่',    page:'customers', action:'add' },
+    { icon:'📦', name:'บันทึกการเบิกของ',  page:'requisition' },
+    { icon:'🗓️', name:'จัดตารางเวร',        page:'sched' },
+    { icon:'🛏', name:'ดูแผนผังเตียง',     page:'bedmap' },
+  ];
+
+  // ── Badge values ──
+  function getBadge(mod) {
+    if (mod.badge === 'unpaid' && unpaidCnt > 0) return unpaidCnt;
+    if (mod.badge === 'reminder' && reminderCnt > 0) return reminderCnt;
+    return null;
+  }
+
+  wrap.innerHTML = `
+    <!-- Hero -->
+    <div class="hp-hero">
+      <div class="hp-hero-inner">
+        <div>
+          <div class="hp-greeting">${greet} 👋</div>
+          <div class="hp-date">${dateStr}</div>
+        </div>
+        <div class="hp-hero-badge">🏥 DD Nursing Home</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="hp-stats">
+      <div class="hp-stat" onclick="goPage('customers')" title="ดูรายชื่อลูกค้า">
+        <div class="hp-stat-icon">👥</div>
+        <div>
+          <div class="hp-stat-val" style="color:var(--b1)">${totalCust}</div>
+          <div class="hp-stat-lbl">ผู้พักอาศัย</div>
+        </div>
+      </div>
+      <div class="hp-stat" onclick="goPage('billing')" title="ดูบิลค้างชำระ">
+        <div class="hp-stat-icon">💳</div>
+        <div>
+          <div class="hp-stat-val" style="color:${unpaidCnt>0?'var(--danger)':'var(--accent)'}">${unpaidCnt}</div>
+          <div class="hp-stat-lbl">ค้างชำระ</div>
+        </div>
+      </div>
+      <div class="hp-stat" onclick="goPage('reminders')" title="ดูแจ้งเตือน">
+        <div class="hp-stat-icon">🔔</div>
+        <div>
+          <div class="hp-stat-val" style="color:${reminderCnt>0?'var(--warning)':'var(--accent)'}">${reminderCnt}</div>
+          <div class="hp-stat-lbl">แจ้งเตือน</div>
+        </div>
+      </div>
+      <div class="hp-stat" onclick="goPage('bedmap')" title="ดูแผนผังเตียง">
+        <div class="hp-stat-icon">🛏</div>
+        <div>
+          <div class="hp-stat-val" style="color:var(--b2)">${vacantBeds}</div>
+          <div class="hp-stat-lbl">เตียงว่าง</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modules grid -->
+    <div class="hp-section">เมนูทั้งหมด</div>
+    <div class="hp-modules">
+      ${_HP_MODULES.map(m => {
+        const badge = getBadge(m);
+        return `<div class="hp-mod" style="--mc:${m.color}" onclick="goPage('${m.id}')">
+          ${badge ? `<div class="hp-mod-badge">${badge}</div>` : ''}
+          <div class="hp-mod-icon">${m.icon}</div>
+          <div class="hp-mod-name">${m.name}</div>
+          <div class="hp-mod-desc">${m.desc}</div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Bottom row -->
+    <div class="hp-bottom">
+      <!-- Alerts -->
+      <div class="hp-card">
+        <div class="hp-card-title">
+          <span>⚠️ ค้างชำระล่าสุด</span>
+          <a onclick="goPage('billing')">ดูทั้งหมด →</a>
+        </div>
+        ${unpaidList.length === 0
+          ? `<div style="font-size:13px;color:var(--text3);text-align:center;padding:16px 0">✅ ไม่มีรายการค้างชำระ</div>`
+          : unpaidList.map(c => {
+              const py = payments[c.id] || {};
+              const unpaidMonths = Object.entries(py)
+                .filter(([,p]) => p.status === 'unpaid' || p.status === 'partial')
+                .map(([m]) => m).slice(0,2).join(', ');
+              return `<div class="hp-alert-row" onclick="goPage('billing')">
+                <div class="hp-alert-dot" style="background:var(--danger)"></div>
+                <div style="flex:1">
+                  <div style="font-weight:500">${c.name}</div>
+                  <div style="font-size:11px;color:var(--text3)">${unpaidMonths || 'ค้างชำระ'}</div>
+                </div>
+                <span class="status-badge status-unpaid">ค้าง</span>
+              </div>`;
+            }).join('')
+        }
+      </div>
+
+      <!-- Quick links -->
+      <div class="hp-card">
+        <div class="hp-card-title"><span>⚡ เข้าถึงด่วน</span></div>
+        ${quickLinks.map(q => `
+          <div class="hp-quick-row" onclick="${q.action==='add' ? 'openAddModal()' : `goPage('${q.page}')`}">
+            <div class="hp-quick-icon">${q.icon}</div>
+            <div class="hp-quick-name">${q.name}</div>
+            <div class="hp-quick-arr">›</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+window.renderHomePage = renderHomePage;
+
 function goPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -7086,8 +7388,9 @@ function goPage(id) {
   });
   // Auto-close sidebar on mobile
   if (window.innerWidth <= 640) closeSidebar();
-  const titles = {dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',reminders:'แจ้งเตือนบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',sched:'ตารางเวร',permission:'จัดการสิทธิ์การเข้าถึง',bedmap:'แผนผังเตียง'};
+  const titles = {home:'หน้าหลัก',dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',reminders:'แจ้งเตือนบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',sched:'ตารางเวร',permission:'จัดการสิทธิ์การเข้าถึง',bedmap:'แผนผังเตียง'};
   document.getElementById('page-title').textContent = titles[id]||'';
+  if(id==='home')         renderHomePage();
   if(id==='customers')    renderTable();
   if(id==='discharged')   renderDischarged();
   if(id==='billing')      { renderYearTabs(); renderMonthTabs(); renderBilling(); }
