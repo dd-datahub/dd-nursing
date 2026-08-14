@@ -3859,7 +3859,50 @@ if ('serviceWorker' in navigator) {
         <button class="btn btn-sm" onclick="rcptAddDiscount()" style="font-size:11px;padding:3px 10px;background:#fff0f0;border-color:#fca5a5;color:#b91c1c;font-weight:600">🏷️ เพิ่มส่วนลด</button>
         <button class="btn btn-sm" onclick="reRenderReceipt()" style="font-size:11px;padding:3px 10px">🔄 อัพเดตใบเสร็จ</button>
         <button class="btn btn-sm" onclick="rcptShowAddReqPanel()" style="font-size:11px;padding:3px 10px;background:#fffbeb;border-color:#f59e0b;color:#92400e">📦 เพิ่มรายการเบิก</button>
+        <button class="btn btn-sm" id="rcpt-split-toggle-btn" onclick="rcptToggleSplitPanel()" style="font-size:11px;padding:3px 10px;background:#f0fdf4;border-color:#86efac;color:#1a6b4a;font-weight:600">✂️ แบ่ง 2 งวด</button>
       </div>
+
+      <!-- Split-bill panel inside receipt modal -->
+      <div id="rcpt-split-panel" style="display:none;margin-bottom:10px;padding:14px 16px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:700;color:#1a6b4a">✂️ แบ่งจ่าย 2 งวด — ออกใบวางบิลให้ลูกค้า</div>
+          <div id="rcpt-split-total-display" style="font-size:12px;color:#1a6b4a;font-weight:600"></div>
+        </div>
+
+        <!-- Installment 1 -->
+        <div style="background:#fff;border:1.5px solid #b0d8c0;border-radius:8px;padding:12px 14px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span style="font-weight:700;font-size:13px;color:#1a6b4a">งวดที่ 1</span>
+            <button onclick="rcptPrintInstBill(1)" class="btn btn-sm" style="font-size:11px;padding:3px 10px;background:#1a6b4a;color:#fff;border-color:#1a6b4a">📄 พิมพ์ใบวางบิลงวด 1</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px">จำนวนเงิน (บาท)</label>
+              <input type="number" id="rcpt-si1-amt" min="0" placeholder="8000" style="width:100%;padding:5px 8px;border:1px solid #b0d8c0;border-radius:6px;font-size:12px" oninput="rcptSplitAutoBalance(1)"></div>
+            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px">ตั้งแต่วันที่</label>
+              <input type="date" id="rcpt-si1-from" style="width:100%;padding:5px 8px;border:1px solid #b0d8c0;border-radius:6px;font-size:12px"></div>
+            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px">ถึงวันที่</label>
+              <input type="date" id="rcpt-si1-to" style="width:100%;padding:5px 8px;border:1px solid #b0d8c0;border-radius:6px;font-size:12px"></div>
+          </div>
+        </div>
+
+        <!-- Installment 2 -->
+        <div style="background:#fff;border:1.5px solid #b0d8c0;border-radius:8px;padding:12px 14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span style="font-weight:700;font-size:13px;color:#1a6b4a">งวดที่ 2</span>
+            <button onclick="rcptPrintInstBill(2)" class="btn btn-sm" style="font-size:11px;padding:3px 10px;background:#1a6b4a;color:#fff;border-color:#1a6b4a">📄 พิมพ์ใบวางบิลงวด 2</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px">จำนวนเงิน (บาท)</label>
+              <input type="number" id="rcpt-si2-amt" min="0" placeholder="8000" style="width:100%;padding:5px 8px;border:1px solid #b0d8c0;border-radius:6px;font-size:12px" oninput="rcptSplitAutoBalance(2)"></div>
+            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px">ตั้งแต่วันที่</label>
+              <input type="date" id="rcpt-si2-from" style="width:100%;padding:5px 8px;border:1px solid #b0d8c0;border-radius:6px;font-size:12px"></div>
+            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px">ถึงวันที่</label>
+              <input type="date" id="rcpt-si2-to" style="width:100%;padding:5px 8px;border:1px solid #b0d8c0;border-radius:6px;font-size:12px"></div>
+          </div>
+        </div>
+        <div id="rcpt-split-bal-warn" style="display:none;margin-top:8px;font-size:11px;padding:6px 10px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;color:#dc2626"></div>
+      </div>
+
       <div id="rcpt-items-editor" style="display:flex;flex-direction:column;gap:4px"></div>
       <!-- Add-requisition inline panel -->
       <div id="rcpt-add-req-panel" style="display:none;margin-top:8px;padding:10px 12px;background:#fffbeb;border:1px solid #f59e0b;border-radius:8px">
@@ -6596,6 +6639,93 @@ function rcptAddDiscount() {
   renderRcptEditor();
   reRenderReceipt();
   _saveRcptEdits();
+}
+
+// ===== RECEIPT MODAL — SPLIT BILL PANEL =====
+function rcptToggleSplitPanel() {
+  const panel = document.getElementById('rcpt-split-panel');
+  const btn   = document.getElementById('rcpt-split-toggle-btn');
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  if (isOpen) {
+    panel.style.display = 'none';
+    btn.style.background = '#f0fdf4';
+    btn.style.color = '#1a6b4a';
+    return;
+  }
+  // Calculate current receipt total to prefill
+  const total = _rcptGetGrandTotal();
+  const half  = Math.round(total / 2);
+  document.getElementById('rcpt-si1-amt').value = half;
+  document.getElementById('rcpt-si2-amt').value = total - half;
+  document.getElementById('rcpt-split-total-display').textContent = `ยอดรวม ฿${fmt(total)}`;
+  // Pre-fill dates from existing installments if any
+  const k = _rcptCtx ? payKey(_rcptCtx.custId, _rcptCtx.targetMonth) : null;
+  const p = k ? payments[k] : null;
+  if (p?.installments?.length === 2) {
+    const i1 = p.installments[0], i2 = p.installments[1];
+    document.getElementById('rcpt-si1-amt').value  = i1.amount  || half;
+    document.getElementById('rcpt-si1-from').value = i1.dateFrom || '';
+    document.getElementById('rcpt-si1-to').value   = i1.dateTo   || '';
+    document.getElementById('rcpt-si2-amt').value  = i2.amount  || (total - half);
+    document.getElementById('rcpt-si2-from').value = i2.dateFrom || '';
+    document.getElementById('rcpt-si2-to').value   = i2.dateTo   || '';
+  }
+  panel.style.display = 'block';
+  btn.style.background = '#1a6b4a';
+  btn.style.color = '#fff';
+  rcptSplitValidate();
+}
+
+function _rcptGetGrandTotal() {
+  // Sum all non-discount items from _rcptLineItems
+  if (typeof _rcptLineItems === 'undefined') return 0;
+  const sub = _rcptLineItems.reduce((s, item) => {
+    if (item.isOther || item.isDiscount) return s;
+    return s + (parseFloat(item.amount) || (parseFloat(item.qty)||0)*(parseFloat(item.price)||0));
+  }, 0);
+  const disc = _rcptLineItems.filter(d => d.isDiscount).reduce((s, d) =>
+    s + Math.abs(parseFloat(d.amount) || (parseFloat(d.qty)||0)*(parseFloat(d.price)||0)), 0);
+  return sub - disc;
+}
+
+function rcptSplitAutoBalance(changed) {
+  const total = _rcptGetGrandTotal();
+  const v1 = parseFloat(document.getElementById('rcpt-si1-amt').value) || 0;
+  const v2 = parseFloat(document.getElementById('rcpt-si2-amt').value) || 0;
+  if (changed === 1) document.getElementById('rcpt-si2-amt').value = Math.max(0, total - v1);
+  if (changed === 2) document.getElementById('rcpt-si1-amt').value = Math.max(0, total - v2);
+  rcptSplitValidate();
+}
+
+function rcptSplitValidate() {
+  const total = _rcptGetGrandTotal();
+  const v1 = parseFloat(document.getElementById('rcpt-si1-amt').value) || 0;
+  const v2 = parseFloat(document.getElementById('rcpt-si2-amt').value) || 0;
+  const warn = document.getElementById('rcpt-split-bal-warn');
+  if (!warn) return;
+  const diff = Math.abs(v1 + v2 - total);
+  if (diff > 0.01) {
+    warn.style.display = '';
+    warn.textContent = `⚠️ งวด 1 + งวด 2 = ฿${fmt(v1+v2)} ≠ ยอดรวม ฿${fmt(total)} (ต่าง ฿${fmt(diff)})`;
+  } else {
+    warn.style.display = 'none';
+  }
+}
+
+function rcptPrintInstBill(instNo) {
+  if (!_rcptCtx) { alert('ยังไม่มีข้อมูลใบเสร็จ'); return; }
+  const c = customers.find(x => x.id === _rcptCtx.custId);
+  if (!c) { alert('ไม่พบข้อมูลลูกค้า'); return; }
+  const n      = instNo;
+  const amount  = parseFloat(document.getElementById(`rcpt-si${n}-amt`).value)  || 0;
+  const dateFrom = document.getElementById(`rcpt-si${n}-from`).value;
+  const dateTo   = document.getElementById(`rcpt-si${n}-to`).value;
+  if (!amount) { alert('กรุณากรอกจำนวนเงินงวดที่ ' + n); return; }
+  // Reuse the shared bill builder
+  const channel  = 'โอนเงิน'; // default; no channel field in this lightweight panel
+  const html = _buildInstallmentBillHTML(c, n, amount, channel, dateFrom, dateTo, '');
+  _openBillWindow(`ใบวางบิล งวดที่ ${n}/2 — ${c.name}`, html);
 }
 
 function rcptShowAddReqPanel() {
