@@ -278,6 +278,37 @@ tr.row-inactive:hover { background: #f3f2ef !important; }
 .req-summary-row:last-child { border-bottom: none; }
 .req-dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; flex-shrink:0; }
 
+/* ===== SPLIT PAYMENT (แบ่งงวด) ===== */
+.pm-mode-btn {
+  padding: 7px 16px; border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text2); cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 500; transition: all .15s;
+}
+.pm-mode-btn:hover { background: var(--surface2); }
+.pm-mode-btn.pm-mode-active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.pm-inst-card {
+  border: 1.5px solid var(--border); border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 12px; background: var(--surface);
+}
+.pm-inst-card:has(#pm-i1-paid[value]:not([value=""])),
+.pm-inst-card.inst-paid { border-color: var(--accent); background: var(--accent-light); }
+
+.pm-inst-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.pm-inst-num {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  background: var(--surface2); border-radius: 6px; padding: 3px 10px;
+}
+.inst-badge-paid   { font-size: 11px; padding: 2px 9px; border-radius: 20px; background: var(--paid-bg); color: var(--paid); font-weight: 600; }
+.inst-badge-unpaid { font-size: 11px; padding: 2px 9px; border-radius: 20px; background: var(--unpaid-bg); color: var(--unpaid); font-weight: 600; }
+
+/* Billing table: installment mini display */
+.bill-inst-row { font-size: 11px; display: flex; align-items: center; gap: 5px; line-height: 1.8; }
+.bill-inst-check { font-size: 13px; }
+
 /* Billing reminder */
 .reminder-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 12px; overflow: hidden; }
 .reminder-card-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
@@ -3221,44 +3252,142 @@ if ('serviceWorker' in navigator) {
 
 <!-- Pay Modal -->
 <div class="modal-overlay" id="pay-modal">
-  <div class="modal" style="width:460px">
+  <div class="modal" style="width:580px;max-width:98vw">
     <div class="modal-head">
       <h2>บันทึกการชำระบิล</h2>
       <span class="modal-close" onclick="closeModal('pay-modal')">×</span>
     </div>
     <div class="modal-body">
-      <div style="background:var(--surface2);border-radius:var(--radius);padding:12px;margin-bottom:16px">
+
+      <!-- Customer info -->
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:12px;margin-bottom:14px">
         <div id="pm-cust-info" style="font-size:13px"></div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>เดือน / ปี ที่ชำระ</label>
-          <input type="month" id="pm-month" value="">
+
+      <!-- Month -->
+      <div class="form-group" style="margin-bottom:12px">
+        <label>เดือน / ปี ที่ชำระ</label>
+        <input type="month" id="pm-month" value="">
+      </div>
+
+      <!-- Mode toggle -->
+      <div style="display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:14px">
+        <button id="pm-mode-normal" class="pm-mode-btn pm-mode-active" onclick="setPmMode('normal')">💳 ชำระครั้งเดียว</button>
+        <button id="pm-mode-split"  class="pm-mode-btn"               onclick="setPmMode('split')">✂️ แบ่งจ่าย 2 งวด</button>
+      </div>
+
+      <!-- ===== NORMAL MODE ===== -->
+      <div id="pm-normal-section">
+        <div class="form-row">
+          <div class="form-group">
+            <label>จำนวนเงิน (บาท)</label>
+            <input type="number" id="pm-amount" placeholder="16000" min="0">
+          </div>
+          <div class="form-group">
+            <label>ช่องทางการชำระ</label>
+            <select id="pm-channel">
+              <option>โอนเงิน</option><option>เงินสด</option><option>เช็ค</option><option>พร้อมเพย์</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group">
-          <label>จำนวนเงิน (บาท)</label>
-          <input type="number" id="pm-amount" placeholder="16000" min="0">
+        <div class="form-row">
+          <div class="form-group">
+            <label>วันที่ชำระ</label>
+            <input type="date" id="pm-date">
+          </div>
+          <div class="form-group">
+            <label>หมายเหตุ</label>
+            <input type="text" id="pm-note" placeholder="(ถ้ามี)">
+          </div>
         </div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>ช่องทางการชำระ</label>
-          <select id="pm-channel">
-            <option>โอนเงิน</option><option>เงินสด</option><option>เช็ค</option><option>พร้อมเพย์</option>
-          </select>
+
+      <!-- ===== SPLIT MODE ===== -->
+      <div id="pm-split-section" style="display:none">
+        <div id="pm-split-total-bar" style="display:flex;align-items:center;justify-content:space-between;background:var(--accent-light);border:1px solid var(--accent-mid);border-radius:var(--radius);padding:8px 14px;margin-bottom:14px;font-size:13px">
+          <span>ยอดรวมค่าบริการ</span>
+          <b id="pm-split-total-val" style="font-size:15px;color:var(--accent)">฿0</b>
         </div>
-        <div class="form-group">
-          <label>วันที่ชำระ</label>
-          <input type="date" id="pm-date">
+
+        <!-- Installment 1 -->
+        <div class="pm-inst-card" id="pm-inst-card-1">
+          <div class="pm-inst-head"><span class="pm-inst-num">งวดที่ 1</span><span id="pm-i1-status-tag"></span></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>จำนวนเงิน (บาท)</label>
+              <input type="number" id="pm-i1-amt" min="0" placeholder="8000" oninput="validateSplitTotal()">
+            </div>
+            <div class="form-group">
+              <label>ช่องทาง</label>
+              <select id="pm-i1-ch"><option>โอนเงิน</option><option>เงินสด</option><option>เช็ค</option><option>พร้อมเพย์</option></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>ช่วงเวลา: ตั้งแต่</label>
+              <input type="date" id="pm-i1-from">
+            </div>
+            <div class="form-group">
+              <label>ถึงวันที่</label>
+              <input type="date" id="pm-i1-to">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>วันที่ชำระ <span style="color:var(--text3);font-weight:400">(ว่างไว้ = ยังไม่ชำระ)</span></label>
+              <input type="date" id="pm-i1-paid">
+            </div>
+            <div class="form-group">
+              <label>หมายเหตุ</label>
+              <input type="text" id="pm-i1-note" placeholder="งวด 1/2">
+            </div>
+          </div>
         </div>
+
+        <!-- Installment 2 -->
+        <div class="pm-inst-card" id="pm-inst-card-2">
+          <div class="pm-inst-head"><span class="pm-inst-num">งวดที่ 2</span><span id="pm-i2-status-tag"></span></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>จำนวนเงิน (บาท)</label>
+              <input type="number" id="pm-i2-amt" min="0" placeholder="8000" oninput="validateSplitTotal()">
+            </div>
+            <div class="form-group">
+              <label>ช่องทาง</label>
+              <select id="pm-i2-ch"><option>โอนเงิน</option><option>เงินสด</option><option>เช็ค</option><option>พร้อมเพย์</option></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>ช่วงเวลา: ตั้งแต่</label>
+              <input type="date" id="pm-i2-from">
+            </div>
+            <div class="form-group">
+              <label>ถึงวันที่</label>
+              <input type="date" id="pm-i2-to">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>วันที่ชำระ <span style="color:var(--text3);font-weight:400">(ว่างไว้ = ยังไม่ชำระ)</span></label>
+              <input type="date" id="pm-i2-paid">
+            </div>
+            <div class="form-group">
+              <label>หมายเหตุ</label>
+              <input type="text" id="pm-i2-note" placeholder="งวด 2/2">
+            </div>
+          </div>
+        </div>
+
+        <!-- Validation bar -->
+        <div id="pm-split-warn" style="display:none;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:var(--radius);font-size:12px;color:#dc2626;margin-top:4px"></div>
+        <div id="pm-split-ok"   style="display:none;padding:8px 12px;background:#f0fdf4;border:1px solid #86efac;border-radius:var(--radius);font-size:12px;color:#15803d;margin-top:4px"></div>
       </div>
-      <div class="form-group">
-        <label>หมายเหตุ</label>
-        <input type="text" id="pm-note" placeholder="(ถ้ามี)">
-      </div>
+
     </div>
     <div class="modal-foot">
       <button class="btn btn-primary" onclick="savePay()">💾 บันทึก</button>
+      <button class="btn btn-danger" id="pm-clear-split-btn" style="display:none" onclick="clearSplitPayment()">🗑 ยกเลิกแบ่งงวด</button>
       <button class="btn" onclick="closeModal('pay-modal')">ยกเลิก</button>
     </div>
   </div>
@@ -4476,8 +4605,18 @@ function renderBilling() {
       </td>
       <td style="font-size:12px"><div style="font-weight:500">${c.bank.replace('ธนาคาร','')}</div><div style="color:var(--text3)">${c.account_no}</div></td>
       <td class="td-fee" style="color:${s==='paid'?'var(--paid)':s==='partial'?'var(--warning)':'var(--text3)'}">฿${fmt(p?.amount||0)}</td>
-      <td>${statusBadge(s)}</td>
-      <td style="font-size:12px;color:var(--text3)">${p?.date||'—'}</td>
+      <td>${(() => {
+        if (p?.installments?.length === 2) {
+          const i1 = p.installments[0], i2 = p.installments[1];
+          const p1 = !!i1.paidDate, p2 = !!i2.paidDate;
+          return `<div style="font-size:11px;white-space:nowrap">
+            <div class="bill-inst-row"><span class="bill-inst-check" style="color:${p1?'var(--paid)':'var(--text3)'}">${p1?'✓':'○'}</span> <span>งวด 1 ฿${fmt(i1.amount)}</span>${p1?`<span style="color:var(--text3);margin-left:2px">${i1.paidDate}</span>`:''}</div>
+            <div class="bill-inst-row"><span class="bill-inst-check" style="color:${p2?'var(--paid)':'var(--text3)'}">${p2?'✓':'○'}</span> <span>งวด 2 ฿${fmt(i2.amount)}</span>${p2?`<span style="color:var(--text3);margin-left:2px">${i2.paidDate}</span>`:''}</div>
+          </div>`;
+        }
+        return statusBadge(s);
+      })()}</td>
+      <td style="font-size:12px;color:var(--text3)">${p?.installments ? (p.installments.filter(i=>i.paidDate).map(i=>`งวด${p.installments.indexOf(i)+1}: ${i.paidDate}`).join('<br>')||'—') : (p?.date||'—')}</td>
       <td style="text-align:center">
         ${isInvoiced(c.id, currentMonth)
           ? `<span onclick="toggleInvoiced('${c.id}',currentMonth)" title="คลิกเพื่อยกเลิก"
@@ -4701,6 +4840,100 @@ function saveEditCustomer() {
 }
 
 // PAY MODAL
+// ===== SPLIT PAYMENT HELPERS =====
+let _pmMode = 'normal';
+
+function setPmMode(mode) {
+  _pmMode = mode;
+  document.getElementById('pm-normal-section').style.display = mode === 'normal' ? '' : 'none';
+  document.getElementById('pm-split-section').style.display  = mode === 'split'  ? '' : 'none';
+  document.getElementById('pm-mode-normal').classList.toggle('pm-mode-active', mode === 'normal');
+  document.getElementById('pm-mode-split').classList.toggle('pm-mode-active',  mode === 'split');
+  document.getElementById('pm-clear-split-btn').style.display = mode === 'split' ? '' : 'none';
+  if (mode === 'split') {
+    const totalBill = calcTotalBill(currentCustomer, document.getElementById('pm-month').value);
+    document.getElementById('pm-split-total-val').textContent = '฿' + fmt(totalBill);
+    // default 50/50 if empty
+    if (!document.getElementById('pm-i1-amt').value) {
+      const half = Math.round(totalBill / 2);
+      document.getElementById('pm-i1-amt').value = half;
+      document.getElementById('pm-i2-amt').value = totalBill - half;
+    }
+    validateSplitTotal();
+    updateInstStatusTags();
+  }
+}
+
+function validateSplitTotal() {
+  const totalBill = calcTotalBill(currentCustomer, document.getElementById('pm-month').value);
+  const i1 = parseFloat(document.getElementById('pm-i1-amt').value) || 0;
+  const i2 = parseFloat(document.getElementById('pm-i2-amt').value) || 0;
+  const sum = i1 + i2;
+  const warn = document.getElementById('pm-split-warn');
+  const ok   = document.getElementById('pm-split-ok');
+  if (Math.abs(sum - totalBill) > 0.01) {
+    warn.textContent = `⚠️ ยอดรวม ฿${fmt(sum)} ไม่ตรงกับค่าบริการ ฿${fmt(totalBill)} (ขาด/เกิน ฿${fmt(Math.abs(totalBill - sum))})`;
+    warn.style.display = 'block';
+    ok.style.display   = 'none';
+    return false;
+  }
+  warn.style.display = 'none';
+  ok.textContent = `✓ ยอดรวมถูกต้อง: ฿${fmt(sum)}`;
+  ok.style.display   = 'block';
+  return true;
+}
+
+function updateInstStatusTags() {
+  [1, 2].forEach(n => {
+    const paidDate = document.getElementById(`pm-i${n}-paid`)?.value;
+    const tag      = document.getElementById(`pm-i${n}-status-tag`);
+    const card     = document.getElementById(`pm-inst-card-${n}`);
+    if (!tag) return;
+    if (paidDate) {
+      tag.innerHTML  = `<span class="inst-badge-paid">✓ ชำระแล้ว ${paidDate}</span>`;
+      card?.classList.add('inst-paid');
+    } else {
+      tag.innerHTML  = `<span class="inst-badge-unpaid">○ ยังไม่ชำระ</span>`;
+      card?.classList.remove('inst-paid');
+    }
+  });
+}
+window.setPmMode          = setPmMode;
+window.validateSplitTotal = validateSplitTotal;
+window.updateInstStatusTags = updateInstStatusTags;
+
+function _loadInstallmentFields(insts) {
+  const defs = [{}, {}];
+  [0, 1].forEach(i => {
+    const n  = i + 1;
+    const it = insts[i] || defs[i];
+    document.getElementById(`pm-i${n}-amt`).value  = it.amount   || '';
+    document.getElementById(`pm-i${n}-ch`).value   = it.channel  || 'โอนเงิน';
+    document.getElementById(`pm-i${n}-from`).value = it.dateFrom || '';
+    document.getElementById(`pm-i${n}-to`).value   = it.dateTo   || '';
+    document.getElementById(`pm-i${n}-paid`).value = it.paidDate || '';
+    document.getElementById(`pm-i${n}-note`).value = it.note     || `งวด ${n}/2`;
+  });
+  updateInstStatusTags();
+}
+
+function _clearInstallmentFields() {
+  [1, 2].forEach(n => {
+    ['amt','from','to','paid','note'].forEach(f => {
+      const el = document.getElementById(`pm-i${n}-${f}`);
+      if (el) el.value = f === 'note' ? `งวด ${n}/2` : '';
+    });
+    document.getElementById(`pm-i${n}-ch`).value = 'โอนเงิน';
+  });
+}
+
+function clearSplitPayment() {
+  if (!confirm('ยกเลิกการแบ่งงวดและล้างข้อมูล?')) return;
+  _clearInstallmentFields();
+  setPmMode('normal');
+}
+window.clearSplitPayment = clearSplitPayment;
+
 function openPayModal(id){
   currentCustomer = id;
   const c = customers.find(x=>x.id===id);
@@ -4714,29 +4947,81 @@ function openPayModal(id){
     ${hasReq ? `<div style="font-size:12px;color:var(--text3);margin-top:1px">ค่าบริการ ฿${fmt(c.fee)} + เบิกของ ฿${fmt(totalBill-c.fee)}</div>` : ''}
     <div style="color:var(--text3);font-size:12px;margin-top:2px">${c.bank} · ${c.account_no} · ${c.account_name}</div>
   `;
-  const existing = payments[payKey(id,currentMonth)];
-  document.getElementById('pm-month').value   = currentMonth;
-  document.getElementById('pm-amount').value  = existing?.amount || totalBill;
-  document.getElementById('pm-channel').value = existing?.channel||'โอนเงิน';
-  document.getElementById('pm-date').value = existing?.date||new Date().toISOString().split('T')[0];
-  document.getElementById('pm-note').value = existing?.note||'';
+  document.getElementById('pm-month').value = currentMonth;
+  const existing = payments[payKey(id, currentMonth)];
+
+  if (existing?.installments?.length) {
+    // Load existing split payment
+    setPmMode('split');
+    _loadInstallmentFields(existing.installments);
+    validateSplitTotal();
+  } else {
+    // Normal mode
+    _clearInstallmentFields();
+    setPmMode('normal');
+    document.getElementById('pm-amount').value  = existing?.amount  || totalBill;
+    document.getElementById('pm-channel').value = existing?.channel || 'โอนเงิน';
+    document.getElementById('pm-date').value    = existing?.date    || new Date().toISOString().split('T')[0];
+    document.getElementById('pm-note').value    = existing?.note    || '';
+  }
+  // Reset validation messages
+  document.getElementById('pm-split-warn').style.display = 'none';
+  document.getElementById('pm-split-ok').style.display   = 'none';
   document.getElementById('pay-modal').classList.add('open');
 }
 
 function savePay(){
-  const id = currentCustomer;
+  const id    = currentCustomer;
   const month = document.getElementById('pm-month').value;
-  const amount = parseFloat(document.getElementById('pm-amount').value)||0;
-  const channel = document.getElementById('pm-channel').value;
-  const date = document.getElementById('pm-date').value;
-  const note = document.getElementById('pm-note').value;
-  payments[payKey(id,month)] = {amount,channel,date,note};
-  payHistory.unshift({date,id,name:customers.find(x=>x.id===id)?.name||'',month:thaiMonth(month),amount,channel,note});
+  let payRecord;
+
+  if (_pmMode === 'split') {
+    if (!validateSplitTotal()) { alert('ยอดรวม 2 งวดไม่ตรงกับค่าบริการ กรุณาตรวจสอบ'); return; }
+    const getInst = n => ({
+      amount:   parseFloat(document.getElementById(`pm-i${n}-amt`).value)  || 0,
+      channel:  document.getElementById(`pm-i${n}-ch`).value,
+      dateFrom: document.getElementById(`pm-i${n}-from`).value,
+      dateTo:   document.getElementById(`pm-i${n}-to`).value,
+      paidDate: document.getElementById(`pm-i${n}-paid`).value,
+      note:     document.getElementById(`pm-i${n}-note`).value || `งวด ${n}/2`,
+    });
+    const i1 = getInst(1);
+    const i2 = getInst(2);
+    // amount = sum of paid installments
+    let paidAmt = 0;
+    let latestDate = '';
+    if (i1.paidDate) { paidAmt += i1.amount; if (i1.paidDate > latestDate) latestDate = i1.paidDate; }
+    if (i2.paidDate) { paidAmt += i2.amount; if (i2.paidDate > latestDate) latestDate = i2.paidDate; }
+    payRecord = {
+      amount: paidAmt,
+      channel: i1.channel,
+      date: latestDate || i1.dateFrom || '',
+      note: `แบ่งจ่าย 2 งวด`,
+      installments: [i1, i2],
+    };
+  } else {
+    const amount  = parseFloat(document.getElementById('pm-amount').value)  || 0;
+    const channel = document.getElementById('pm-channel').value;
+    const date    = document.getElementById('pm-date').value;
+    const note    = document.getElementById('pm-note').value;
+    payRecord = { amount, channel, date, note };
+  }
+
+  payments[payKey(id, month)] = payRecord;
+  payHistory.unshift({
+    date:    payRecord.date,
+    id,
+    name:    customers.find(x=>x.id===id)?.name || '',
+    month:   thaiMonth(month),
+    amount:  payRecord.amount,
+    channel: payRecord.channel,
+    note:    payRecord.note,
+  });
   closeModal('pay-modal');
   renderBilling();
   renderTable();
   updateDashboard();
-  // Save to Firebase — sanitize keys (replace / with _)
+  // Save to Firebase
   function doSave(retry) {
     if (window._fbSave) {
       const safePayments = {};
