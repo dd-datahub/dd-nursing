@@ -2123,6 +2123,12 @@ function listenAllData() {
     const ap = document.querySelector(".page.active")?.id;
     if (ap === "page-billing") renderBilling?.();
   });
+
+  // cust_transfers — ประวัติย้ายสาขา
+  onValue(ref(db, "cust_transfers"), snap => {
+    custTransfers = snap.exists() ? snap.val() : {};
+    renderTable?.();
+  });
 }
 
 window._fbSave = fbSave;
@@ -2421,6 +2427,7 @@ if ('serviceWorker' in navigator) {
           </select>
           <select id="f-active" onchange="renderTable()">
             <option value="active">เฉพาะที่ใช้บริการอยู่</option>
+            <option value="transferred">🔀 ย้ายสาขาออกแล้ว</option>
             <option value="all">ทั้งหมด (รวมออกแล้ว)</option>
           </select>
           <button class="btn" style="font-size:11px;padding:4px 10px" onclick="if(window.fbDiagnose){const b=document.getElementById('f-branch')?.value||'DDUD';window.fbDiagnose(b.replace('สาขาอุดร','DDUD').replace('สาขา 1','DD1').replace('สาขา 2','DD2').replace('สาขา 3','DD3')||'DDUD');}else{alert('กรุณา login ก่อน');}">🔍 ตรวจสอบ Firebase</button>
@@ -3418,6 +3425,31 @@ if ('serviceWorker' in navigator) {
   </div>
 </div>
 
+<!-- Transfer Branch Modal -->
+<div class="modal-overlay" id="transfer-modal">
+  <div class="modal" style="width:420px;max-width:99vw">
+    <div class="modal-head">
+      <h2>🔀 ย้ายสาขา</h2>
+      <span class="modal-close" onclick="closeModal('transfer-modal')">×</span>
+    </div>
+    <div class="modal-body">
+      <div id="transfer-cust-info" style="padding:10px 14px;background:var(--surface2);border-radius:9px;margin-bottom:16px;font-size:13px"></div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:10px">เลือกสาขาใหม่</div>
+      <div id="transfer-branch-options" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+      <div style="margin-top:14px">
+        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:5px">หมายเหตุการย้าย <span style="color:var(--text3)">(ไม่บังคับ)</span></label>
+        <input type="text" id="transfer-note" placeholder="เช่น ย้ายตามผู้ดูแล, ย้ายตามคำขอครอบครัว..."
+          style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit">
+      </div>
+      <div id="transfer-warn" style="display:none;margin-top:10px;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#dc2626"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" id="transfer-confirm-btn" onclick="saveTransfer()" disabled>🔀 ยืนยันย้ายสาขา</button>
+      <button class="btn" onclick="closeModal('transfer-modal')">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
 <!-- Add Customer Modal -->
 <div class="modal-overlay" id="add-modal">
   <div class="modal">
@@ -4063,6 +4095,11 @@ function safeFbSave(path, data) {
 }
 
 function isInactive(id) { return !!discharged[id]; }
+function isTransferred(id) {
+  const c = customers.find(x => x.id === id);
+  return !!(c?._transferredTo);
+}
+function getTransferRecord(id) { return custTransfers[id.replace(/\//g,'_')] || null; }
 
 function openDischargeModal(id) {
   dischargeTarget = id;
@@ -4416,6 +4453,7 @@ window.customers = customers; // expose for diagnostic / module script access
 let payments = {}; // { "customerId_YYYY-MM": { amount, channel, date, note } }
 let invoiced = {}; // { "customerId_YYYY-MM": { date, by } } — ออกบิลแล้ว
 let custMemos = {}; // { "custId_safe": { text, tags:[], updatedAt } } — บันทึกภายใน (ลูกค้าไม่เห็น)
+let custTransfers = {}; // { "oldId_safe": { newId, fromBranch, toBranch, date, note } } — ประวัติย้ายสาขา
 let searchQuery = '';
 let currentPage = 1;
 let billPage = 1;
@@ -4514,8 +4552,9 @@ function filteredCustomers() {
   const status  = document.getElementById('f-status')?.value;
   const active  = document.getElementById('f-active')?.value || 'active';
 
-  // By default only show active (non-discharged) customers
-  if (active === 'active') data = data.filter(c => !isInactive(c.id));
+  // By default only show active (non-discharged, non-transferred-out) customers
+  if (active === 'active')      data = data.filter(c => !isInactive(c.id) && !isTransferred(c.id));
+  else if (active === 'transferred') data = data.filter(c => isTransferred(c.id));
 
   if(branch) data = data.filter(c=>c.branch===branch);
   if(bank)   data = data.filter(c=>c.bank===bank);
@@ -4544,20 +4583,25 @@ function renderTable() {
   document.getElementById('sum-fee').textContent = fmt(totalFee);
   const tbody = document.getElementById('cust-tbody');
   tbody.innerHTML = slice.map(c=>{
-    const inactive = isInactive(c.id);
+    const inactive   = isInactive(c.id);
+    const transferred = isTransferred(c.id);
+    const tr = getTransferRecord(c.id);
     return `
-    <tr class="${inactive?'row-inactive':''}" onclick="openDetail('${c.id}')">
-      <td class="td-id">${c.id}</td>
-      <td class="td-name">${c.name}${c._dupName?'<span class="dup-warn">ซ้ำ</span>':''}${inactive?'<span class="inactive-tag">ออกแล้ว</span>':''}</td>
-      <td class="td-branch">${branchTag(c.branch)}</td>
+    <tr class="${inactive||transferred?'row-inactive':''}" onclick="openDetail('${c.id}')">
+      <td class="td-id">${c.id}${transferred?`<div style="font-size:10px;color:#7c3aed;margin-top:1px">→ ${c._transferredTo}</div>`:''}</td>
+      <td class="td-name">${c.name}${c._dupName?'<span class="dup-warn">ซ้ำ</span>':''}${inactive?'<span class="inactive-tag">ออกแล้ว</span>':''}${transferred?'<span class="inactive-tag" style="background:#f3e8ff;color:#7c3aed;border-color:#c4b5fd">ย้ายสาขาแล้ว</span>':''}</td>
+      <td class="td-branch">${branchTag(c.branch)}${transferred&&tr?`<div style="font-size:10px;color:#7c3aed">→ ${tr.toBranch}</div>`:''}</td>
       <td class="td-fee">฿${fmt(c.fee)}</td>
       <td style="font-size:12px;color:var(--text2)">${c.bank.replace('ธนาคาร','')}</td>
       <td style="font-size:12px;color:var(--text3)">${c.due_date}</td>
-      <td>${inactive ? '<span class="status-badge status-inactive">คืนเคส</span>' : statusBadge(getPayStatus(c.id,currentMonth))}</td>
+      <td>${inactive ? '<span class="status-badge status-inactive">คืนเคส</span>' : transferred ? '<span class="status-badge" style="background:#f3e8ff;color:#7c3aed">ย้ายสาขา</span>' : statusBadge(getPayStatus(c.id,currentMonth))}</td>
       <td style="white-space:nowrap">
         ${inactive
           ? `<button class="btn btn-sm" onclick="event.stopPropagation();openRestoreModal('${c.id}')">↩ กลับเข้า</button>`
+          : transferred
+          ? `<button class="btn btn-sm" onclick="event.stopPropagation();confirmRestoreTransfer('${c.id}')" style="color:#7c3aed;border-color:#7c3aed">🔀 ย้ายกลับ</button>`
           : `<button class="btn btn-sm" onclick="event.stopPropagation();openPayModal('${c.id}')">💳 ชำระ</button>
+             <button class="btn btn-sm" onclick="event.stopPropagation();openTransferModal('${c.id}')" style="margin-left:4px;color:#7c3aed;border-color:#7c3aed" title="ย้ายสาขา">🔀</button>
              <button class="btn btn-sm" onclick="event.stopPropagation();openDischargeModal('${c.id}')" style="margin-left:4px;color:var(--warning);border-color:var(--warning)">🚪 ออก</button>`
         }
       </td>
@@ -4621,7 +4665,7 @@ function setMonth(m){
 }
 
 function filteredBilling() {
-  let data = customers.filter(c => !isInactive(c.id) && !isBeforeStart(c, currentMonth)); // ไม่แสดงลูกค้าที่ยังไม่ถึงเดือนเริ่มบริการ
+  let data = customers.filter(c => !isInactive(c.id) && !isTransferred(c.id) && !isBeforeStart(c, currentMonth)); // ไม่แสดงลูกค้าที่ยังไม่ถึงเดือนเริ่มบริการ หรือย้ายสาขาแล้ว
   const branch = document.getElementById('bf-branch')?.value;
   const status = document.getElementById('bf-status')?.value;
   if(branch) data = data.filter(c=>c.branch===branch);
@@ -4909,6 +4953,186 @@ function saveEditCustomer() {
     const cust = customers.find(x=>x.id===id);
     if (cust) window._fbSave('customers_extra/' + safeId, cust);
   }
+}
+
+// ===== TRANSFER BRANCH =====
+const _ALL_BRANCHES = ['สาขา 1', 'สาขา 2', 'สาขา 3', 'สาขาอุดร'];
+const _BRANCH_COLORS = { 'สาขา 1': '#1a5c9e', 'สาขา 2': '#1a6b4a', 'สาขา 3': '#7c3aed', 'สาขาอุดร': '#b8620a' };
+let _transferCustId = null;
+let _transferTargetBranch = null;
+
+function openTransferModal(custId) {
+  _transferCustId = custId;
+  _transferTargetBranch = null;
+  const c = customers.find(x => x.id === custId);
+  if (!c) return;
+
+  document.getElementById('transfer-cust-info').innerHTML = `
+    <div style="font-weight:700;font-size:14px;margin-bottom:4px">${c.name} <span style="color:var(--text3);font-size:12px">${c.id}</span></div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);margin-bottom:4px">
+      <span>สาขาปัจจุบัน:</span> ${branchTag(c.branch)}
+    </div>
+    <div style="font-size:11px;color:#7c3aed;background:#f3e8ff;padding:5px 9px;border-radius:7px;margin-top:4px">
+      ℹ️ รหัสลูกค้าจะเปลี่ยนตามสาขาใหม่ และรหัสเดิม (${c.id}) จะถูกเก็บไว้สำหรับกรณีย้ายกลับ
+    </div>`;
+
+  document.getElementById('transfer-note').value = '';
+  document.getElementById('transfer-warn').style.display = 'none';
+  document.getElementById('transfer-confirm-btn').disabled = true;
+  document.getElementById('transfer-confirm-btn').textContent = '🔀 ยืนยันย้ายสาขา';
+
+  // Render branch option cards with new ID preview
+  document.getElementById('transfer-branch-options').innerHTML = _ALL_BRANCHES.map(b => {
+    const isCurrent = b === c.branch;
+    const color = _BRANCH_COLORS[b] || '#555';
+    const previewId = isCurrent ? c.id : autoGenCustomerId(b);
+    return `<div id="tb-opt-${b.replace(/\s/g,'_')}"
+      onclick="${isCurrent ? '' : `selectTransferBranch('${b}')`}"
+      style="border:2px solid ${isCurrent ? color : 'var(--border)'};border-radius:11px;padding:12px 10px;
+             text-align:center;cursor:${isCurrent ? 'default' : 'pointer'};
+             background:${isCurrent ? '#f0f4ff' : 'var(--surface)'};
+             opacity:${isCurrent ? '.5' : '1'};transition:all .15s;position:relative">
+      ${isCurrent ? '<div style="position:absolute;top:5px;right:7px;font-size:10px;color:#888;font-weight:600">ปัจจุบัน</div>' : ''}
+      <div style="font-size:20px;margin-bottom:4px">${b.includes('อุดร') ? '🌾' : b.includes('1') ? '🏠' : b.includes('2') ? '🏡' : '🏘'}</div>
+      <div style="font-weight:700;font-size:12px;color:${color}">${b}</div>
+      ${!isCurrent ? `<div style="font-size:10px;color:#7c3aed;margin-top:3px;font-weight:600">รหัสใหม่: ${previewId}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  closeModal('detail-modal');
+  document.getElementById('transfer-modal').classList.add('open');
+}
+
+function selectTransferBranch(branch) {
+  _transferTargetBranch = branch;
+  const c = customers.find(x => x.id === _transferCustId);
+  const newId = autoGenCustomerId(branch);
+
+  _ALL_BRANCHES.forEach(b => {
+    const el = document.getElementById('tb-opt-' + b.replace(/\s/g,'_'));
+    if (!el) return;
+    const color = _BRANCH_COLORS[b] || '#555';
+    const isCurrent = c && b === c.branch;
+    el.style.borderColor = (b === branch) ? color : (isCurrent ? color : 'var(--border)');
+    el.style.background  = (b === branch) ? '#f0fff4' : (isCurrent ? '#f0f4ff' : 'var(--surface)');
+    el.style.boxShadow   = (b === branch) ? `0 0 0 2px ${color}44` : 'none';
+  });
+
+  const btn = document.getElementById('transfer-confirm-btn');
+  btn.disabled = false;
+  btn.textContent = `🔀 ย้าย ${c?.id} → ${newId}`;
+  document.getElementById('transfer-warn').style.display = 'none';
+}
+
+function saveTransfer() {
+  if (!_transferCustId || !_transferTargetBranch) return;
+  const c = customers.find(x => x.id === _transferCustId);
+  if (!c || c.branch === _transferTargetBranch) return;
+
+  const oldId     = c.id;
+  const oldBranch = c.branch;
+  const newId     = autoGenCustomerId(_transferTargetBranch);
+  const note      = document.getElementById('transfer-note').value.trim();
+  const dateStr   = new Date().toISOString().split('T')[0];
+  const oldSafe   = oldId.replace(/\//g,'_');
+  const newSafe   = newId.replace(/\//g,'_');
+
+  // 1. Create new customer object with new ID + new branch
+  const newCust = { ...c, id: newId, branch: _transferTargetBranch,
+                    _transferredFrom: oldId, _transferFromBranch: oldBranch };
+  delete newCust._transferredTo; // clean up any old field
+  customers.push(newCust);
+
+  // 2. Mark old customer as transferred-out (keep in customers array, just hidden)
+  c._transferredTo       = newId;
+  c._transferToBranch    = _transferTargetBranch;
+
+  // 3. Store transfer record
+  const rec = { oldId, newId, fromBranch: oldBranch, toBranch: _transferTargetBranch, date: dateStr, note };
+  custTransfers[oldSafe] = rec;
+
+  // 4. Save internal memo (transfer log)
+  const mKey = _memoKey(oldId);
+  const ex   = custMemos[mKey] || { text: '', tags: [] };
+  const logLine = `[ย้ายสาขา ${dateStr}] ${oldId} → ${newId}${note ? ' · ' + note : ''}`;
+  ex.text = ex.text ? ex.text + '\n' + logLine : logLine;
+  if (!ex.tags.includes('transfer')) ex.tags.push('transfer');
+  custMemos[mKey] = ex;
+
+  // 5. Firebase saves
+  if (window._fbSave) {
+    window._fbSave('customers_extra/' + newSafe, newCust);   // new customer
+    window._fbSave('customers_extra/' + oldSafe, c);          // old with _transferredTo
+    window._fbSave('cust_transfers/' + oldSafe, rec);          // transfer record
+    window._fbSave('cust_memos/' + mKey, custMemos[mKey]);    // memo log
+  }
+
+  closeModal('transfer-modal');
+  renderTable();
+  renderBilling?.();
+  updateDashboard?.();
+  _showToast(`✅ ย้าย ${c.name}: ${oldId} → ${newId} (${_transferTargetBranch})`);
+}
+
+function confirmRestoreTransfer(oldId) {
+  const oldCust = customers.find(x => x.id === oldId);
+  if (!oldCust?._transferredTo) return;
+  const newId   = oldCust._transferredTo;
+  const newCust = customers.find(x => x.id === newId);
+  const toBranch = oldCust._transferToBranch || (newCust?.branch) || '';
+  if (!confirm(`ย้าย ${oldCust.name} กลับเป็น ${oldId} (${oldCust.branch}) ?\n\nรหัส ${newId} (${toBranch}) จะถูกปิดใช้งาน`)) return;
+  restoreTransfer(oldId);
+}
+
+function restoreTransfer(oldId) {
+  const oldCust = customers.find(x => x.id === oldId);
+  if (!oldCust) return;
+  const newId   = oldCust._transferredTo;
+  const newCust = customers.find(x => x.id === newId);
+  const oldSafe = oldId.replace(/\//g,'_');
+  const newSafe = newId ? newId.replace(/\//g,'_') : null;
+  const dateStr = new Date().toISOString().split('T')[0];
+
+  // Restore old customer
+  delete oldCust._transferredTo;
+  delete oldCust._transferToBranch;
+
+  // Mark new ID as transferred-back (archived)
+  if (newCust) {
+    newCust._transferredTo  = oldId;
+    newCust._transferToBranch = oldCust.branch;
+  }
+
+  // Update transfer record
+  if (custTransfers[oldSafe]) delete custTransfers[oldSafe];
+
+  // Memo log
+  const mKey = _memoKey(oldId);
+  const ex   = custMemos[mKey] || { text: '', tags: [] };
+  ex.text = (ex.text ? ex.text + '\n' : '') + `[ย้ายกลับ ${dateStr}] ${newId} → ${oldId}`;
+  custMemos[mKey] = ex;
+
+  if (window._fbSave) {
+    window._fbSave('customers_extra/' + oldSafe, oldCust);
+    if (newSafe && newCust) window._fbSave('customers_extra/' + newSafe, newCust);
+    window._fbSave('cust_transfers/' + oldSafe, null);
+    window._fbSave('cust_memos/' + mKey, custMemos[mKey]);
+  }
+
+  renderTable();
+  renderBilling?.();
+  updateDashboard?.();
+  _showToast(`✅ ย้าย ${oldCust.name} กลับเป็น ${oldId} (${oldCust.branch})`);
+}
+
+function _showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1a6b4a;color:#fff;padding:10px 22px;border-radius:24px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.22);white-space:nowrap;pointer-events:none';
+  document.body.appendChild(t);
+  setTimeout(() => t.style.transition = 'opacity .4s', 1800);
+  setTimeout(() => t.style.opacity = '0', 1800);
+  setTimeout(() => t.remove(), 2200);
 }
 
 // PAY MODAL
@@ -7570,6 +7794,7 @@ const _MEMO_TAGS = [
   { label: '📋 ตรวจสอบยอดก่อนออกบิล', val: 'verify' },
   { label: '🏥 ดูแลพิเศษ',           val: 'special_care' },
   { label: '📞 ติดต่อล่วงหน้า',       val: 'call_first' },
+  { label: '🔀 ย้ายสาขา',             val: 'transfer' },
 ];
 
 function _memoKey(custId) { return custId.replace(/\//g, '_'); }
