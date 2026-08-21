@@ -7825,14 +7825,18 @@ function openMemoPopup(custId, btnEl) {
   popup.id = 'memo-popup';
   popup.className = 'memo-popup';
 
-  // Position near button
-  const rect = btnEl.getBoundingClientRect();
-  const popupW = 340;
+  // Position near button — flip upward if not enough space below
+  const rect     = btnEl.getBoundingClientRect();
+  const popupW   = 340;
+  const popupH   = 340; // estimated height
   let left = rect.left;
   if (left + popupW > window.innerWidth - 12) left = window.innerWidth - popupW - 12;
-  const topPos = rect.bottom + 6;
+  const spaceBelow = window.innerHeight - rect.bottom - 12;
+  const topPos = spaceBelow >= popupH
+    ? rect.bottom + 6                      // เพียงพอ → เปิดด้านล่าง
+    : Math.max(8, rect.top - popupH - 6); // ไม่พอ → เปิดด้านบน
 
-  popup.style.cssText = `top:${topPos}px;left:${left}px`;
+  popup.style.cssText = `top:${topPos}px;left:${left}px;max-height:${window.innerHeight - 16}px;overflow-y:auto`;
 
   popup.innerHTML = `
     <div class="memo-popup-head">
