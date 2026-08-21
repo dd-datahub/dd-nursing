@@ -5062,8 +5062,8 @@ function saveTransfer() {
 
   // 5. Firebase saves
   if (window._fbSave) {
-    window._fbSave('customers_extra/' + newSafe, newCust);   // new customer
-    window._fbSave('customers_extra/' + oldSafe, c);          // old with _transferredTo
+    window._fbSave('customers/' + newSafe, newCust);           // new customer — ต้องบันทึกที่ customers/ ไม่ใช่ customers_extra/ เพราะเป็นรหัสใหม่ที่ไม่มีใน seed
+    window._fbSave('customers_extra/' + oldSafe, c);           // old with _transferredTo
     window._fbSave('cust_transfers/' + oldSafe, rec);          // transfer record
     window._fbSave('cust_memos/' + mKey, custMemos[mKey]);    // memo log
   }
