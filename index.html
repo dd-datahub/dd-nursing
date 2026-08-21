@@ -4096,8 +4096,9 @@ function safeFbSave(path, data) {
 
 function isInactive(id) { return !!discharged[id]; }
 function isTransferred(id) {
-  const c = customers.find(x => x.id === id);
-  return !!(c?._transferredTo);
+  // ใช้ custTransfers เป็นแหล่งความจริง — ไม่ใช่ _transferredTo field บน customer object
+  // เพื่อป้องกัน field ค้างจาก customers_extra ที่อาจทำให้ลูกค้าหายไปผิดพลาด
+  return !!(custTransfers[id.replace(/\//g,'_')]);
 }
 function getTransferRecord(id) { return custTransfers[id.replace(/\//g,'_')] || null; }
 
