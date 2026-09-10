@@ -1560,7 +1560,6 @@ window._caseGoReq = _caseGoReq;
 window.addEventListener("firebaseReady", function() {
   loadData();
   initVitalSigns();
-  initIndivVS();
   renderIndivCustSelect();
 });
 
@@ -4006,100 +4005,124 @@ function loadActiveIndivSheet() {
   else if (s==='ihospsum') loadIndivHospSum();
 }
 
-// ─── SHEET 1: VS รายบุคคล ───
-const INDIV_VS_PRESETS = ['06:00','10:00','14:00','18:00','22:00','02:00'];
-let _ivDate = new Date().toISOString().split('T')[0];
-let _ivTime = '06:00';
-let _ivData = {};
-
-function initIndivVS() {
-  const d = document.getElementById('iv-date');
-  if (d) { d.value = _ivDate; d.addEventListener('change', () => { _ivDate = d.value; loadIndivVS(); }); }
-  renderIVTimeControl();
-}
-window.initIndivVS = initIndivVS;
-
-function renderIVTimeControl() {
-  const el = document.getElementById('iv-time-tabs');
-  if (!el) return;
-  el.innerHTML = `
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:5px;background:#f8f7fb;border:1px solid #e3ddec;border-radius:8px;padding:4px 8px">
-        <span style="font-size:13px;color:#888;white-space:nowrap">เวลา:</span>
-        <input type="time" id="iv-time-input" value="${_ivTime}"
-          onchange="setIVTime(this.value)"
-          style="border:none;background:transparent;font-size:16px;font-family:inherit;font-weight:600;color:#c2588a;outline:none;cursor:pointer;min-width:80px">
-        <span style="font-size:13px;color:#888">น.</span>
-      </div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap">
-        ${INDIV_VS_PRESETS.map(t =>
-          `<button class="vital-time-btn ${t===_ivTime?'active':''}" onclick="setIVTime('${t}')">${t}</button>`
-        ).join('')}
-      </div>
-    </div>`;
-}
-function setIVTime(t) {
-  if (!t) return;
-  // normalize HH:MM
-  if (t.length === 5) _ivTime = t;
-  else _ivTime = t.slice(0,5);
-  // update input value
-  const inp = document.getElementById('iv-time-input');
-  if (inp) inp.value = _ivTime;
-  // update preset button highlights
-  document.querySelectorAll('#iv-time-tabs .vital-time-btn').forEach(b =>
-    b.classList.toggle('active', b.textContent.trim() === _ivTime));
-  loadIndivVS();
-}
-window.setIVTime = setIVTime;
+// ─── SHEET 1: VS รายบุคคล (ตารางรายเดือน — แถวคงที่ 06:00 / 18:00 ต่อวัน) ───
+let _ivTableData = {};           // { "DD": { "0600": {T,P,R,BP,O2,DTX,Stool,Urine,note}, "1800": {...} } } ของเดือนที่เลือก
+let _ivOriginalKeys = new Set(); // "DD_HHMM" ที่มีข้อมูลอยู่แล้วใน Firebase ตอนโหลด — ใช้เช็คว่าต้องลบตอนบันทึกไหม
 
 function loadIndivVS() {
-  if (!_indivCustId || !_ivDate) { renderIndivVSForm(); return; }
-  window._get(window._ref(window._db, `indiv_vs/${_indivCustId}/${_ivDate}/${_ivTime.replace(':','')}`)).then(snap => {
-    _ivData = snap.exists() ? snap.val() : {};
-    renderIndivVSForm();
-  }).catch(() => { _ivData = {}; renderIndivVSForm(); });
+  _ivTableData = {};
+  _ivOriginalKeys = new Set();
+  if (!_indivCustId) { renderIndivVSTable(); return; }
+  window._get(window._ref(window._db, `indiv_vs/${_indivCustId}`)).then(snap => {
+    const all = snap.exists() ? snap.val() : {};
+    Object.entries(all).forEach(([date, times]) => {
+      if (!date.startsWith(_indivYM + '-')) return;
+      const dd = date.slice(8, 10);
+      Object.entries(times || {}).forEach(([slot, rec]) => {
+        if (slot !== '0600' && slot !== '1800') return; // ตารางแสดงแค่ 2 เวลาคงที่
+        const { savedBy, savedAt, ...fields } = rec || {};
+        if (!_ivTableData[dd]) _ivTableData[dd] = {};
+        _ivTableData[dd][slot] = fields;
+        _ivOriginalKeys.add(dd + '_' + slot);
+      });
+    });
+    renderIndivVSTable();
+  }).catch(() => renderIndivVSTable());
 }
 
-function renderIndivVSForm() {
-  const el = document.getElementById('iv-form');
+function updateIVCell(day, slot, field, val) {
+  if (!_ivTableData[day]) _ivTableData[day] = {};
+  if (!_ivTableData[day][slot]) _ivTableData[day][slot] = {};
+  _ivTableData[day][slot][field] = val;
+}
+window.updateIVCell = updateIVCell;
+
+function renderIndivVSTable() {
+  const el = document.getElementById('iv-table-wrap');
   if (!el) return;
   if (!_indivCustId) { el.innerHTML = '<div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div>'; return; }
-  const v = _ivData;
-  const inp = (f,ph,tp='text',extra='') =>
-    `<input type="${tp}" value="${v[f]||''}" placeholder="${ph}" oninput="updateIV('${f}',this.value)"
-      style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:15px;font-family:inherit" ${extra}>`;
+  const [y, m] = _indivYM.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const cell = (dd, slot, field, ph, w) => {
+    const v = ((_ivTableData[dd] || {})[slot] || {})[field] || '';
+    return `<input type="text" value="${v.replace(/"/g,'&quot;')}" placeholder="${ph}" oninput="updateIVCell('${dd}','${slot}','${field}',this.value)"
+      style="width:${w}px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center;font-family:inherit">`;
+  };
+  const noteCell = (dd, slot) => {
+    const v = ((_ivTableData[dd] || {})[slot] || {}).note || '';
+    return `<textarea placeholder="บันทึกอาการ..." oninput="updateIVCell('${dd}','${slot}','note',this.value)"
+      style="width:280px;min-height:38px;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:13px;font-family:inherit;text-align:left;white-space:pre-wrap;overflow-wrap:break-word;resize:vertical">${v.replace(/</g,'&lt;')}</textarea>`;
+  };
+  let rows = '';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dd = String(d).padStart(2,'0');
+    const bg = d % 2 === 0 ? '#f8f7fb' : '#fff';
+    [['0600','06:00'], ['1800','18:00']].forEach(([slot, label], i) => {
+      rows += `<tr style="background:${bg}">
+        ${i === 0 ? `<td rowspan="2" style="padding:4px 6px;border:1px solid #eee;text-align:center;font-size:14px;font-weight:600;vertical-align:middle">${d}</td>` : ''}
+        <td style="padding:3px 6px;border:1px solid #eee;text-align:center;font-size:12px;color:#888;white-space:nowrap">${label}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'T','T',48)}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'P','P',44)}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'R','R',40)}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'BP','120/80',68)}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'O2','O2',44)}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'DTX','DTX',44)}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'Stool','-',44)}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'Urine','-',44)}</td>
+        <td style="padding:2px;border:1px solid #eee">${noteCell(dd,slot)}</td>
+      </tr>`;
+    });
+  }
   el.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-      <div><div style="font-size:13px;color:#888;margin-bottom:3px">T (°C)</div>${inp('T','36.5','number','step="0.1" min="34" max="42"')}</div>
-      <div><div style="font-size:13px;color:#888;margin-bottom:3px">P (ครั้ง/นาที)</div>${inp('P','80','number','min="20" max="250"')}</div>
-      <div><div style="font-size:13px;color:#888;margin-bottom:3px">R (ครั้ง/นาที)</div>${inp('R','18','number','min="5" max="60"')}</div>
-      <div><div style="font-size:13px;color:#888;margin-bottom:3px">BP (mmHg)</div>${inp('BP','120/80')}</div>
-      <div><div style="font-size:13px;color:#888;margin-bottom:3px">O2 (%)</div>${inp('O2','98','number','min="50" max="100"')}</div>
-      <div><div style="font-size:13px;color:#888;margin-bottom:3px">DTX (mg/dL)</div>${inp('DTX','','number','min="0"')}</div>
-      <div><div style="font-size:13px;color:#888;margin-bottom:3px">Stool</div>${inp('Stool','-')}</div>
-      <div><div style="font-size:13px;color:#888;margin-bottom:3px">Urine</div>${inp('Urine','-')}</div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:900px">
+        <thead><tr style="background:#f1eef7">
+          <th style="padding:6px;border:1px solid #ddd">วันที่</th>
+          <th style="padding:6px;border:1px solid #ddd">เวลา</th>
+          <th style="padding:6px;border:1px solid #ddd">T</th>
+          <th style="padding:6px;border:1px solid #ddd">P</th>
+          <th style="padding:6px;border:1px solid #ddd">R</th>
+          <th style="padding:6px;border:1px solid #ddd">BP</th>
+          <th style="padding:6px;border:1px solid #ddd">O2</th>
+          <th style="padding:6px;border:1px solid #ddd">DTX</th>
+          <th style="padding:6px;border:1px solid #ddd">Stool</th>
+          <th style="padding:6px;border:1px solid #ddd">Urine</th>
+          <th style="padding:6px;border:1px solid #ddd">อาการและอาการเปลี่ยนแปลง</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
     </div>
-    <div style="margin-bottom:10px">
-      <div style="font-size:13px;color:#888;margin-bottom:3px">อาการและอาการเปลี่ยนแปลง</div>
-      <textarea oninput="updateIV('note',this.value)" placeholder="บันทึกอาการ..."
-        style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:15px;font-family:inherit;min-height:60px;resize:vertical">${v.note||''}</textarea>
-    </div>
-    <button onclick="saveIndivVS()" class="save-btn">💾 บันทึก VS</button>`;
+    <button onclick="saveIndivVSTable()" class="save-btn" style="margin-top:10px">💾 บันทึก VS ทั้งเดือน</button>`;
 }
-function updateIV(f,val){_ivData[f]=val;}
-window.updateIV=updateIV;
-async function saveIndivVS(){
-  if(!_indivCustId)return;
-  const user=window._currentUser;
-  const hasData=Object.entries(_ivData).some(([k,v])=>k!=='note'&&v)||(!!_ivData.note);
-  try{
-    await window._set(window._ref(window._db,`indiv_vs/${_indivCustId}/${_ivDate}/${_ivTime.replace(':','')}`),
-      hasData?{..._ivData,savedBy:user?(user.displayName||user.email):'staff',savedAt:new Date().toISOString()}:null);
-    showStatus('✓ บันทึก VS รายบุคคลแล้ว','ok');
-  }catch(e){showStatus('บันทึกไม่สำเร็จ: '+e.message,'err');}
+
+async function saveIndivVSTable() {
+  if (!_indivCustId) return;
+  const user = window._currentUser;
+  const savedBy = user ? (user.displayName || user.email) : 'staff';
+  const [y, m] = _indivYM.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  try {
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dd = String(d).padStart(2,'0');
+      const date = `${_indivYM}-${dd}`;
+      for (const slot of ['0600','1800']) {
+        const rec = ((_ivTableData[dd] || {})[slot]) || {};
+        const hasData = Object.values(rec).some(v => v);
+        const key = dd + '_' + slot;
+        const path = `indiv_vs/${_indivCustId}/${date}/${slot}`;
+        if (hasData) {
+          await window._set(window._ref(window._db, path), {...rec, savedBy, savedAt: new Date().toISOString()});
+          _ivOriginalKeys.add(key);
+        } else if (_ivOriginalKeys.has(key)) {
+          await window._set(window._ref(window._db, path), null);
+          _ivOriginalKeys.delete(key);
+        }
+      }
+    }
+    showStatus('✓ บันทึก VS ทั้งเดือนแล้ว','ok');
+  } catch(e) { showStatus('บันทึกไม่สำเร็จ: '+e.message,'err'); }
 }
-window.saveIndivVS=saveIndivVS;
+window.saveIndivVSTable = saveIndivVSTable;
 
 // ─── SHEET 2: IO / DTX / BMI ───
 let _iioMonth = new Date().toISOString().slice(0,7);
@@ -5020,8 +5043,6 @@ body{font-family:"Sarabun",sans-serif;background:#f8f7fb;color:#2b2733;font-size
 .page-section{display:none}
 .page-section.active{display:block}
 /* vital signs */
-.vital-time-btn{padding:6px 13px;border:1.5px solid #ccc;border-radius:20px;background:#fff;font-size:14px;font-family:inherit;cursor:pointer;color:#555;transition:all .15s;font-weight:500}
-.vital-time-btn.active{background:#c2588a;color:#fff;border-color:#c2588a;font-weight:600}
 .vital-input{width:100%;padding:5px 4px;border:1px solid #ddd;border-radius:5px;font-size:14px;font-family:inherit;text-align:center;background:#fafafa}
 .vital-input:focus{outline:none;border-color:#c2588a;background:#fff}
 .vital-row:hover td{background:#f8fff8}
@@ -6090,11 +6111,7 @@ if ('serviceWorker' in navigator) {
         <!-- PANEL 1: VS รายบุคคล -->
         <div class="isheet-panel active card" id="ip-ivs">
           <div style="font-size:14px;font-weight:600;color:#555;margin-bottom:8px">📊 บันทึกสัญญาณชีพรายบุคคล</div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-            <input type="date" id="iv-date" style="padding:6px 10px;border:1px solid #ddd;border-radius:8px;font-size:15px">
-          </div>
-          <div id="iv-time-tabs" style="margin-bottom:10px"></div>
-          <div id="iv-form"><div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div></div>
+          <div id="iv-table-wrap"><div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div></div>
         </div>
         <!-- PANEL 2: IO / DTX / BMI -->
         <div class="isheet-panel card" id="ip-iio">
