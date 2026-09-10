@@ -1324,7 +1324,8 @@ function selectFromDashboard(id) {
 let _caseProfileId = null;
 
 // ── สถานะการชำระเงินจริง (sync จาก payments/ ที่แอดมินบันทึกในหน้าชำระบิล index.html) ──
-function payKey(id, month) { return `${id}_${month}`; }
+// หมายเหตุ: ต้อง sanitize "/" ใน id เพราะ Firebase เก็บ key ของ payments/ แบบ sanitize ไว้แล้ว (ดู index.html)
+function payKey(id, month) { return `${id.replace(/\//g,'_')}_${month}`; }
 function reqKey(custId, month) { return `${custId.replace(/\//g,'_')}_${month}`; }
 function parseDueDay(due_date) {
   if (!due_date) return 1;
