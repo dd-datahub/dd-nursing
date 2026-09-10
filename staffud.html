@@ -427,6 +427,7 @@ function renderCustList() {
   filteredCustomers = list;
 
   const el = document.getElementById("cust-list");
+  if (!el) return; // Block 1 (เลือกลูกค้า) ถูกเอาออกจากหน้าเบิกของแล้ว — เลือกลูกค้าจาก profile card ในข้อมูลเคสแทน
   if (list.length === 0) {
     el.innerHTML = `<div style="text-align:center;padding:16px;color:#999;font-size:13px">ไม่พบลูกค้า</div>`;
     return;
@@ -467,6 +468,8 @@ function selectCust(id) {
   selectedCustId = id;
   const c = allCustomers.find(x=>x.id===id);
   renderCustList();
+  const noCustEl = document.getElementById("req-no-cust");
+  if (noCustEl) noCustEl.style.display = "none";
   document.getElementById("form-section").style.display = "block";
   document.getElementById("cust-banner").innerHTML = `
     <b>${c.name}</b>
@@ -1034,13 +1037,21 @@ let _dashBranchOpen = {'สาขาอุดร': true};
 let _dashMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'); // init to current month
 let _dashAvailYears = (()=>{ const y=now.getFullYear(); return [y]; })();
 
+const _thaiMonthFull = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
 function buildDashMonthTabs() {
-  const el = document.getElementById('dash-month-tabs');
-  if (!el) return;
+  const trigger = document.getElementById('dash-month-trigger');
+  const popover = document.getElementById('dash-month-popover');
+  if (!trigger || !popover) return;
   const thaiM = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   if (!_dashMonth) _dashMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
   const [cyStr, cmStr] = _dashMonth.split('-');
   const cy = parseInt(cyStr), cm = parseInt(cmStr);
+
+  // Compact trigger — shows the selected month/year, opens the popover on click
+  trigger.innerHTML = `📅 ${_thaiMonthFull[cm-1]} ${cy+543} <span class="dash-month-trigger-arrow">▾</span>`;
+
+  // Popover content — same year/month pill picker, now hidden until opened
   const yearPills = _dashAvailYears.map(y => {
     return `<button class="iym-pill${y===cy?' iym-active':''}" onclick="setDashYear(${y})">${y+543}</button>`;
   }).join('');
@@ -1048,9 +1059,27 @@ function buildDashMonthTabs() {
     const mo = i+1;
     return `<button class="iym-pill${mo===cm?' iym-active':''}" onclick="setDashMonth('${cy}-${String(mo).padStart(2,'0')}')">${m}</button>`;
   }).join('');
-  el.innerHTML =
+  popover.innerHTML =
     `<div class="iym-row">${yearPills}<button class="iym-pill iym-add" onclick="addDashYear()">+ ปี</button></div>` +
     `<div class="iym-row">${monthPills}</div>`;
+}
+
+function toggleDashMonthPicker() {
+  const popover = document.getElementById('dash-month-popover');
+  if (!popover) return;
+  const opening = popover.style.display === 'none';
+  popover.style.display = opening ? 'block' : 'none';
+  if (opening) {
+    // ปิด popover เมื่อคลิกนอกกรอบ
+    setTimeout(() => {
+      document.addEventListener('click', function _closeDashMonthPopover(e) {
+        if (!popover.contains(e.target) && e.target.id !== 'dash-month-trigger') {
+          popover.style.display = 'none';
+          document.removeEventListener('click', _closeDashMonthPopover);
+        }
+      });
+    }, 0);
+  }
 }
 
 function setDashMonth(ym) {
@@ -1058,6 +1087,8 @@ function setDashMonth(ym) {
   buildDashMonthTabs();
   renderDashboard();
   renderSidebarCases(); // sync sidebar due dates to selected month
+  const popover = document.getElementById('dash-month-popover');
+  if (popover) popover.style.display = 'none';
 }
 function setDashYear(ceYear) {
   _dashMonth = ceYear + '-' + _dashMonth.slice(5);
@@ -1160,6 +1191,15 @@ function setPage(page) {
   // page-specific inits
   if (page === 'ssud')  staffudSchedInit();
   if (page === 'indiv') renderIndivYMPicker();
+  if (page === 'req') {
+    const noCustEl = document.getElementById('req-no-cust');
+    const formEl   = document.getElementById('form-section');
+    if (noCustEl && formEl) {
+      const hasCust = !!selectedCustId;
+      noCustEl.style.display = hasCust ? 'none' : 'block';
+      formEl.style.display   = hasCust ? 'block' : 'none';
+    }
+  }
   // sync bottom nav
   setBottomNav(page);
   // auto-close sidebar on mobile
@@ -1291,18 +1331,26 @@ function openCaseProfile(id) {
     </div>
     <div class="cp-body">
       <div class="cp-stats">
-        <div class="cp-stat">
-          <div class="cp-stat-label">ครบกำหนด</div>
+        <div class="cp-stat" style="flex:none;width:100%">
+          <div class="cp-stat-label">ครบกำหนด (${_thaiMonthFull[parseInt(ym.slice(5))-1]} ${parseInt(ym.slice(0,4))+543})</div>
           <div class="cp-stat-value">📅 ${fmtDueForMonth(c.due_date, ym)}</div>
         </div>
-        <div class="cp-stat">
-          <div class="cp-stat-label">ส่งบิล</div>
-          <div class="cp-stat-value" style="color:${s.billSent?'#3f7d3a':'#9f97ab'}">${s.billSent?'✅ แล้ว':'ยังไม่ส่ง'}</div>
-        </div>
-        <div class="cp-stat">
-          <div class="cp-stat-label">ชำระเงิน</div>
-          <div class="cp-stat-value" style="color:${s.paid?'#3f7d3a':'#9f97ab'}">${s.paid?'✅ แล้ว':'ยังไม่จ่าย'}</div>
-        </div>
+      </div>
+      <div class="cp-pay-status">
+        <button class="status-toggle-btn ${s.billSent?'active-green':''}" onclick="_caseTogglePayStatus('billSent')">
+          <span class="chk-box">✓</span>
+          <span class="chk-label">
+            <span>📄 ส่งบิลให้ลูกค้าแล้ว</span>
+            <div class="chk-date">${s.billSentAt ? 'ติ๊กเมื่อ ' + fmtDate(s.billSentAt) : ''}</div>
+          </span>
+        </button>
+        <button class="status-toggle-btn ${s.paid?'active-blue':''}" onclick="_caseTogglePayStatus('paid')">
+          <span class="chk-box">✓</span>
+          <span class="chk-label">
+            <span>💰 ลูกค้าจ่ายแล้ว</span>
+            <div class="chk-date">${s.paidAt ? 'ติ๊กเมื่อ ' + fmtDate(s.paidAt) : ''}</div>
+          </span>
+        </button>
       </div>
       <div class="cp-actions">
         <button class="cp-btn cp-btn-primary" onclick="_caseGoIndiv()">📝 ลงบันทึกรายบุคคล</button>
@@ -1313,6 +1361,28 @@ function openCaseProfile(id) {
   document.getElementById('case-profile-modal').style.display   = 'block';
 }
 window.openCaseProfile = openCaseProfile;
+
+async function _caseTogglePayStatus(field) {
+  if (!_caseProfileId) return;
+  const ym  = _dashMonth || (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
+  const key = _caseProfileId.replace(/\//g,'_') + '_' + ym;
+  const s      = _staffStatus[key] || {};
+  const newVal = !s[field];
+  const atKey  = field === 'billSent' ? 'billSentAt' : 'paidAt';
+  const update = { ...s, [field]: newVal, [atKey]: newVal ? todayISO : null };
+  _staffStatus[key] = update;
+  openCaseProfile(_caseProfileId); // re-render popup with updated status
+  renderDashboard?.();
+  try {
+    await window._set(window._ref(window._db, "staff_status/" + key), update);
+    const cn = allCustomers.find(x=>x.id===_caseProfileId)?.name || _caseProfileId;
+    const label = field === 'billSent'
+      ? (newVal ? 'ส่งบิลแล้ว' : 'ยกเลิกส่งบิล')
+      : (newVal ? 'ลูกค้าจ่ายแล้ว' : 'ยกเลิกจ่าย');
+    _logAction(label, `${cn} — ${ym}`);
+  } catch(e) { alert('บันทึกไม่สำเร็จ: ' + e.message); }
+}
+window._caseTogglePayStatus = _caseTogglePayStatus;
 
 function closeCaseProfile() {
   document.getElementById('case-profile-overlay').style.display = 'none';
@@ -3832,6 +3902,22 @@ body{font-family:"Sarabun",sans-serif;background:#f8f7fb;color:#2b2733;font-size
 .dot-gray{background:#ccc}
 /* month tabs */
 .month-tabs{margin-bottom:14px;background:#f8f6f3;border:1px solid #e8e4de;border-radius:12px;padding:10px 12px}
+
+/* ── ตัวกรองเดือน/ปีแบบกะทัดรัด (แทนที่แถวปุ่มเดือนที่กระจายออกมา) ── */
+.dash-month-filter{position:relative;margin-bottom:12px}
+.dash-month-trigger{
+  display:flex;align-items:center;gap:6px;width:100%;padding:10px 14px;
+  background:#fff;border:1.5px solid #e3ddec;border-radius:10px;cursor:pointer;
+  font-family:inherit;font-size:13.5px;font-weight:600;color:#5a4f96;text-align:left;
+  transition:border-color .15s;
+}
+.dash-month-trigger:hover{border-color:#7266b0}
+.dash-month-trigger-arrow{margin-left:auto;color:#9f97ab;font-size:11px}
+.dash-month-popover{
+  position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:40;
+  background:#f8f6f3;border:1px solid #e8e4de;border-radius:12px;padding:10px 12px;
+  box-shadow:0 10px 24px rgba(43,39,51,.14);
+}
 .month-tabs::-webkit-scrollbar{display:none}
 .month-tab-btn{padding:6px 14px;border:1px solid #e3ddec;border-radius:20px;cursor:pointer;font-size:12px;color:#666;background:#fff;font-family:inherit;transition:all .15s;white-space:nowrap;flex-shrink:0;-webkit-tap-highlight-color:transparent}
 .month-tab-btn:hover{border-color:#7266b0;color:#7266b0}
@@ -3966,7 +4052,10 @@ if ('serviceWorker' in navigator) {
 
       <!-- ===== PAGE: DASHBOARD ===== -->
       <div class="page-section" id="page-dashboard">
-        <div class="month-tabs" id="dash-month-tabs"></div>
+        <div class="dash-month-filter">
+          <button class="dash-month-trigger" id="dash-month-trigger" onclick="toggleDashMonthPicker()"></button>
+          <div class="dash-month-popover" id="dash-month-popover" style="display:none"></div>
+        </div>
         <input type="text" class="dash-search" id="dash-search"
           placeholder="🔍 ค้นหาชื่อ / รหัสลูกค้า..."
           oninput="filterDashboard(this.value)">
@@ -3988,19 +4077,11 @@ if ('serviceWorker' in navigator) {
     </div>
 
 
-  <!-- Step 1: เลือกลูกค้า -->
-  <div class="card">
-    <div class="card-title">1. เลือกลูกค้า</div>
-    <!-- Branch filter -->
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <span style="padding:6px 14px;background:#eeecf9;color:#7266b0;border-radius:20px;font-size:13px;font-weight:600">🏙️ สาขาอุดร</span>
-    </div>
-    <!-- Customer search -->
-    <input type="text" class="search-box" placeholder="🔍 ค้นหาชื่อหรือรหัสลูกค้า..." oninput="onCustSearch(this.value)">
-    <!-- Customer list -->
-    <div class="cust-list" id="cust-list">
-      <div style="text-align:center;padding:16px;color:#999;font-size:13px">กำลังโหลด...</div>
-    </div>
+  <!-- ไม่มีลูกค้าที่เลือกไว้ (ปกติจะเลือกมาจาก profile card ในหน้าข้อมูลเคสแล้ว) -->
+  <div class="card" id="req-no-cust" style="display:none;text-align:center;padding:28px 16px">
+    <div style="font-size:32px;margin-bottom:8px">🛏</div>
+    <div style="font-size:13px;color:#666;margin-bottom:14px">กรุณาเลือกลูกค้าจากหน้าข้อมูลเคสก่อน</div>
+    <button class="cat-tab active" style="padding:8px 20px" onclick="setPage('dashboard')">📋 ไปที่ข้อมูลเคส</button>
   </div>
 
   <!-- Step 2: เลือกเดือน + รายการเบิก -->
@@ -4014,24 +4095,7 @@ if ('serviceWorker' in navigator) {
       </div>
     </div>
 
-    <!-- สถานะการชำระเงิน -->
-    <div class="card">
-      <div class="card-title">💳 สถานะการชำระเงิน</div>
-      <button id="btn-bill-sent" class="status-toggle-btn" onclick="toggleBillSent()">
-        <span class="chk-box">✓</span>
-        <span class="chk-label">
-          <span>📄 ส่งบิลให้ลูกค้าแล้ว</span>
-          <div class="chk-date" id="bill-sent-date"></div>
-        </span>
-      </button>
-      <button id="btn-paid" class="status-toggle-btn" onclick="togglePaid()">
-        <span class="chk-box">✓</span>
-        <span class="chk-label">
-          <span>💰 ลูกค้าจ่ายแล้ว</span>
-          <div class="chk-date" id="paid-date"></div>
-        </span>
-      </button>
-    </div>
+    <!-- สถานะการชำระเงิน — ย้ายไปอัพเดทที่ popup profile card ในข้อมูลเคสแล้ว -->
 
     <div class="card">
       <div class="card-title">3. รายการที่ต้องการเบิก</div>
@@ -4527,17 +4591,9 @@ if ('serviceWorker' in navigator) {
       <span class="bnav-icon">📋</span>
       <span class="bnav-label">ข้อมูลเคส</span>
     </button>
-    <button class="bnav-item" id="bnav-req" onclick="setPage('req')">
-      <span class="bnav-icon">📦</span>
-      <span class="bnav-label">บันทึกเบิก</span>
-    </button>
     <button class="bnav-item" id="bnav-vital" onclick="setPage('vital')">
       <span class="bnav-icon">📝</span>
       <span class="bnav-label">บันทึกรวม</span>
-    </button>
-    <button class="bnav-item" id="bnav-indiv" onclick="setPage('indiv')">
-      <span class="bnav-icon">👤</span>
-      <span class="bnav-label">รายบุคคล</span>
     </button>
     <button class="bnav-item" id="bnav-ssud" onclick="setPage('ssud')">
       <span class="bnav-icon">📅</span>
