@@ -4743,7 +4743,6 @@ body{font-family:"Sarabun",sans-serif;background:#f8f7fb;color:#2b2733;font-size
 
 /* Tablet: 2-col dashboard */
 @media(max-width:960px) and (min-width:641px){
-  .dash-grid{grid-template-columns:repeat(2,1fr)}
   .main-content{padding:12px 14px 14px}
 }
 
@@ -4752,7 +4751,7 @@ body{font-family:"Sarabun",sans-serif;background:#f8f7fb;color:#2b2733;font-size
   .main-content{padding-bottom:16px}
   .topbar{padding:10px 14px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
   .card{padding:12px 14px;border-radius:10px}
-  .dash-grid{grid-template-columns:1fr;gap:10px}
+  .dash-grid{gap:10px}
   .branch-card-body{max-height:none!important;overflow-y:visible}
   .dash-case-row{padding:10px 14px}
   .dash-case-name{font-size:15px}
@@ -4834,8 +4833,7 @@ body{font-family:"Sarabun",sans-serif;background:#f8f7fb;color:#2b2733;font-size
 #status{padding:9px 14px;border-radius:8px;font-size:15px;border:1px solid;margin-bottom:10px;display:none}
 #form-section{display:none}
 /* ===== DASHBOARD ===== */
-.dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
-@media(max-width:700px){.dash-grid{grid-template-columns:1fr}}
+.dash-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:16px}
 .branch-card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden}
 .branch-card-header{padding:10px 14px;display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px}
 .branch-card-header .bc-count{margin-left:auto;font-size:13px;background:rgba(255,255,255,.35);padding:2px 8px;border-radius:10px;font-weight:600}
