@@ -219,7 +219,8 @@ let activeBranch = "";
 let custSearch = "";
 let itemSearch = "";
 let activeType = "cloth";
-let _staffStatus = {}; // { "custId_YYYY-MM": { billSent, billSentAt, paid, paidAt } }
+let _staffStatus = {}; // { "custId_YYYY-MM": { billSent, billSentAt } } — billSent ยังเป็น flag ที่ staff กดเอง
+let payments = {}; // { "custId_YYYY-MM": { amount, channel, date, note } } — sync จากหน้าชำระบิลของแอดมิน (index.html)
 
 const now = new Date();
 const todayISO = now.toISOString().split("T")[0];
@@ -283,11 +284,18 @@ function loadData() {
     }
   });
 
-  // === Realtime: staff_status (bill sent / paid flags) ===
+  // === Realtime: staff_status (bill sent flag — กดเองโดย staff) ===
   window._onValue(window._ref(window._db, "staff_status"), snap => {
     _staffStatus = snap.exists() ? snap.val() : {};
     renderPayStatus();
     renderDashboard?.(); // update status dots on dashboard
+  });
+
+  // === Realtime: payments (สถานะชำระเงินจริง — sync จากหน้าชำระบิลของแอดมิน) ===
+  window._onValue(window._ref(window._db, "payments"), snap => {
+    payments = snap.exists() ? snap.val() : {};
+    renderDashboard?.();
+    if (_caseProfileId) openCaseProfile(_caseProfileId);
   });
 
   // === Realtime: requisitions for selected customer/month ===
@@ -1340,6 +1348,9 @@ function renderDashboard() {
               const initial   = shortName.trim().charAt(0) || '?';
               const k = (cust.id.replace(/\//g,'_'))+'_'+ym;
               const s = _staffStatus[k]||{};
+              const payStat = getPayStatus(cust.id, ym);
+              const payDotClass = payStat==='paid' ? 'blue' : payStat==='partial' ? 'orange' : 'gray';
+              const payDotTitle = payStat==='paid' ? 'ชำระแล้ว' : payStat==='partial' ? 'ชำระบางส่วน' : 'ยังไม่ชำระ';
               return `
               <div class="dash-case-card ${cust.id === selectedCustId ? 'selected' : ''}"
                    onclick="openCaseProfile('${cust.id}')">
@@ -1354,7 +1365,7 @@ function renderDashboard() {
                   <span class="dcc-due">📅 ${fmtDueForMonth(cust.due_date, ym)}</span>
                   <span class="dcc-dots">
                     <span class="status-dot dot-${s.billSent?'green':'gray'}" title="${s.billSent?'ส่งบิลแล้ว':'ยังไม่ส่งบิล'}"></span>
-                    <span class="status-dot dot-${s.paid?'blue':'gray'}" title="${s.paid?'จ่ายแล้ว':'ยังไม่จ่าย'}"></span>
+                    <span class="status-dot dot-${payDotClass}" title="${payDotTitle}"></span>
                   </span>
                 </div>
               </div>`;
@@ -1377,6 +1388,77 @@ function selectFromDashboard(id) {
 // ── Case profile popup (เปิดจากการ์ดในหน้าข้อมูลเคส) ──
 let _caseProfileId = null;
 
+// ── สถานะการชำระเงินจริง (sync จาก payments/ ที่แอดมินบันทึกในหน้าชำระบิล index.html) ──
+function payKey(id, month) { return `${id}_${month}`; }
+function reqKey(custId, month) { return `${custId.replace(/\//g,'_')}_${month}`; }
+function parseDueDay(due_date) {
+  if (!due_date) return 1;
+  const d = parseInt(due_date.split('-')[0]);
+  return isNaN(d) ? 1 : d;
+}
+function parseStartYM(due_date) {
+  if (!due_date) return null;
+  const parts = due_date.split('-');
+  if (parts.length < 3) return null;
+  const _thM = {'ม.ค.':1,'ก.พ.':2,'มี.ค.':3,'เม.ย.':4,'พ.ค.':5,'มิ.ย.':6,
+                 'ก.ค.':7,'ส.ค.':8,'ก.ย.':9,'ต.ค.':10,'พ.ย.':11,'ธ.ค.':12};
+  const mo = _thM[parts[1]];
+  const yr = parseInt(parts[2]) - 543;
+  if (!mo || isNaN(yr) || yr < 2000) return null;
+  return `${yr}-${String(mo).padStart(2,'0')}`;
+}
+function isBeforeStart(c, ym) {
+  const startYM = parseStartYM(c.due_date);
+  return startYM ? ym < startYM : false;
+}
+function _reqListFor(custId, month) {
+  const raw = (window._allRequisitions || {})[reqKey(custId, month)];
+  return Array.isArray(raw) ? raw : (raw ? Object.values(raw) : []);
+}
+function calcTotalBill(custId, month) {
+  const c = allCustomers.find(x => x.id === custId);
+  if (!c) return 0;
+  if (isBeforeStart(c, month)) return 0;
+  const dueDay   = parseDueDay(c.due_date);
+  const [ty, tm] = month.split('-').map(Number);
+  const prevDate = new Date(ty, tm - 2, 1);
+  const prevYM   = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
+
+  const pad = n => String(n).padStart(2,'0');
+  const rangeStartStr = `${prevDate.getFullYear()}-${pad(prevDate.getMonth()+1)}-${pad(dueDay)}`;
+  const rangeEndDate  = new Date(ty, tm-1, dueDay - 1);
+  const rangeEndStr   = `${rangeEndDate.getFullYear()}-${pad(rangeEndDate.getMonth()+1)}-${pad(rangeEndDate.getDate())}`;
+
+  const allReq = [..._reqListFor(custId, prevYM), ..._reqListFor(custId, month)];
+  const inRange = allReq.filter(e => {
+    if (!e.savedAt) return true;
+    const d = e.savedAt.slice(0, 10);
+    return d >= rangeStartStr && d <= rangeEndStr;
+  });
+  const reqTotal = inRange.reduce((s, e) => {
+    const item = catalog.find(x => x.id === e.itemId);
+    if (!item) return s;
+    const unitPrice = (e.price != null) ? e.price : (item.price||0);
+    return s + unitPrice * (parseInt(e.qty)||0);
+  }, 0);
+  return (c.fee||0) + reqTotal;
+}
+function getPayStatus(id, month) {
+  const k = payKey(id, month);
+  if (!payments[k]) return 'unpaid';
+  const c = allCustomers.find(x=>x.id===id);
+  if (!c) return 'unpaid';
+  const total = calcTotalBill(id, month);
+  if (payments[k].amount >= total) return 'paid';
+  if (payments[k].amount > 0) return 'partial';
+  return 'unpaid';
+}
+function _payStatusBadge(s) {
+  if (s === 'paid')    return '<span class="cp-pay-badge cp-badge-paid">ชำระแล้ว</span>';
+  if (s === 'partial') return '<span class="cp-pay-badge cp-badge-partial">บางส่วน</span>';
+  return '<span class="cp-pay-badge cp-badge-unpaid">ยังไม่ชำระ</span>';
+}
+
 function openCaseProfile(id) {
   const c = allCustomers.find(x => x.id === id);
   if (!c) return;
@@ -1386,6 +1468,8 @@ function openCaseProfile(id) {
   const ym = _dashMonth || (now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
   const k  = id.replace(/\//g,'_') + '_' + ym;
   const s  = _staffStatus[k] || {};
+  const payStat = getPayStatus(id, ym);
+  const pay     = payments[payKey(id, ym)];
 
   document.getElementById('case-profile-body').innerHTML = `
     <div class="cp-head">
@@ -1410,13 +1494,13 @@ function openCaseProfile(id) {
             <div class="chk-date">${s.billSentAt ? 'ติ๊กเมื่อ ' + fmtDate(s.billSentAt) : ''}</div>
           </span>
         </button>
-        <button class="status-toggle-btn ${s.paid?'active-blue':''}" onclick="_caseTogglePayStatus('paid')">
-          <span class="chk-box">✓</span>
+        <div class="cp-pay-readonly">
           <span class="chk-label">
-            <span>💰 ลูกค้าจ่ายแล้ว</span>
-            <div class="chk-date">${s.paidAt ? 'ติ๊กเมื่อ ' + fmtDate(s.paidAt) : ''}</div>
+            <span>💰 สถานะการชำระเงิน</span>
+            <div class="chk-date">${pay?.date ? 'ชำระล่าสุด ' + fmtDate(pay.date) : 'อ้างอิงจากหน้าชำระบิล (แอดมิน)'}</div>
           </span>
-        </button>
+          ${_payStatusBadge(payStat)}
+        </div>
       </div>
       <div class="cp-actions">
         <button class="cp-btn cp-btn-primary" onclick="_caseGoIndiv()">📝 ลงบันทึกรายบุคคล</button>
@@ -5001,7 +5085,15 @@ body{font-family:"Sarabun",sans-serif;background:#f8f7fb;color:#2b2733;font-size
 .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .dot-green{background:#c2588a}
 .dot-blue{background:#4a86bd}
+.dot-orange{background:#a8660a}
 .dot-gray{background:#ccc}
+.cp-pay-readonly{width:100%;padding:13px 16px;border:1.5px solid #e3ddec;border-radius:12px;background:#faf9fc;color:#555;margin-bottom:10px;display:flex;align-items:center;gap:12px;justify-content:space-between}
+.cp-pay-readonly .chk-label{line-height:1.3}
+.cp-pay-readonly .chk-date{font-size:13px;color:#aaa;font-weight:400;margin-top:2px}
+.cp-pay-badge{font-size:12px;padding:4px 10px;border-radius:20px;font-weight:600;white-space:nowrap;flex-shrink:0}
+.cp-badge-paid{background:#e7f3e2;color:#3f7d3a}
+.cp-badge-partial{background:#fbf1de;color:#a8660a}
+.cp-badge-unpaid{background:#fdecec;color:#d7263d}
 /* month tabs */
 .month-tabs{margin-bottom:14px;background:#f8f6f3;border:1px solid #e8e4de;border-radius:12px;padding:10px 12px}
 .month-tabs::-webkit-scrollbar{display:none}
