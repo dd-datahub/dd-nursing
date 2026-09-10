@@ -3614,7 +3614,10 @@ if ('serviceWorker' in navigator) {
           </select>
         </div>
       </div>
-      <div class="form-group"><label>ชื่อลูกค้า</label><input type="text" id="add-name" placeholder="คุณ ชื่อ นามสกุล"></div>
+      <div class="form-row">
+        <div class="form-group"><label>ชื่อลูกค้า</label><input type="text" id="add-name" placeholder="คุณ ชื่อ นามสกุล"></div>
+        <div class="form-group"><label>รหัสเตียง</label><input type="text" id="add-bed" placeholder="เช่น B1-05"></div>
+      </div>
       <div class="form-group"><label>ที่อยู่</label><textarea id="add-address" rows="2"></textarea></div>
       <div class="form-row">
         <div class="form-group"><label>เบอร์โทรศัพท์</label><input type="text" id="add-phone"></div>
@@ -3755,9 +3758,15 @@ if ('serviceWorker' in navigator) {
           </select>
         </div>
       </div>
-      <div class="form-group">
-        <label>ชื่อลูกค้า</label>
-        <input type="text" id="edit-name">
+      <div class="form-row">
+        <div class="form-group">
+          <label>ชื่อลูกค้า</label>
+          <input type="text" id="edit-name">
+        </div>
+        <div class="form-group">
+          <label>รหัสเตียง</label>
+          <input type="text" id="edit-bed" placeholder="เช่น B1-05">
+        </div>
       </div>
       <div class="form-group">
         <label>ที่อยู่</label>
@@ -5039,6 +5048,7 @@ function openEditModal(id) {
   closeModal('detail-modal');
   document.getElementById('edit-id').value       = c.id;
   document.getElementById('edit-name').value     = c.name;
+  document.getElementById('edit-bed').value      = c.bed_code || '';
   document.getElementById('edit-branch').value   = c.branch;
   document.getElementById('edit-address').value  = c.address;
   document.getElementById('edit-phone').value    = c.phone;
@@ -5074,6 +5084,7 @@ function saveEditCustomer() {
   const c  = customers.find(x => x.id === id);
   if (!c) return;
   c.name        = document.getElementById('edit-name').value.trim();
+  c.bed_code    = document.getElementById('edit-bed').value.trim();
   c.branch      = document.getElementById('edit-branch').value;
   c.address     = document.getElementById('edit-address').value.trim();
   c.phone       = document.getElementById('edit-phone').value.trim();
@@ -5564,6 +5575,7 @@ function saveCustomer(){
   const c = {
     id: document.getElementById('add-id').value.trim(),
     name: document.getElementById('add-name').value.trim(),
+    bed_code: document.getElementById('add-bed').value.trim(),
     branch: document.getElementById('add-branch').value,
     fee: parseFloat(document.getElementById('add-fee').value)||0,
     address: document.getElementById('add-address').value.trim(),

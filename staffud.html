@@ -222,6 +222,7 @@ let itemSearch = "";
 let activeType = "cloth";
 let _staffStatus = {}; // { "custId_YYYY-MM": { billSent, billSentAt } } — billSent ยังเป็น flag ที่ staff กดเอง
 let payments = {}; // { "custId_YYYY-MM": { amount, channel, date, note } } — sync จากหน้าชำระบิลของแอดมิน (index.html)
+let _custBedCodes = {}; // { custId (มี "/"): bed_code } — sync จากการแก้ไขข้อมูลลูกค้าของแอดมิน (index.html)
 
 const now = new Date();
 const todayISO = now.toISOString().split("T")[0];
@@ -296,6 +297,17 @@ function loadData() {
   window._onValue(window._ref(window._db, "payments"), snap => {
     payments = snap.exists() ? snap.val() : {};
     renderDashboard?.();
+    if (_caseProfileId) openCaseProfile(_caseProfileId);
+  });
+
+  // === Realtime: customers_extra (รหัสเตียง และข้อมูลอื่นที่แอดมินแก้ไข) ===
+  window._onValue(window._ref(window._db, "customers_extra"), snap => {
+    _custBedCodes = {};
+    if (snap.exists()) {
+      Object.values(snap.val()).forEach(v => {
+        if (v && v.id && v.bed_code) _custBedCodes[v.id] = v.bed_code;
+      });
+    }
     if (_caseProfileId) openCaseProfile(_caseProfileId);
   });
 
@@ -1406,6 +1418,7 @@ function openCaseProfile(id) {
   const s  = _staffStatus[k] || {};
   const payStat = getPayStatus(id, ym);
   const pay     = payments[payKey(id, ym)];
+  const bedCode = c.bed_code || _custBedCodes[c.id] || '';
 
   document.getElementById('case-profile-body').innerHTML = `
     <div class="cp-head">
@@ -1413,6 +1426,7 @@ function openCaseProfile(id) {
       <div class="cp-avatar">${initial}</div>
       <div class="cp-name">${shortName}</div>
       <div class="cp-id">${c.id}</div>
+      <div class="cp-bed-tag">🛏️ ${bedCode ? 'เตียง ' + bedCode : 'ยังไม่ระบุรหัสเตียง'}</div>
     </div>
     <div class="cp-body">
       <div class="cp-stats">
@@ -3907,6 +3921,7 @@ body{font-family:"Sarabun",sans-serif;background:#f8f7fb;color:#2b2733;font-size
 }
 .cp-name{color:#fff;font-weight:700;font-size:16px}
 .cp-id{color:rgba(255,255,255,.82);font-size:12px;margin-top:2px}
+.cp-bed-tag{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:12px;background:rgba(255,255,255,.25);color:#fff;font-size:11px;font-weight:600}
 .cp-body{margin-top:-24px;background:#fff;border-radius:20px 20px 0 0;position:relative;padding:16px 18px 18px}
 .cp-stats{display:flex;justify-content:center;gap:8px;margin-bottom:16px}
 .cp-stat{text-align:center;flex:1;background:#f7f5fc;border-radius:10px;padding:8px 4px;min-width:0}
