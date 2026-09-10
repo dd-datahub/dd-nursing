@@ -307,6 +307,7 @@ function loadData() {
         if (v && v.id && v.bed_code) _custBedCodes[v.id] = v.bed_code;
       });
     }
+    renderDashboard?.();
     if (_caseProfileId) openCaseProfile(_caseProfileId);
   });
 
@@ -1363,6 +1364,7 @@ function renderDashboard() {
               const payStat = getPayStatus(cust.id, ym);
               const payDotClass = payStat==='paid' ? 'blue' : payStat==='partial' ? 'orange' : 'gray';
               const payDotTitle = payStat==='paid' ? 'ชำระแล้ว' : payStat==='partial' ? 'ชำระบางส่วน' : 'ยังไม่ชำระ';
+              const bedCode = cust.bed_code || _custBedCodes[cust.id] || '';
               return `
               <div class="dash-case-card ${cust.id === selectedCustId ? 'selected' : ''}"
                    onclick="openCaseProfile('${cust.id}')">
@@ -1370,7 +1372,7 @@ function renderDashboard() {
                   <div class="dcc-avatar">${initial}</div>
                   <div style="min-width:0;flex:1">
                     <div class="dcc-name">${shortName}</div>
-                    <div class="dcc-id">${cust.id}</div>
+                    <div class="dcc-id">${cust.id}${bedCode ? ' · 🛏️ '+bedCode : ''}</div>
                   </div>
                 </div>
                 <div class="dcc-stats">
