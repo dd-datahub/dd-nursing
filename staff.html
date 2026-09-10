@@ -4090,20 +4090,20 @@ function renderIndivVSTable() {
     });
   }
   el.innerHTML = `
-    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%">
+    <div style="overflow:auto;-webkit-overflow-scrolling:touch;max-width:100%;max-height:65vh">
       <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:900px;table-layout:fixed">
         <thead><tr style="background:#f1eef7">
-          <th style="width:40px;padding:6px;border:1px solid #ddd">วันที่</th>
-          <th style="width:56px;padding:6px;border:1px solid #ddd">เวลา</th>
-          <th style="width:56px;padding:6px;border:1px solid #ddd">T</th>
-          <th style="width:52px;padding:6px;border:1px solid #ddd">P</th>
-          <th style="width:48px;padding:6px;border:1px solid #ddd">R</th>
-          <th style="width:76px;padding:6px;border:1px solid #ddd">BP</th>
-          <th style="width:52px;padding:6px;border:1px solid #ddd">O2</th>
-          <th style="width:52px;padding:6px;border:1px solid #ddd">DTX</th>
-          <th style="width:52px;padding:6px;border:1px solid #ddd">Stool</th>
-          <th style="width:52px;padding:6px;border:1px solid #ddd">Urine</th>
-          <th style="padding:6px;border:1px solid #ddd">อาการและอาการเปลี่ยนแปลง</th>
+          <th style="width:40px;padding:6px;border:1px solid #ddd;position:sticky;top:0;background:#f1eef7;z-index:2">วันที่</th>
+          <th style="width:56px;padding:6px;border:1px solid #ddd;position:sticky;top:0;background:#f1eef7;z-index:2">เวลา</th>
+          <th style="width:56px;padding:6px;border:1px solid #ddd;position:sticky;top:0;background:#f1eef7;z-index:2">T</th>
+          <th style="width:52px;padding:6px;border:1px solid #ddd;position:sticky;top:0;background:#f1eef7;z-index:2">P</th>
+          <th style="width:48px;padding:6px;border:1px solid #ddd;position:sticky;top:0;background:#f1eef7;z-index:2">R</th>
+          <th style="width:76px;padding:6px;border:1px solid #ddd;position:sticky;top:0;background:#f1eef7;z-index:2">BP</th>
+          <th style="width:52px;padding:6px;border:1px solid #ddd;position:sticky;top:0;background:#f1eef7;z-index:2">O2</th>
+          <th style="width:52px;padding:6px;border:1px solid #ddd;position:sticky;top:0;background:#f1eef7;z-index:2">DTX</th>
+          <th style="width:52px;padding:6px;border:1px solid #ddd;position:sticky;top:0;background:#f1eef7;z-index:2">Stool</th>
+          <th style="width:52px;padding:6px;border:1px solid #ddd;position:sticky;top:0;background:#f1eef7;z-index:2">Urine</th>
+          <th style="padding:6px;border:1px solid #ddd;position:sticky;top:0;background:#f1eef7;z-index:2">อาการและอาการเปลี่ยนแปลง</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
