@@ -1018,7 +1018,7 @@ function selectSidebarCase(id) {
 
 let _dashSearch = '';
 let _dashBranchOpen = {'สาขา 1': true, 'สาขา 2': true, 'สาขา 3': true};
-let _dashBranchFilter = ''; // '' = ทุกสาขา, else 'สาขา 1' / 'สาขา 2' / 'สาขา 3'
+let _dashBranchFilter = 'สาขา 1'; // เลือกสาขาใดสาขาหนึ่งเสมอ — ไม่มีตัวเลือก "ทุกสาขา" แล้ว
 let _dashMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'); // init to current month
 let _dashAvailYears = (()=>{ const y=now.getFullYear(); return [y]; })();
 const _thaiMonthFull = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
@@ -1027,10 +1027,9 @@ function buildDashBranchFilter() {
   const el = document.getElementById('dash-branch-filter');
   if (!el) return;
   const branches = ['สาขา 1','สาขา 2','สาขา 3'];
-  const chips = [
-    `<button class="dash-branch-chip${!_dashBranchFilter?' active':''}" onclick="setDashBranchFilter('')">ทุกสาขา</button>`,
-    ...branches.map(b => `<button class="dash-branch-chip${_dashBranchFilter===b?' active':''}" onclick="setDashBranchFilter('${b}')">${b}</button>`)
-  ].join('');
+  const chips = branches
+    .map(b => `<button class="dash-branch-chip${_dashBranchFilter===b?' active':''}" onclick="setDashBranchFilter('${b}')">${b}</button>`)
+    .join('');
   el.innerHTML = chips;
 }
 
