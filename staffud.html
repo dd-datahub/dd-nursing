@@ -2962,15 +2962,15 @@ function renderIndivVSTable() {
   if (!_indivCustId) { el.innerHTML = '<div style="text-align:center;padding:20px;color:#bbb">กรุณาเลือกผู้ป่วยก่อน</div>'; return; }
   const [y, m] = _indivYM.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
-  const cell = (dd, slot, field, ph, w) => {
+  const cell = (dd, slot, field, ph) => {
     const v = ((_ivTableData[dd] || {})[slot] || {})[field] || '';
     return `<input type="text" value="${v.replace(/"/g,'&quot;')}" placeholder="${ph}" oninput="updateIVCell('${dd}','${slot}','${field}',this.value)"
-      style="width:${w}px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center;font-family:inherit">`;
+      style="width:100%;box-sizing:border-box;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:center;font-family:inherit">`;
   };
   const noteCell = (dd, slot) => {
     const v = ((_ivTableData[dd] || {})[slot] || {}).note || '';
     return `<textarea placeholder="บันทึกอาการ..." oninput="updateIVCell('${dd}','${slot}','note',this.value)"
-      style="width:280px;min-height:38px;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:13px;font-family:inherit;text-align:left;white-space:pre-wrap;overflow-wrap:break-word;resize:vertical">${v.replace(/</g,'&lt;')}</textarea>`;
+      style="width:100%;min-width:220px;box-sizing:border-box;min-height:38px;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:13px;font-family:inherit;text-align:left;white-space:pre-wrap;overflow-wrap:break-word;resize:vertical">${v.replace(/</g,'&lt;')}</textarea>`;
   };
   let rows = '';
   for (let d = 1; d <= daysInMonth; d++) {
@@ -2980,32 +2980,32 @@ function renderIndivVSTable() {
       rows += `<tr style="background:${bg}">
         ${i === 0 ? `<td rowspan="2" style="padding:4px 6px;border:1px solid #eee;text-align:center;font-size:14px;font-weight:600;vertical-align:middle">${d}</td>` : ''}
         <td style="padding:3px 6px;border:1px solid #eee;text-align:center;font-size:12px;color:#888;white-space:nowrap">${label}</td>
-        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'T','T',48)}</td>
-        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'P','P',44)}</td>
-        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'R','R',40)}</td>
-        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'BP','120/80',68)}</td>
-        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'O2','O2',44)}</td>
-        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'DTX','DTX',44)}</td>
-        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'Stool','-',44)}</td>
-        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'Urine','-',44)}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'T','T')}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'P','P')}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'R','R')}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'BP','120/80')}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'O2','O2')}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'DTX','DTX')}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'Stool','-')}</td>
+        <td style="padding:2px;border:1px solid #eee">${cell(dd,slot,'Urine','-')}</td>
         <td style="padding:2px;border:1px solid #eee">${noteCell(dd,slot)}</td>
       </tr>`;
     });
   }
   el.innerHTML = `
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%">
-      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:900px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:900px;table-layout:fixed">
         <thead><tr style="background:#f1eef7">
-          <th style="padding:6px;border:1px solid #ddd">วันที่</th>
-          <th style="padding:6px;border:1px solid #ddd">เวลา</th>
-          <th style="padding:6px;border:1px solid #ddd">T</th>
-          <th style="padding:6px;border:1px solid #ddd">P</th>
-          <th style="padding:6px;border:1px solid #ddd">R</th>
-          <th style="padding:6px;border:1px solid #ddd">BP</th>
-          <th style="padding:6px;border:1px solid #ddd">O2</th>
-          <th style="padding:6px;border:1px solid #ddd">DTX</th>
-          <th style="padding:6px;border:1px solid #ddd">Stool</th>
-          <th style="padding:6px;border:1px solid #ddd">Urine</th>
+          <th style="width:40px;padding:6px;border:1px solid #ddd">วันที่</th>
+          <th style="width:56px;padding:6px;border:1px solid #ddd">เวลา</th>
+          <th style="width:56px;padding:6px;border:1px solid #ddd">T</th>
+          <th style="width:52px;padding:6px;border:1px solid #ddd">P</th>
+          <th style="width:48px;padding:6px;border:1px solid #ddd">R</th>
+          <th style="width:76px;padding:6px;border:1px solid #ddd">BP</th>
+          <th style="width:52px;padding:6px;border:1px solid #ddd">O2</th>
+          <th style="width:52px;padding:6px;border:1px solid #ddd">DTX</th>
+          <th style="width:52px;padding:6px;border:1px solid #ddd">Stool</th>
+          <th style="width:52px;padding:6px;border:1px solid #ddd">Urine</th>
           <th style="padding:6px;border:1px solid #ddd">อาการและอาการเปลี่ยนแปลง</th>
         </tr></thead>
         <tbody>${rows}</tbody>
