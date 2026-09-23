@@ -222,6 +222,7 @@ let activeType = "cloth";
 let _staffStatus = {}; // { "custId_YYYY-MM": { billSent, billSentAt } } — billSent ยังเป็น flag ที่ staff กดเอง
 let payments = {}; // { "custId_YYYY-MM": { amount, channel, date, note } } — sync จากหน้าชำระบิลของแอดมิน (index.html)
 let _custBedCodes = {}; // { custId (มี "/"): bed_code } — sync จากการแก้ไขข้อมูลลูกค้าของแอดมิน (index.html)
+let _rcptEditsCache = {}; // { "custId_safe_YYYY-MM": [lineItems] } — sync จากใบเสร็จที่แอดมินแก้ไข (index.html)
 
 const now = new Date();
 const todayISO = now.toISOString().split("T")[0];
@@ -307,6 +308,13 @@ function loadData() {
         if (v && v.id && v.bed_code) _custBedCodes[v.id] = v.bed_code;
       });
     }
+    renderDashboard?.();
+    if (_caseProfileId) openCaseProfile(_caseProfileId);
+  });
+
+  // === Realtime: rcpt_edits (ยอดใบเสร็จจริงที่แอดมินแก้ไข — ใช้คำนวณสถานะการชำระเงิน) ===
+  window._onValue(window._ref(window._db, "rcpt_edits"), snap => {
+    _rcptEditsCache = snap.exists() ? snap.val() : {};
     renderDashboard?.();
     if (_caseProfileId) openCaseProfile(_caseProfileId);
   });
@@ -1458,12 +1466,26 @@ function calcTotalBill(custId, month) {
   }, 0);
   return (c.fee||0) + reqTotal;
 }
+// ยอดค่าบริการ "จริง" ตามใบเสร็จ — sync จาก rcpt_edits ที่แอดมินแก้ไข/เพิ่ม/ลดในใบเสร็จ (index.html)
+// ถ้ายังไม่เคยแก้ใบเสร็จเดือนนั้น จะ fallback เป็น calcTotalBill (เท่ากับรายการเริ่มต้นที่ใบเสร็จจะสร้างให้)
+function calcReceiptTotal(id, month) {
+  const key = id.replace(/\//g,'_') + '_' + month;
+  const saved = _rcptEditsCache[key];
+  if (!saved || !saved.length) return calcTotalBill(id, month);
+  const totalDiscount = saved.filter(d => d.isDiscount).reduce((s,d) =>
+    s + Math.abs(parseFloat(d.amount) || (parseFloat(d.qty)||0)*(parseFloat(d.price)||0)), 0);
+  const subTotalBeforeDisc = saved.reduce((s,item) => {
+    if (item.isOther || item.isDiscount) return s;
+    return s + (parseFloat(item.amount) || (parseFloat(item.qty)||0)*(parseFloat(item.price)||0));
+  }, 0);
+  return subTotalBeforeDisc - totalDiscount;
+}
 function getPayStatus(id, month) {
   const k = payKey(id, month);
   if (!payments[k]) return 'unpaid';
   const c = allCustomers.find(x=>x.id===id);
   if (!c) return 'unpaid';
-  const total = calcTotalBill(id, month);
+  const total = calcReceiptTotal(id, month);
   if (payments[k].amount >= total) return 'paid';
   if (payments[k].amount > 0) return 'partial';
   return 'unpaid';

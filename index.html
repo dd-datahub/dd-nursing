@@ -4666,12 +4666,39 @@ function calcTotalBill(custId, month) {
 
   return c.fee + reqTotal;
 }
+
+// ยอดค่าบริการ "จริง" ตามใบเสร็จ (รวมรายการที่แอดมินแก้ไข/เพิ่ม/ลดในใบเสร็จแล้ว)
+// ถ้ายังไม่เคยเปิด/แก้ใบเสร็จเดือนนี้ → คำนวณจากรายการเริ่มต้นเดียวกับที่ใบเสร็จจะสร้างให้ (เท่ากับ calcTotalBill)
+function calcReceiptTotal(custId, month) {
+  const c = customers.find(x => x.id === custId);
+  if (!c) return 0;
+  const saved = _loadRcptEdits(custId, month);
+  let items;
+  if (saved && saved.length > 0) {
+    items = saved;
+  } else {
+    const overrideDay = parseDueDay(c.due_date);
+    const [ty, tm] = month.split('-').map(Number);
+    const prevDate = new Date(ty, tm - 2, 1);
+    const prevYM   = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
+    const reqListCur  = requisitions[reqKey(custId, month)] || [];
+    const reqListPrev = requisitions[reqKey(custId, prevYM)] || [];
+    items = rcptBuildDefaultItems(c, overrideDay, month, prevYM, [...reqListPrev, ...reqListCur]);
+  }
+  const totalDiscount = items.filter(d => d.isDiscount).reduce((s, d) =>
+    s + Math.abs(parseFloat(d.amount) || (parseFloat(d.qty)||0)*(parseFloat(d.price)||0)), 0);
+  const subTotalBeforeDisc = items.reduce((s, item) => {
+    if (item.isOther || item.isDiscount) return s;
+    return s + (parseFloat(item.amount) || (parseFloat(item.qty)||0)*(parseFloat(item.price)||0));
+  }, 0);
+  return subTotalBeforeDisc - totalDiscount;
+}
 function getPayStatus(id, month) {
   const k = payKey(id, month);
   if(!payments[k]) return 'unpaid';
   const c = customers.find(x=>x.id===id);
   if(!c) return 'unpaid';
-  const total = calcTotalBill(id, month);
+  const total = calcReceiptTotal(id, month);
   if(payments[k].amount >= total) return 'paid';
   if(payments[k].amount > 0) return 'partial';
   return 'unpaid';
@@ -4834,7 +4861,7 @@ function renderBilling() {
   data.forEach(c=>{
     const s    = getPayStatus(c.id,currentMonth);
     const paid = payments[payKey(c.id,currentMonth)]?.amount||0;
-    const tot  = calcTotalBill(c.id, currentMonth);
+    const tot  = calcReceiptTotal(c.id, currentMonth);
     if(s==='paid'){paidN++;paidAmt+=tot;}
     else if(s==='partial'){partialN++;partialAmt+=paid;}
     else{unpaidN++;unpaidAmt+=tot;}
@@ -4846,7 +4873,7 @@ function renderBilling() {
   document.getElementById('b-unpaid-n').textContent=unpaidN;
   document.getElementById('b-unpaid-amt').textContent='฿'+fmt(unpaidAmt);
 
-  const totalFee  = data.reduce((s,c)=>s+calcTotalBill(c.id,currentMonth),0);
+  const totalFee  = data.reduce((s,c)=>s+calcReceiptTotal(c.id,currentMonth),0);
   const totalPaid = data.reduce((s,c)=>s+(payments[payKey(c.id,currentMonth)]?.amount||0),0);
   document.getElementById('bill-sum-total').textContent=fmt(totalFee);
   document.getElementById('bill-sum-paid').textContent=fmt(totalPaid);
@@ -4856,15 +4883,15 @@ function renderBilling() {
     const k    = payKey(c.id,currentMonth);
     const p    = payments[k];
     const s    = getPayStatus(c.id,currentMonth);
-    const tot  = calcTotalBill(c.id, currentMonth);
-    const hasReq = tot > c.fee;
+    const tot  = calcReceiptTotal(c.id, currentMonth);
+    const hasDiff = tot !== c.fee;
     return `<tr>
       <td class="td-id">${c.id}</td>
       <td class="td-name">${c.name}</td>
       <td class="td-branch">${branchTag(c.branch)}</td>
       <td class="td-fee">
         ฿${fmt(tot)}
-        ${hasReq ? `<div style="font-size:10px;color:var(--text3)">บริการ ฿${fmt(c.fee)} + เบิก ฿${fmt(tot-c.fee)}</div>` : ''}
+        ${hasDiff ? `<div style="font-size:10px;color:var(--text3)">ฐาน ฿${fmt(c.fee)}</div>` : ''}
       </td>
       <td style="font-size:12px"><div style="font-weight:500">${c.bank.replace('ธนาคาร','')}</div><div style="color:var(--text3)">${c.account_no}</div></td>
       <td class="td-fee" style="color:${s==='paid'?'var(--paid)':s==='partial'?'var(--warning)':'var(--text3)'}">฿${fmt(p?.amount||0)}</td>
