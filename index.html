@@ -4063,11 +4063,11 @@ if ('serviceWorker' in navigator) {
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="font-size:12px;font-weight:600;color:var(--text2)">✏️ แก้ไขรายการ</span>
         <button class="btn btn-sm btn-primary" onclick="rcptAddRow()" style="font-size:11px;padding:3px 10px">+ เพิ่มแถว</button>
-        <button class="btn btn-sm" onclick="rcptAddDiscount()" style="font-size:11px;padding:3px 10px;background:#fff0f0;border-color:#fca5a5;color:#b91c1c;font-weight:600">🏷️ เพิ่มส่วนลด</button>
+        <button class="btn btn-sm" id="rcpt-add-discount-btn" onclick="rcptAddDiscount()" style="font-size:11px;padding:3px 10px;background:#fff0f0;border-color:#fca5a5;color:#b91c1c;font-weight:600">🏷️ เพิ่มส่วนลด</button>
         <button class="btn btn-sm" onclick="reRenderReceipt()" style="font-size:11px;padding:3px 10px">🔄 อัพเดตใบเสร็จ</button>
         <button class="btn btn-sm" onclick="rcptShowAddReqPanel()" style="font-size:11px;padding:3px 10px;background:#fffbeb;border-color:#f59e0b;color:#92400e">📦 เพิ่มรายการเบิก</button>
         <button class="btn btn-sm" id="rcpt-split-toggle-btn" onclick="rcptToggleSplitPanel()" style="font-size:11px;padding:3px 10px;background:#f0fdf4;border-color:#86efac;color:#c2588a;font-weight:600">✂️ แบ่ง 2 งวด</button>
-        <button class="btn btn-sm" onclick="printOtherChargesReceipt()" style="font-size:11px;padding:3px 10px;background:#fdf0f3;border-color:#f3b8be;color:#c2588a;font-weight:600">🧾 พิมพ์เฉพาะค่าส่วนต่าง</button>
+        <button class="btn btn-sm" id="rcpt-other-toggle-btn" onclick="rcptToggleOtherOnly()" style="font-size:11px;padding:3px 10px;background:#fdf0f3;border-color:#f3b8be;color:#c2588a;font-weight:600">🧾 ใบเสร็จค่าส่วนต่างเท่านั้น</button>
       </div>
 
       <!-- Split-bill panel inside receipt modal -->
@@ -6907,6 +6907,8 @@ function printReceipt(custId, month) {
     invoiced[_invk] = { date: new Date().toISOString().split('T')[0], by: 'admin' };
     if (window._fbSave) window._fbSave('invoiced', invoiced);
   }
+  _rcptOtherOnly = false;
+  _rcptApplyOtherOnlyUi();
   document.getElementById('receipt-modal').classList.add('open');
   // Show internal memo banner at top of receipt modal if exists
   const _rcptMemoBanner = document.getElementById('rcpt-memo-banner');
@@ -6996,6 +6998,8 @@ function renderRcptEditor() {
   }
 
   el.innerHTML = _rcptLineItems.map((row, i) => {
+    // โหมดค่าส่วนต่างเท่านั้น: ซ่อนค่าดูแล (row_1) และส่วนลด แต่คง index เดิมเพื่อให้ตัวแก้ไขอ้างอิง _rcptLineItems ถูกต้อง
+    if (_rcptOtherOnly && (row.id === 'row_1' || row.isDiscount)) return '';
     const isDiscBg = row.isDiscount ? 'background:#fff5f5;border-left:3px solid #f87171;padding-left:10px;' : '';
     const isSubBg  = row.isSub      ? 'background:#f9f9f6;border-left:3px solid var(--accent);padding-left:10px;' : '';
     const rowBg    = row.isDiscount ? isDiscBg : isSubBg;
@@ -7087,10 +7091,37 @@ function rcptToggleSub(i) {
 }
 
 function rcptAddRow() {
-  _rcptLineItems.push({ id:'row_'+Date.now(), label:'', qty:1, price:0, amount:0, isSub:false, isOther:false, isReq:false, isDiscount:false });
+  // โหมดค่าส่วนต่างเท่านั้น: แถวใหม่เป็นรายการย่อย (isSub) เพื่อให้ถูกนับในยอดค่าส่วนต่าง
+  _rcptLineItems.push({ id:'row_'+Date.now(), label:'', qty:1, price:0, amount:0, isSub:_rcptOtherOnly, isOther:false, isReq:false, isDiscount:false });
   renderRcptEditor();
   reRenderReceipt();
   _saveRcptEdits();
+}
+
+// ===== RECEIPT MODAL — โหมด "ค่าส่วนต่างเท่านั้น" (แก้ไขได้เหมือนใบเสร็จหลัก แต่แสดง/แก้เฉพาะส่วนต่าง) =====
+let _rcptOtherOnly = false;
+function _rcptApplyOtherOnlyUi() {
+  const btn = document.getElementById('rcpt-other-toggle-btn');
+  if (btn) {
+    btn.textContent = _rcptOtherOnly ? '↩ กลับใบเสร็จเต็ม' : '🧾 ใบเสร็จค่าส่วนต่างเท่านั้น';
+    btn.style.background = _rcptOtherOnly ? '#c2588a' : '#fdf0f3';
+    btn.style.color      = _rcptOtherOnly ? '#fff'    : '#c2588a';
+  }
+  // ส่วนลด / แบ่งงวด ไม่เกี่ยวกับใบเสร็จส่วนต่าง → ซ่อนในโหมดนี้
+  ['rcpt-add-discount-btn','rcpt-split-toggle-btn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = _rcptOtherOnly ? 'none' : '';
+  });
+  if (_rcptOtherOnly) {
+    const sp = document.getElementById('rcpt-split-panel');
+    if (sp) sp.style.display = 'none';
+  }
+}
+function rcptToggleOtherOnly() {
+  _rcptOtherOnly = !_rcptOtherOnly;
+  _rcptApplyOtherOnlyUi();
+  renderRcptEditor();
+  reRenderReceipt();
 }
 
 function rcptAddDiscount() {
@@ -7394,6 +7425,15 @@ function renderReceiptContent() {
 
   // Only re-render editor if not triggered by user typing in editor
   if (!window._rcptEditorTyping) renderRcptEditor();
+
+  // โหมดค่าส่วนต่างเท่านั้น: พรีวิวเป็นใบเสร็จส่วนต่าง (ตัวเดียวกับที่พิมพ์) อัพเดตสดตามที่แก้ไข
+  if (_rcptOtherOnly) {
+    const built = buildOtherChargesReceipt();
+    document.getElementById('receipt-print-area').innerHTML = built
+      ? built.content
+      : `<div style="padding:40px 24px;text-align:center;color:var(--text3);font-size:14px">ยังไม่มีรายการค่าส่วนต่าง — กด "+ เพิ่มแถว" หรือ "📦 เพิ่มรายการเบิก" ด้านบนเพื่อเพิ่มรายการ</div>`;
+    return;
+  }
 
   // Pre-calculate hasSubItems before building rows
   const hasSubItems = _rcptLineItems.some(item => item.isSub);
@@ -7986,16 +8026,17 @@ ${content}
 
 // ── ใบเสร็จเฉพาะ "ค่าส่วนต่างอื่นๆ" (ตัดค่าดูแลผู้สูงอายุออก) ──
 // ใช้รายการปัจจุบันใน _rcptLineItems (แก้ไข/อัพเดตแล้วในหน้าใบเสร็จหลัก) มาสร้างใบเสร็จแยกต่างหาก
-function printOtherChargesReceipt() {
-  if (!_rcptCtx) return;
+// สร้างเนื้อหาใบเสร็จเฉพาะค่าส่วนต่าง (ใช้ทั้งพรีวิวในโหมดแก้ไข และตอนพิมพ์) — คืน null ถ้าไม่มีรายการส่วนต่าง
+function buildOtherChargesReceipt() {
+  if (!_rcptCtx) return null;
   const { custId } = _rcptCtx;
   const c = customers.find(x => x.id === custId);
-  if (!c) return;
+  if (!c) return null;
 
   // ตัดแถวค่าดูแล (row_1) และส่วนลด ออก เหลือแค่หัวข้อค่าส่วนต่าง + รายการย่อย
   const items = _rcptLineItems.filter(item => item.id !== 'row_1' && !item.isDiscount);
   const subItems = items.filter(item => item.isSub);
-  if (!subItems.length) { alert('ไม่มีรายการค่าส่วนต่างสำหรับใบเสร็จนี้'); return; }
+  if (!subItems.length) return null;
 
   let mainIdx = 0;
   const rowsHtml = items.map(item => {
@@ -8110,6 +8151,14 @@ function printOtherChargesReceipt() {
       <div class="rcpt-sig-date">ลงวันที่ ............................................</div>
     </div>
   </div>`;
+
+  return { content, c };
+}
+
+function printOtherChargesReceipt() {
+  const built = buildOtherChargesReceipt();
+  if (!built) { alert('ไม่มีรายการค่าส่วนต่างสำหรับใบเสร็จนี้'); return; }
+  const { content, c } = built;
 
   const win = window.open('', '_blank', 'width=800,height=900');
   win.document.write(`<!DOCTYPE html>
