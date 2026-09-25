@@ -8959,7 +8959,8 @@ function printRefundReceipt(id) {
           </tr>
           <tr><td style="padding:6px 10px;border-bottom:1px solid #eee">จำนวนที่ลูกค้าชำระ</td><td style="padding:6px 10px;text-align:right;font-family:monospace;border-bottom:1px solid #eee">฿${fmt(r.paid)}</td></tr>
           <tr><td style="padding:6px 10px;border-bottom:1px solid #eee">ค่าใช้จ่ายทั้งหมด</td><td style="padding:6px 10px;text-align:right;font-family:monospace;border-bottom:1px solid #eee">฿${fmt(r.actual)}</td></tr>
-          ${(r.discount||0) > 0 ? `<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#c2588a">ส่วนลด</td><td style="padding:6px 10px;text-align:right;font-family:monospace;border-bottom:1px solid #eee;color:#c2588a">฿${fmt(r.discount)}</td></tr>` : ''}
+          ${(r.discount||0) > 0 ? `<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#c2588a">ส่วนลด</td><td style="padding:6px 10px;text-align:right;font-family:monospace;border-bottom:1px solid #eee;color:#c2588a">฿${fmt(r.discount)}</td></tr>
+          <tr><td style="padding:6px 10px;border-bottom:1px solid #eee;font-weight:600">ค่าใช้จ่ายทั้งหมดหลังหักส่วนลด</td><td style="padding:6px 10px;text-align:right;font-family:monospace;border-bottom:1px solid #eee;font-weight:600">฿${fmt(Math.max(0, (r.actual||0) - (r.discount||0)))}</td></tr>` : ''}
           <tr style="background:#fef6f8">
             <td style="padding:7px 10px;font-weight:700">ค่าใช้จ่ายคืนลูกค้า</td>
             <td style="padding:7px 10px;text-align:right;font-family:monospace;font-weight:700;font-size:15px;color:#c45570">฿${fmt(r.refundAmt)}</td>
