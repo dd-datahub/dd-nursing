@@ -8100,7 +8100,10 @@ function buildOtherChargesReceipt() {
   const isCash         = rcptPayMethod === 'cash';
   const payChannel     = rcptPayMethod === 'none' ? '-' : (isCash ? 'เงินสด' : (c.bank ? 'โอนบัญชี' : '—'));
   const rcptPayDateRaw = document.getElementById('rcpt-pay-date')?.value;
-  const payDate        = rcptPayDateRaw ? fmtDateThai(rcptPayDateRaw) : '—';
+  // เลือกช่องทาง "-" → วันที่ชำระและจำนวนเป็น "-" ด้วย; เว้นวันที่ว่างก็เป็น "-"
+  const isNoneMethod   = rcptPayMethod === 'none';
+  const payDate        = (rcptPayDateRaw && !isNoneMethod) ? fmtDateThai(rcptPayDateRaw) : '-';
+  const payAmountText  = isNoneMethod ? '-' : `฿${fmt(grandTotal)}`;
 
   const isUdonBranch = c.branch === 'สาขาอุดร';
   const rcptLogoSrc  = isUdonBranch ? _DD_LOGO_UDON : _DD_LOGO_MAIN;
@@ -8168,7 +8171,7 @@ function buildOtherChargesReceipt() {
       <div class="rcpt-pay-title">ช่องทางชำระเงิน</div>
       <div class="rcpt-pay-row"><span class="rcpt-pay-label">ช่องทาง</span><span class="rcpt-pay-value">${payChannel}</span></div>
       <div class="rcpt-pay-row"><span class="rcpt-pay-label">วันที่ชำระ</span><span class="rcpt-pay-value">${payDate}</span></div>
-      <div class="rcpt-pay-row"><span class="rcpt-pay-label">จำนวน</span><span class="rcpt-pay-value" style="color:#111">฿${fmt(grandTotal)}</span></div>
+      <div class="rcpt-pay-row"><span class="rcpt-pay-label">จำนวน</span><span class="rcpt-pay-value" style="color:#111">${payAmountText}</span></div>
     </div>
     ${bankBlock}
   </div>
