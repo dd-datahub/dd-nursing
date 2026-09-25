@@ -6999,7 +6999,7 @@ function renderRcptEditor() {
 
   el.innerHTML = _rcptLineItems.map((row, i) => {
     // โหมดค่าส่วนต่างเท่านั้น: ซ่อนค่าดูแล (row_1) และส่วนลด แต่คง index เดิมเพื่อให้ตัวแก้ไขอ้างอิง _rcptLineItems ถูกต้อง
-    if (_rcptOtherOnly && (row.id === 'row_1' || row.isDiscount)) return '';
+    if (_rcptOtherOnly && (row.id === 'row_1' || (row.isDiscount && !row.forOther))) return '';
     const isDiscBg = row.isDiscount ? 'background:#fff5f5;border-left:3px solid #f87171;padding-left:10px;' : '';
     const isSubBg  = row.isSub      ? 'background:#f9f9f6;border-left:3px solid var(--accent);padding-left:10px;' : '';
     const rowBg    = row.isDiscount ? isDiscBg : isSubBg;
@@ -7107,8 +7107,8 @@ function _rcptApplyOtherOnlyUi() {
     btn.style.background = _rcptOtherOnly ? '#c2588a' : '#fdf0f3';
     btn.style.color      = _rcptOtherOnly ? '#fff'    : '#c2588a';
   }
-  // ส่วนลด / แบ่งงวด ไม่เกี่ยวกับใบเสร็จส่วนต่าง → ซ่อนในโหมดนี้
-  ['rcpt-add-discount-btn','rcpt-split-toggle-btn'].forEach(id => {
+  // แบ่งงวดไม่เกี่ยวกับใบเสร็จส่วนต่าง → ซ่อนในโหมดนี้ (ส่วนลดใช้ได้)
+  ['rcpt-split-toggle-btn'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = _rcptOtherOnly ? 'none' : '';
   });
@@ -7125,7 +7125,7 @@ function rcptToggleOtherOnly() {
 }
 
 function rcptAddDiscount() {
-  _rcptLineItems.push({ id:'disc_'+Date.now(), label:'', qty:1, price:0, amount:0, isSub:false, isOther:false, isReq:false, isDiscount:true });
+  _rcptLineItems.push({ id:'disc_'+Date.now(), label:'', qty:1, price:0, amount:0, isSub:false, isOther:false, isReq:false, isDiscount:true, forOther:_rcptOtherOnly });
   renderRcptEditor();
   reRenderReceipt();
   _saveRcptEdits();
@@ -8034,8 +8034,9 @@ function buildOtherChargesReceipt() {
   if (!c) return null;
 
   // ตัดแถวค่าดูแล (row_1) และส่วนลด ออก เหลือแค่หัวข้อค่าส่วนต่าง + รายการย่อย
-  const items = _rcptLineItems.filter(item => item.id !== 'row_1' && !item.isDiscount);
-  const subItems = items.filter(item => item.isSub);
+  // ส่วนลดที่สร้างในโหมดนี้ (forOther) เท่านั้นที่แสดงในใบเสร็จส่วนต่าง — ส่วนลดของใบเสร็จเต็ม (เช่น ลดค่าดูแล) ไม่ปนเข้ามา
+  const items = _rcptLineItems.filter(item => item.id !== 'row_1' && (!item.isDiscount || item.forOther));
+  const subItems = items.filter(item => item.isSub && !item.isDiscount);
   if (!subItems.length) return null;
 
   let mainIdx = 0;
@@ -8044,6 +8045,15 @@ function buildOtherChargesReceipt() {
     const qty    = parseFloat(item.qty) || 0;
     const price  = parseFloat(item.price) || 0;
     const amount = Math.abs(parseFloat(item.amount) || qty * price);
+    if (item.isDiscount) {
+      mainIdx++;
+      return `<tr style="background:#fff5f5">
+        <td style="color:#b91c1c">${mainIdx}</td>
+        <td style="color:#b91c1c;font-weight:500">🏷️ ${item.label || 'ส่วนลด'}</td>
+        <td></td><td></td>
+        <td style="color:#b91c1c;font-weight:700;font-family:monospace;text-align:right">-฿${fmt(amount)}</td>
+      </tr>`;
+    }
     if (!isSub) mainIdx++;
     const numCell    = isSub ? `<td style="color:#888;font-size:11px">↳</td>` : `<td>${mainIdx}</td>`;
     const labelStyle = isSub ? 'font-size:12px;color:#444;padding-left:20px' : '';
@@ -8056,8 +8066,17 @@ function buildOtherChargesReceipt() {
     </tr>`;
   }).join('');
 
-  const grandTotal = subItems.reduce((s, item) =>
+  const subTotalBeforeDisc = subItems.reduce((s, item) =>
     s + Math.abs(parseFloat(item.amount) || (parseFloat(item.qty)||0)*(parseFloat(item.price)||0)), 0);
+  const totalDiscount = items.filter(d => d.isDiscount).reduce((s, d) =>
+    s + Math.abs(parseFloat(d.amount) || (parseFloat(d.qty)||0)*(parseFloat(d.price)||0)), 0);
+  const grandTotal = subTotalBeforeDisc - totalDiscount;
+  const discountBoxHtml = totalDiscount > 0 ? `
+  <div style="margin:0 0 6px;padding:8px 14px;background:#fff5f5;border:1px solid #fecaca;border-radius:8px;font-size:13px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px;color:#555"><span>ยอดรวมก่อนหักส่วนลด</span><span style="font-family:monospace">฿${fmt(subTotalBeforeDisc)}</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;color:#b91c1c;font-weight:600"><span>🏷️ ส่วนลดทั้งหมด</span><span style="font-family:monospace">-฿${fmt(totalDiscount)}</span></div>
+    <div style="border-top:1px dashed #fca5a5;padding-top:6px;display:flex;justify-content:space-between;font-weight:700;font-size:14px;color:#166534"><span>ยอดสุทธิหลังส่วนลด</span><span style="font-family:monospace">฿${fmt(grandTotal)}</span></div>
+  </div>` : '';
 
   const TOTAL_ROWS = Math.max(5, items.length);
   const emptyRows  = Array(Math.max(0, TOTAL_ROWS - items.length)).fill(0)
@@ -8120,6 +8139,7 @@ function buildOtherChargesReceipt() {
     </tr></thead>
     <tbody>${rowsHtml}${emptyRows}</tbody>
   </table>
+  ${discountBoxHtml}
   <div class="rcpt-total-section">
     <div class="rcpt-grand-row">
       <div class="rcpt-grand-label">จำนวนเงินทั้งสิ้น (เฉพาะค่าส่วนต่าง)</div>
