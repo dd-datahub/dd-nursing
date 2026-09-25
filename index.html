@@ -7116,6 +7116,19 @@ function _rcptApplyOtherOnlyUi() {
     const sp = document.getElementById('rcpt-split-panel');
     if (sp) sp.style.display = 'none';
   }
+  // ตัวเลือกช่องทางชำระ "-" มีเฉพาะโหมดใบเสร็จค่าส่วนต่าง (ใบเสร็จเต็มยังเป็นโอนบัญชี/เงินสด)
+  const sel = document.getElementById('rcpt-pay-method');
+  if (sel) {
+    const opt = sel.querySelector('option[value="none"]');
+    if (_rcptOtherOnly && !opt) {
+      const o = document.createElement('option');
+      o.value = 'none'; o.textContent = '- (ไม่ระบุ)';
+      sel.appendChild(o);
+    } else if (!_rcptOtherOnly) {
+      if (sel.value === 'none') sel.value = 'transfer';
+      if (opt) opt.remove();
+    }
+  }
 }
 function rcptToggleOtherOnly() {
   _rcptOtherOnly = !_rcptOtherOnly;
@@ -8085,7 +8098,7 @@ function buildOtherChargesReceipt() {
   const issueDateRaw   = document.getElementById('rcpt-issue-date')?.value || new Date().toISOString().split('T')[0];
   const rcptPayMethod  = document.getElementById('rcpt-pay-method')?.value || 'transfer';
   const isCash         = rcptPayMethod === 'cash';
-  const payChannel     = isCash ? 'เงินสด' : (c.bank ? 'โอนบัญชี' : '—');
+  const payChannel     = rcptPayMethod === 'none' ? '-' : (isCash ? 'เงินสด' : (c.bank ? 'โอนบัญชี' : '—'));
   const rcptPayDateRaw = document.getElementById('rcpt-pay-date')?.value;
   const payDate        = rcptPayDateRaw ? fmtDateThai(rcptPayDateRaw) : '—';
 
