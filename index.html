@@ -4238,6 +4238,7 @@ if ('serviceWorker' in navigator) {
 </style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="billing-core.js?v=1"></script>
 <script>
 // ========== DISCHARGE SYSTEM ==========
 // discharged: { [customerId]: { date, reason, note, by } }
@@ -4650,80 +4651,20 @@ function branchTag(b) {
 }
 function payKey(id, month) { return `${id}_${month}`; }
 
-// คำนวณยอดรวมจริง = ค่าบริการ + ยอดเบิกของในช่วงวันที่ของเดือนนั้น
-function calcTotalBill(custId, month) {
-  const c = customers.find(x => x.id === custId);
-  if (!c) return 0;
-  // ลูกค้ายังไม่ถึงรอบเริ่มบริการ → ยอดบิล = 0
-  if (isBeforeStart(c, month)) return 0;
-  const dueDay   = parseDueDay(c.due_date);
-  const [ty, tm] = month.split('-').map(Number);
-  const prevDate = new Date(ty, tm - 2, 1);
-  const prevYM   = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
-  const [py, pm] = prevYM.split('-').map(Number);
-
-  const pad = n => String(n).padStart(2,'0');
-  const rangeStartStr = `${py}-${pad(pm)}-${pad(dueDay)}`;
-  const rangeEndDate  = new Date(ty, tm-1, dueDay - 1);
-  const rangeEndStr   = `${rangeEndDate.getFullYear()}-${pad(rangeEndDate.getMonth()+1)}-${pad(rangeEndDate.getDate())}`;
-
-  // รวม req จากทั้ง prevYM และ targetMonth (ช่วงวันอาจข้ามเดือน)
-  const allReq = [
-    ...(requisitions[reqKey(custId, prevYM)] || []),
-    ...(requisitions[reqKey(custId, month)] || [])
-  ];
-  const inRange = allReq.filter(e => {
-    if (!e.savedAt) return true;
-    const d = e.savedAt.slice(0, 10);
-    return d >= rangeStartStr && d <= rangeEndStr;
-  });
-
-  const reqTotal = inRange.reduce((s, e) => {
-    const item = catalog.find(x => x.id === e.itemId);
-    if (!item) return s;
-    const unitPrice = (e.price != null) ? e.price : (item.price||0);
-    return s + unitPrice * (parseInt(e.qty)||0);
-  }, 0);
-
-  return c.fee + reqTotal;
-}
-
-// ยอดค่าบริการ "จริง" ตามใบเสร็จ (รวมรายการที่แอดมินแก้ไข/เพิ่ม/ลดในใบเสร็จแล้ว)
-// ถ้ายังไม่เคยเปิด/แก้ใบเสร็จเดือนนี้ → คำนวณจากรายการเริ่มต้นเดียวกับที่ใบเสร็จจะสร้างให้ (เท่ากับ calcTotalBill)
-function calcReceiptTotal(custId, month) {
-  const c = customers.find(x => x.id === custId);
-  if (!c) return 0;
-  const saved = _loadRcptEdits(custId, month);
-  let items;
-  if (saved && saved.length > 0) {
-    items = saved;
-  } else {
-    const overrideDay = parseDueDay(c.due_date);
-    const [ty, tm] = month.split('-').map(Number);
-    const prevDate = new Date(ty, tm - 2, 1);
-    const prevYM   = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
-    const reqListCur  = requisitions[reqKey(custId, month)] || [];
-    const reqListPrev = requisitions[reqKey(custId, prevYM)] || [];
-    items = rcptBuildDefaultItems(c, overrideDay, month, prevYM, [...reqListPrev, ...reqListCur]);
-  }
-  const totalDiscount = items.filter(d => d.isDiscount).reduce((s, d) =>
-    s + Math.abs(parseFloat(d.amount) || (parseFloat(d.qty)||0)*(parseFloat(d.price)||0)), 0);
-  const subTotalBeforeDisc = items.reduce((s, item) => {
-    if (item.isOther || item.isDiscount) return s;
-    return s + (parseFloat(item.amount) || (parseFloat(item.qty)||0)*(parseFloat(item.price)||0));
-  }, 0);
-  return subTotalBeforeDisc - totalDiscount;
-}
-function getPayStatus(id, month) {
-  const k = payKey(id, month);
-  if(!payments[k]) return 'unpaid';
-  const c = customers.find(x=>x.id===id);
-  if(!c) return 'unpaid';
-  const total = calcReceiptTotal(id, month);
-  if(payments[k].amount >= total) return 'paid';
-  if(payments[k].amount > 0) return 'partial';
-  return 'unpaid';
-}
+// ===== ตรรกะคิดบิลอยู่ที่ billing-core.js ไฟล์เดียว (ใช้ร่วมกับ staff.html / staffud.html) =====
+// ด้านล่างเป็นแค่ตัวต่อ: บอกว่าแอปนี้ดึงข้อมูลลูกค้า/เบิกของ/แคตตาล็อก/ใบเสร็จ/การชำระเงินจากไหน
+const _billing = BillingCore.create({
+  findCustomer:    id => customers.find(x => x.id === id),
+  getRequisitions: (id, ym) => requisitions[reqKey(id, ym)],
+  getCatalog:      () => catalog,
+  getRcptEdits:    (id, ym) => _loadRcptEdits(id, ym),
+  getPayment:      (id, ym) => payments[payKey(id, ym)],
+});
+// คำนวณยอดรวมจริง = ค่าบริการ + ยอดเบิกของในช่วงวันที่ของเดือนนั้น (0 ถ้ายังไม่ถึงรอบเริ่มบริการ)
+function calcTotalBill(custId, month) { return _billing.calcTotalBill(custId, month); }
+// ยอดค่าบริการ "จริง" ตามใบเสร็จ (รวมรายการที่แอดมินแก้ไข/เพิ่ม/ลดในใบเสร็จแล้ว); ถ้ายังไม่เคยแก้ → เท่ากับ calcTotalBill
+function calcReceiptTotal(custId, month) { return _billing.calcReceiptTotal(custId, month); }
+function getPayStatus(id, month) { return _billing.getPayStatus(id, month); }
 function statusBadge(s) {
   if(s==='paid') return '<span class="status-badge status-paid">ชำระแล้ว</span>';
   if(s==='partial') return '<span class="status-badge status-partial">บางส่วน</span>';
@@ -6086,7 +6027,7 @@ let reqSelectedType = 'cloth'; // current category tab
 let reqCustId = '';
 let reqMonth  = '';
 
-function reqKey(custId, month) { return `${custId.replace(/\//g,'_')}_${month}`; }
+function reqKey(custId, month) { return BillingCore.reqKey(custId, month); }
 
 // ---- populate selects on page open ----
 let _reqCustList = []; // cached sorted list for dropdown
@@ -7742,32 +7683,14 @@ function fmtDateThai(isoOrStr) {
   return `${parseInt(d)} ${months[parseInt(m)]} ${parseInt(y)+543}`;
 }
 
-function parseDueDay(due_date) {
-  // format: "7-พ.ค.-2566" → returns day integer e.g. 7
-  if (!due_date) return 1;
-  const d = parseInt(due_date.split('-')[0]);
-  return isNaN(d) ? 1 : d;
-}
+// "7-พ.ค.-2566" → 7
+function parseDueDay(due_date) { return BillingCore.parseDueDay(due_date); }
 
-// แยก YYYY-MM (AD) จาก due_date เพื่อตรวจว่าลูกค้าเริ่มบริการเดือนนั้นๆ แล้วหรือยัง
-function parseStartYM(due_date) {
-  // format: "10-ส.ค.-2569" → "2026-08"
-  if (!due_date) return null;
-  const parts = due_date.split('-');
-  if (parts.length < 3) return null;
-  const _thM = {'ม.ค.':1,'ก.พ.':2,'มี.ค.':3,'เม.ย.':4,'พ.ค.':5,'มิ.ย.':6,
-                 'ก.ค.':7,'ส.ค.':8,'ก.ย.':9,'ต.ค.':10,'พ.ย.':11,'ธ.ค.':12};
-  const mo = _thM[parts[1]];
-  const yr = parseInt(parts[2]) - 543; // พ.ศ. → ค.ศ.
-  if (!mo || isNaN(yr) || yr < 2000) return null;
-  return `${yr}-${String(mo).padStart(2,'0')}`;
-}
+// "10-ส.ค.-2569" → "2026-08" (YYYY-MM, ค.ศ.) ใช้ตรวจว่าลูกค้าเริ่มบริการเดือนนั้นๆ แล้วหรือยัง
+function parseStartYM(due_date) { return BillingCore.parseStartYM(due_date); }
 
 // คืนค่า true ถ้าลูกค้ายังไม่ถึงรอบเริ่มบริการสำหรับเดือน ym (YYYY-MM)
-function isBeforeStart(c, ym) {
-  const startYM = parseStartYM(c.due_date);
-  return startYM ? ym < startYM : false;
-}
+function isBeforeStart(c, ym) { return BillingCore.isBeforeStart(c, ym); }
 
 function getDateRangeLabel(startDay, ym) {
   // startDay: e.g. 7, ym: "2026-03"

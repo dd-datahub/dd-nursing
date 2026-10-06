@@ -190,6 +190,7 @@ onAuthStateChanged(auth, async user => {
   }
 });
 </script>
+<script src="billing-core.js?v=1"></script>
 <script>
 // ===== สาขาอุดร — แสดงเฉพาะลูกค้าสาขาอุดร =====
 const BRANCH_FILTER = 'สาขาอุดร';
@@ -1369,83 +1370,23 @@ let _caseProfileId = null;
 // ── สถานะการชำระเงินจริง (sync จาก payments/ ที่แอดมินบันทึกในหน้าชำระบิล index.html) ──
 // หมายเหตุ: ต้อง sanitize "/" ใน id เพราะ Firebase เก็บ key ของ payments/ แบบ sanitize ไว้แล้ว (ดู index.html)
 function payKey(id, month) { return `${id.replace(/\//g,'_')}_${month}`; }
-function reqKey(custId, month) { return `${custId.replace(/\//g,'_')}_${month}`; }
-function parseDueDay(due_date) {
-  if (!due_date) return 1;
-  const d = parseInt(due_date.split('-')[0]);
-  return isNaN(d) ? 1 : d;
-}
-function parseStartYM(due_date) {
-  if (!due_date) return null;
-  const parts = due_date.split('-');
-  if (parts.length < 3) return null;
-  const _thM = {'ม.ค.':1,'ก.พ.':2,'มี.ค.':3,'เม.ย.':4,'พ.ค.':5,'มิ.ย.':6,
-                 'ก.ค.':7,'ส.ค.':8,'ก.ย.':9,'ต.ค.':10,'พ.ย.':11,'ธ.ค.':12};
-  const mo = _thM[parts[1]];
-  const yr = parseInt(parts[2]) - 543;
-  if (!mo || isNaN(yr) || yr < 2000) return null;
-  return `${yr}-${String(mo).padStart(2,'0')}`;
-}
-function isBeforeStart(c, ym) {
-  const startYM = parseStartYM(c.due_date);
-  return startYM ? ym < startYM : false;
-}
-function _reqListFor(custId, month) {
-  const raw = (window._allRequisitions || {})[reqKey(custId, month)];
-  return Array.isArray(raw) ? raw : (raw ? Object.values(raw) : []);
-}
-function calcTotalBill(custId, month) {
-  const c = allCustomers.find(x => x.id === custId);
-  if (!c) return 0;
-  if (isBeforeStart(c, month)) return 0;
-  const dueDay   = parseDueDay(c.due_date);
-  const [ty, tm] = month.split('-').map(Number);
-  const prevDate = new Date(ty, tm - 2, 1);
-  const prevYM   = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
-
-  const pad = n => String(n).padStart(2,'0');
-  const rangeStartStr = `${prevDate.getFullYear()}-${pad(prevDate.getMonth()+1)}-${pad(dueDay)}`;
-  const rangeEndDate  = new Date(ty, tm-1, dueDay - 1);
-  const rangeEndStr   = `${rangeEndDate.getFullYear()}-${pad(rangeEndDate.getMonth()+1)}-${pad(rangeEndDate.getDate())}`;
-
-  const allReq = [..._reqListFor(custId, prevYM), ..._reqListFor(custId, month)];
-  const inRange = allReq.filter(e => {
-    if (!e.savedAt) return true;
-    const d = e.savedAt.slice(0, 10);
-    return d >= rangeStartStr && d <= rangeEndStr;
-  });
-  const reqTotal = inRange.reduce((s, e) => {
-    const item = catalog.find(x => x.id === e.itemId);
-    if (!item) return s;
-    const unitPrice = (e.price != null) ? e.price : (item.price||0);
-    return s + unitPrice * (parseInt(e.qty)||0);
-  }, 0);
-  return (c.fee||0) + reqTotal;
-}
-// ยอดค่าบริการ "จริง" ตามใบเสร็จ — sync จาก rcpt_edits ที่แอดมินแก้ไข/เพิ่ม/ลดในใบเสร็จ (index.html)
-// ถ้ายังไม่เคยแก้ใบเสร็จเดือนนั้น จะ fallback เป็น calcTotalBill (เท่ากับรายการเริ่มต้นที่ใบเสร็จจะสร้างให้)
-function calcReceiptTotal(id, month) {
-  const key = id.replace(/\//g,'_') + '_' + month;
-  const saved = _rcptEditsCache[key];
-  if (!saved || !saved.length) return calcTotalBill(id, month);
-  const totalDiscount = saved.filter(d => d.isDiscount).reduce((s,d) =>
-    s + Math.abs(parseFloat(d.amount) || (parseFloat(d.qty)||0)*(parseFloat(d.price)||0)), 0);
-  const subTotalBeforeDisc = saved.reduce((s,item) => {
-    if (item.isOther || item.isDiscount) return s;
-    return s + (parseFloat(item.amount) || (parseFloat(item.qty)||0)*(parseFloat(item.price)||0));
-  }, 0);
-  return subTotalBeforeDisc - totalDiscount;
-}
-function getPayStatus(id, month) {
-  const k = payKey(id, month);
-  if (!payments[k]) return 'unpaid';
-  const c = allCustomers.find(x=>x.id===id);
-  if (!c) return 'unpaid';
-  const total = calcReceiptTotal(id, month);
-  if (payments[k].amount >= total) return 'paid';
-  if (payments[k].amount > 0) return 'partial';
-  return 'unpaid';
-}
+// ===== ตรรกะคิดบิลอยู่ที่ billing-core.js ไฟล์เดียว (ใช้ร่วมกับ index.html) =====
+// ด้านล่างเป็นแค่ตัวต่อ: บอกว่าแอปนี้ดึงข้อมูลลูกค้า/เบิกของ/แคตตาล็อก/ใบเสร็จ/การชำระเงินจากไหน
+function reqKey(custId, month) { return BillingCore.reqKey(custId, month); }
+function parseDueDay(due_date) { return BillingCore.parseDueDay(due_date); }
+function parseStartYM(due_date) { return BillingCore.parseStartYM(due_date); }
+function isBeforeStart(c, ym) { return BillingCore.isBeforeStart(c, ym); }
+const _billing = BillingCore.create({
+  findCustomer:    id => allCustomers.find(x => x.id === id),
+  getRequisitions: (id, ym) => (window._allRequisitions || {})[reqKey(id, ym)],
+  getCatalog:      () => catalog,
+  getRcptEdits:    (id, ym) => _rcptEditsCache[reqKey(id, ym)] || null, // rcpt_edits ที่แอดมินแก้ไข/เพิ่ม/ลดในใบเสร็จ (index.html)
+  getPayment:      (id, ym) => payments[payKey(id, ym)],
+});
+function calcTotalBill(custId, month) { return _billing.calcTotalBill(custId, month); }
+// ยอดค่าบริการ "จริง" ตามใบเสร็จ; ถ้ายังไม่เคยแก้ใบเสร็จเดือนนั้น → เท่ากับ calcTotalBill
+function calcReceiptTotal(id, month) { return _billing.calcReceiptTotal(id, month); }
+function getPayStatus(id, month) { return _billing.getPayStatus(id, month); }
 function _payStatusBadge(s) {
   if (s === 'paid')    return '<span class="cp-pay-badge cp-badge-paid">ชำระแล้ว</span>';
   if (s === 'partial') return '<span class="cp-pay-badge cp-badge-partial">บางส่วน</span>';
