@@ -598,7 +598,7 @@ tr.row-inactive:hover { background: #f3f2ef !important; }
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, get, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, set, get, onValue, update, query, orderByKey, limitToLast } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 // เปิดจาก localhost / 127.0.0.1 = ฐานข้อมูลทดสอบ (dd-nursing-test, ข้อมูลสมมติ); เว็บจริงบน GitHub Pages = ฐานข้อมูลจริง
@@ -2257,6 +2257,11 @@ function listenAllData() {
 }
 
 window._fbSave = fbSave;
+// ดึงรายการ audit_log ล่าสุด n รายการ (key = เวลา_สุ่ม จึงเรียงตามเวลาอยู่แล้ว) — ใช้ในหน้า "ประวัติการแก้ไข"
+window._fbLoadAuditLog = async function (n) {
+  const snap = await get(query(ref(db, 'audit_log'), orderByKey(), limitToLast(n)));
+  return snap.val() || {};
+};
 window._fbDb = db;
 window._fbRef = ref;
 window._fbGet = get;
@@ -2898,6 +2903,38 @@ if ('serviceWorker' in navigator) {
         <b>ไม่พบข้อมูลซ้ำซ้อน</b> — ข้อมูลลูกค้าปัจจุบันทั้งหมดไม่มีชื่อซ้ำกันค่ะ
       </div>
       <div id="issues-list"></div>
+    </div>
+
+    <!-- AUDIT LOG PAGE -->
+    <div class="page" id="page-audit">
+      <div class="alert alert-info">
+        <span class="alert-icon">ℹ️</span>
+        ประวัติว่าใครแก้อะไรเมื่อไร (การแก้ไขของแอดมินและการบันทึกของพนักงาน) — แสดง 500 รายการล่าสุด เรียงจากใหม่ไปเก่า
+        ข้อมูลส่วนตัวของลูกค้าจะแสดงเฉพาะชื่อฟิลด์ที่เปลี่ยน ไม่แสดงค่า
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <h3>ประวัติการแก้ไข <span id="audit-count" style="font-size:12px;font-weight:400;color:var(--text2)"></span></h3>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select id="audit-source" onchange="renderAuditPage()" style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text)">
+              <option value="">ทุกแหล่ง</option><option value="admin">แอดมิน</option><option value="staff">พนักงาน</option>
+            </select>
+            <input type="text" id="audit-search" placeholder="🔍 ค้นหาชื่อ / การกระทำ / รายละเอียด..." oninput="renderAuditPage()"
+              style="padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;width:240px;background:var(--surface);color:var(--text)">
+            <button class="btn btn-outline" onclick="loadAuditPage(true)">↻ โหลดใหม่</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th style="white-space:nowrap">เวลา</th><th>ผู้ทำ</th><th>แหล่ง</th><th>การกระทำ</th><th>รายละเอียด</th></tr></thead>
+            <tbody id="audit-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="empty" id="audit-empty" style="display:none">
+        <div class="empty-icon">🧾</div>
+        <div class="empty-text" id="audit-empty-text">ยังไม่มีประวัติการแก้ไข</div>
+      </div>
     </div>
 
     <div class="page" id="page-permission">
@@ -9124,6 +9161,65 @@ window.onload = function() { setTimeout(function() { window.print(); }, 600); };
 }
 
 // ========== goPage (includes requisition) ==========
+// ========== AUDIT LOG PAGE (ประวัติการแก้ไข) ==========
+let _auditRows = [];      // [{key, ts, name, email, source, action, detail}] เรียงใหม่ → เก่า
+let _auditLoading = false;
+function _auditEsc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+async function loadAuditPage(force) {
+  if (_auditLoading) return;
+  if (!window._fbLoadAuditLog) return;
+  _auditLoading = true;
+  const empty = document.getElementById('audit-empty'), emptyTxt = document.getElementById('audit-empty-text');
+  if (force || !_auditRows.length) { empty.style.display = 'block'; emptyTxt.textContent = 'กำลังโหลด...'; }
+  try {
+    const obj = await window._fbLoadAuditLog(500);
+    _auditRows = Object.entries(obj).map(([key, v]) => ({ key, ...v }))
+      .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    renderAuditPage();
+  } catch (e) {
+    console.warn('load audit_log:', e);
+    empty.style.display = 'block';
+    emptyTxt.textContent = 'โหลดประวัติไม่สำเร็จ: ' + (e && e.message || e);
+    document.getElementById('audit-tbody').innerHTML = '';
+  } finally { _auditLoading = false; }
+}
+function renderAuditPage() {
+  const tbody = document.getElementById('audit-tbody');
+  const empty = document.getElementById('audit-empty'), emptyTxt = document.getElementById('audit-empty-text');
+  const q = (document.getElementById('audit-search')?.value || '').trim().toLowerCase();
+  const src = document.getElementById('audit-source')?.value || '';
+  const rows = _auditRows.filter(r => {
+    if (src === 'admin' && r.source !== 'admin') return false;
+    if (src === 'staff' && r.source === 'admin') return false;
+    if (q && !(`${r.name||''} ${r.email||''} ${r.action||''} ${r.detail||''}`.toLowerCase().includes(q))) return false;
+    return true;
+  });
+  document.getElementById('audit-count').textContent = rows.length ? `(${rows.length} รายการ)` : '';
+  if (!rows.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    emptyTxt.textContent = _auditRows.length ? 'ไม่พบรายการที่ตรงกับตัวกรอง' : 'ยังไม่มีประวัติการแก้ไข';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = rows.slice(0, 300).map(r => {
+    const d = r.ts ? new Date(r.ts) : null;
+    const when = d ? d.toLocaleString('th-TH', { day:'numeric', month:'short', year:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' }) : '-';
+    const badge = r.source === 'admin'
+      ? '<span class="status-badge status-paid">แอดมิน</span>'
+      : '<span class="status-badge status-partial">พนักงาน</span>';
+    return `<tr>
+      <td style="font-size:12px;white-space:nowrap">${_auditEsc(when)}</td>
+      <td style="font-size:13px">${_auditEsc(r.name || '-')}<div style="font-size:11px;color:var(--text2)">${_auditEsc(r.email || '')}</div></td>
+      <td>${badge}</td>
+      <td style="font-size:13px;font-weight:600">${_auditEsc(r.action || '')}</td>
+      <td style="font-size:12px;color:var(--text2);word-break:break-word;white-space:pre-wrap;max-width:560px">${_auditEsc(r.detail || '')}</td>
+    </tr>`;
+  }).join('') + (rows.length > 300 ? `<tr><td colspan="5" style="text-align:center;font-size:12px;color:var(--text2)">แสดง 300 รายการแรกจาก ${rows.length} — ใช้ช่องค้นหาเพื่อกรอง</td></tr>` : '');
+}
+
 // ========== HOMEPAGE ==========
 const _HP_MODULES = [
   { id:'dashboard',  icon:'📊', name:'ภาพรวม',          desc:'สถิติและกราฟแสดงผลรวม',      color:'#c2588a' },
@@ -9137,6 +9233,7 @@ const _HP_MODULES = [
   { id:'bedmap',     icon:'🛏', name:'แผนผังเตียง',      desc:'สถานะเตียงแบบ visual',      color:'#c2588a' },
   { id:'discharged', icon:'🚪', name:'คืนเคส',           desc:'รายชื่อผู้พักที่จำหน่ายแล้ว',color:'#6b7280' },
   { id:'permission', icon:'🔐', name:'สิทธิ์การเข้าถึง', desc:'จัดการผู้ใช้และสิทธิ์',    color:'#374151' },
+  { id:'audit',      icon:'🧾', name:'ประวัติการแก้ไข',  desc:'ใครแก้อะไรเมื่อไร',          color:'#374151' },
 ];
 
 function renderHomePage() {
@@ -9297,7 +9394,7 @@ function goPage(id) {
   });
   // Auto-close sidebar on mobile
   if (window.innerWidth <= 640) closeSidebar();
-  const titles = {home:'หน้าหลัก',dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',reminders:'แจ้งเตือนบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',sched:'ตารางเวร',permission:'จัดการสิทธิ์การเข้าถึง',bedmap:'แผนผังเตียง'};
+  const titles = {home:'หน้าหลัก',dashboard:'ภาพรวม',customers:'รายชื่อลูกค้า',discharged:'คืนเคส',billing:'ชำระบิล',reminders:'แจ้งเตือนบิล',requisition:'เบิกของ',refund:'คืนเงินลูกค้า',history:'ประวัติการชำระ',issues:'ปัญหาข้อมูล',sched:'ตารางเวร',permission:'จัดการสิทธิ์การเข้าถึง',audit:'ประวัติการแก้ไข',bedmap:'แผนผังเตียง'};
   const title = titles[id] || '';
   // Update topbar breadcrumb
   const crumbEl = document.getElementById('tb-crumb');
@@ -9327,6 +9424,7 @@ function goPage(id) {
   if(id==='dashboard')    updateDashboard();
   if(id==='sched')        renderSchedPage();
   if(id==='permission')   renderPermissionPage();
+  if(id==='audit')        loadAuditPage(true);
   if(id==='bedmap')       renderBedMap();
 }
 
