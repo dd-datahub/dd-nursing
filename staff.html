@@ -22,7 +22,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-const firebaseConfig = {
+// เปิดจาก localhost / 127.0.0.1 = ฐานข้อมูลทดสอบ (dd-nursing-test, ข้อมูลสมมติ); เว็บจริงบน GitHub Pages = ฐานข้อมูลจริง
+const _prodFirebaseConfig = {
   apiKey: "AIzaSyDdt1rc23hxWNQFXDhp1we4rfN-lW0wh60",
   authDomain: "dd-data-88eb0.firebaseapp.com",
   databaseURL: "https://dd-data-88eb0-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -31,6 +32,26 @@ const firebaseConfig = {
   messagingSenderId: "586975391632",
   appId: "1:586975391632:web:3568fb7c4a3f694953cd15"
 };
+const _testFirebaseConfig = {
+  apiKey: "AIzaSyD8lilMsk-NDc2myIxDdnwFd-fMtNV9o6w",
+  authDomain: "dd-nursing-test.firebaseapp.com",
+  databaseURL: "https://dd-nursing-test-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dd-nursing-test",
+  storageBucket: "dd-nursing-test.firebasestorage.app",
+  messagingSenderId: "656988279463",
+  appId: "1:656988279463:web:062bebe994f0e1c8c0c182"
+};
+const _isLocalDev = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+const firebaseConfig = _isLocalDev ? _testFirebaseConfig : _prodFirebaseConfig;
+if (_isLocalDev) {
+  document.title = "[TEST] " + document.title;
+  window.addEventListener("DOMContentLoaded", () => {
+    const b = document.createElement("div");
+    b.textContent = "TEST DB";
+    b.style.cssText = "position:fixed;top:0;right:0;z-index:2147483647;background:#d7263d;color:#fff;font:700 11px sans-serif;padding:2px 10px;border-bottom-left-radius:8px;pointer-events:none;letter-spacing:.5px";
+    document.body.appendChild(b);
+  });
+}
 const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
 window._db      = db;
