@@ -1920,9 +1920,71 @@ onAuthStateChanged(auth, async (user) => {
   _grantAdminAccess(user);
 });
 
+// ===== AUDIT LOG (ประวัติการแก้ไขของแอดมิน) =====
+// ทุกครั้งที่ fbSave เขียนโหนดการเงิน/ข้อมูลลูกค้า จะบันทึกลง audit_log ว่าใครแก้อะไรเมื่อไร
+// Rules บังคับให้ audit_log "เพิ่มได้อย่างเดียว" (แก้/ลบรายการเดิมไม่ได้) และ uid ต้องตรงกับผู้ล็อกอินจริง
+// หมายเหตุ: เป็นการล็อกจากฝั่งเบราว์เซอร์ ไม่ใช่ server — กันการแก้ย้อนหลังได้ แต่กันการ "ไม่ล็อก" ไม่ได้ (ต้องใช้ Cloud Functions)
+const AUDIT_LABELS = {
+  payments:'ชำระเงิน', payHistory:'ประวัติชำระเงิน', rcpt_edits:'แก้ไขใบเสร็จ', refunds:'คืนเงิน',
+  customers:'ข้อมูลลูกค้า', customers_extra:'ข้อมูลลูกค้า', cust_transfers:'ย้ายสาขา',
+  catalog:'แคตตาล็อกสินค้า', cat_meta:'หมวดสินค้า', invoiced:'ส่งบิล'
+};
+const AUDIT_NO_VALUES = new Set(['customers','customers_extra','cust_transfers']); // มีข้อมูลส่วนตัว → ล็อกเฉพาะชื่อฟิลด์ ไม่ล็อกค่า
+function _auditJson(v, max) {
+  let t; try { t = JSON.stringify(v === undefined ? null : v); } catch(_) { t = String(v); }
+  return t.length > max ? t.slice(0, max) + '…' : t;
+}
+function _auditDescribe(top, path, oldV, newV) {
+  if (oldV == null && newV == null) return null;
+  const entries = v => (v && typeof v === 'object') ? Object.entries(v) : null;
+  const o = entries(oldV), n = entries(newV);
+  if (oldV == null) return AUDIT_NO_VALUES.has(top) ? 'เพิ่มใหม่' : 'เพิ่มใหม่: ' + _auditJson(newV, 300);
+  if (newV == null) return AUDIT_NO_VALUES.has(top) ? 'ลบ' : 'ลบ (ค่าเดิม ' + _auditJson(oldV, 300) + ')';
+  if (!o || !n) return JSON.stringify(oldV) === JSON.stringify(newV) ? null : 'แก้ไข: ' + _auditJson(oldV, 100) + ' → ' + _auditJson(newV, 100);
+  const om = Object.fromEntries(o), nm = Object.fromEntries(n);
+  const keys = [...new Set([...Object.keys(om), ...Object.keys(nm)])];
+  const changes = [];
+  keys.forEach(k => {
+    const a = JSON.stringify(om[k] === undefined ? null : om[k]), b = JSON.stringify(nm[k] === undefined ? null : nm[k]);
+    if (a === b) return;
+    if (AUDIT_NO_VALUES.has(top)) changes.push(k);
+    else if (om[k] == null) changes.push(k + ' เพิ่ม ' + _auditJson(nm[k], 120));
+    else if (nm[k] == null) changes.push(k + ' ลบ (เดิม ' + _auditJson(om[k], 120) + ')');
+    else changes.push(k + ': ' + _auditJson(om[k], 120) + ' → ' + _auditJson(nm[k], 120));
+  });
+  if (!changes.length) return null;
+  const shown = changes.slice(0, 8).join(' | ');
+  return (AUDIT_NO_VALUES.has(top) ? 'แก้ไขฟิลด์: ' : '') + shown + (changes.length > 8 ? ` … (รวม ${changes.length} รายการ)` : '');
+}
+async function _auditWrite(top, path, oldV, newV) {
+  try {
+    const u = auth.currentUser;
+    if (!u) return;
+    const detail = _auditDescribe(top, path, oldV, newV);
+    if (!detail) return; // ไม่มีอะไรเปลี่ยน
+    const key = Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    await set(ref(db, 'audit_log/' + key), {
+      ts: Date.now(), uid: u.uid, name: u.displayName || '', email: u.email || '', source: 'admin',
+      action: 'แก้ไข' + AUDIT_LABELS[top], detail: (path + ' — ' + detail).slice(0, 3900)
+    });
+  } catch (e) { console.warn('audit log error:', e); }
+}
+
 // ===== SAVE to Firebase =====
+let _lastSaveAlert = 0;
 async function fbSave(path, data) {
-  try { await set(ref(db, path), data); } catch(e) { console.warn("fbSave error:", e); }
+  const top = String(path).split('/')[0];
+  let before, audited = !!AUDIT_LABELS[top];
+  if (audited) { try { before = (await get(ref(db, path))).val(); } catch (_) { audited = false; } }
+  try {
+    await set(ref(db, path), data);
+  } catch(e) {
+    console.warn("fbSave error:", e);
+    // แจ้งให้เห็น (เดิมเงียบ → ข้อมูลหายโดยไม่รู้ตัว) เตือนไม่เกิน 1 ครั้งต่อ 20 วินาที
+    if (Date.now() - _lastSaveAlert > 20000) { _lastSaveAlert = Date.now(); alert('บันทึกไม่สำเร็จ (' + path + '): ' + (e && e.message || e)); }
+    return;
+  }
+  if (audited) _auditWrite(top, path, before, data === undefined ? null : data);
 }
 
 // ===== Merge customers node from Firebase into local `customers` array =====
