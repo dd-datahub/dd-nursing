@@ -4354,9 +4354,17 @@ if ('serviceWorker' in navigator) {
     <div class="modal-body" style="padding:0">
       <div id="receipt-print-area"></div>
     </div>
-    <div class="modal-foot">
+    <div class="modal-foot" style="flex-wrap:wrap;gap:8px">
+      <div style="flex:1 1 100%;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)">
+        <label for="rcpt-pdf-name" style="white-space:nowrap">ชื่อไฟล์ PDF</label>
+        <input type="text" id="rcpt-pdf-name" autocomplete="off" maxlength="120" placeholder="ใบเสร็จรับเงิน"
+               style="flex:1;min-width:0;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius);font-size:16px;background:var(--surface);color:var(--text)">
+        <span>.pdf</span>
+      </div>
       <button class="btn btn-primary" onclick="doPrint()">🖨 พิมพ์ / บันทึก PDF</button>
+      <button class="btn" id="rcpt-pdf-btn" onclick="savePdfReceipt()">📄 บันทึก / ส่ง PDF</button>
       <button class="btn" onclick="closeModal('receipt-modal')">ปิด</button>
+      <div id="rcpt-pdf-status" style="flex:1 1 100%;font-size:12px;color:var(--text2);text-align:center"></div>
     </div>
   </div>
 </div>
@@ -4421,7 +4429,7 @@ if ('serviceWorker' in navigator) {
   .content { padding: 0; }
 }
 /* หน้าต่างใบเสร็จคืนเงิน: ปุ่มด้านล่างติดขอบจอเสมอ (ในมือถือใบเสร็จยาว ปุ่มไม่หลุดไปอยู่ท้ายหน้า) */
-#refund-receipt-modal .modal-foot { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--border); z-index: 2; }
+#receipt-modal .modal-foot, #refund-receipt-modal .modal-foot { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--border); z-index: 2; }
 /* พิมพ์ใบเสร็จคืนเงินจากหน้าเดิม (ดู doPrintRefund): ซ่อนทุกอย่างยกเว้นตัวใบเสร็จ */
 @media print {
   @page { size: A4; margin: 8mm 10mm; }
@@ -7120,6 +7128,8 @@ function printReceipt(custId, month) {
   }
   _rcptOtherOnly = false;
   _rcptApplyOtherOnlyUi();
+  _rcptSyncPdfName(true);
+  document.getElementById('rcpt-pdf-status').textContent = '';
   document.getElementById('receipt-modal').classList.add('open');
   // Show internal memo banner at top of receipt modal if exists
   const _rcptMemoBanner = document.getElementById('rcpt-memo-banner');
@@ -7312,6 +7322,7 @@ function rcptAddRow() {
 // ===== RECEIPT MODAL — โหมด "ค่าส่วนต่างเท่านั้น" (แก้ไขได้เหมือนใบเสร็จหลัก แต่แสดง/แก้เฉพาะส่วนต่าง) =====
 let _rcptOtherOnly = false;
 function _rcptApplyOtherOnlyUi() {
+  _rcptSyncPdfName(false);
   const btn = document.getElementById('rcpt-other-toggle-btn');
   if (btn) {
     btn.textContent = _rcptOtherOnly ? '↩ กลับใบเสร็จเต็ม' : '🧾 ใบเสร็จค่าส่วนต่างเท่านั้น';
@@ -7973,6 +7984,9 @@ function doPrint() {
       if (window._fbSave) window._fbSave('invoiced', invoiced);
     }
   }
+
+  // มือถือ/แท็บเล็ต: window.print() และหน้าต่างใหม่ใช้ไม่ได้ในแอป → สร้าง PDF แล้วแชร์/บันทึกแทน
+  if (_isTouchDevice()) { savePdfReceipt(); return; }
 
   const content = document.getElementById('receipt-print-area').innerHTML;
   const win = window.open('', '_blank', 'width=800,height=900');
@@ -9314,23 +9328,23 @@ function _loadScriptOnce(src) {
   });
 }
 
-// ชื่อไฟล์ PDF: ค่าเริ่มต้น "ใบเสร็จคืนเงิน_รหัสลูกค้า_วันที่" (ไม่รวม .pdf) — ผู้ใช้แก้ในช่อง "ชื่อไฟล์ PDF" ได้ก่อนบันทึก
+// ชื่อไฟล์ PDF ค่าเริ่มต้นของใบเสร็จคืนเงิน: "ใบเสร็จคืนเงิน_รหัสลูกค้า_วันที่" (ไม่รวม .pdf)
+function _pdfSafePart(t) { return String(t || '').replace(/[\\/:*?"<>|\s]+/g, '_'); }
 function _rfDefaultPdfName(r) {
-  const safe = t => String(t || '').replace(/[\\/:*?"<>|\s]+/g, '_');
-  return 'ใบเสร็จคืนเงิน' + (r ? '_' + safe(r.custId) + '_' + safe(r.date) : '');
+  return 'ใบเสร็จคืนเงิน' + (r ? '_' + _pdfSafePart(r.custId) + '_' + _pdfSafePart(r.date) : '');
 }
 // ล้างชื่อที่ผู้ใช้พิมพ์: ตัด .pdf ท้ายชื่อ, ตัดอักขระที่ใช้ตั้งชื่อไฟล์ไม่ได้, ว่าง → ใช้ค่าเริ่มต้น
-function _rfCleanPdfName(input, fallback) {
+function _cleanPdfName(input, fallback) {
   let n = String(input == null ? '' : input).replace(/[\u0000-\u001f\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim();
   n = n.replace(/(\.pdf)+$/i, '').replace(/^[\s._]+|[\s.]+$/g, '').slice(0, 120);
   return n || fallback;
 }
 
-// สร้าง PDF (A4) จากใบเสร็จที่เปิดอยู่: วาดเป็นภาพด้วย html2canvas แล้วใส่ลง jsPDF — โหลดไลบรารีเมื่อกดครั้งแรกเท่านั้น
-async function _buildRefundPdf() {
+// สร้าง PDF (A4) จาก element ใด ๆ: วาดเป็นภาพด้วย html2canvas แล้วใส่ลง jsPDF — โหลดไลบรารีเมื่อกดครั้งแรกเท่านั้น
+// paginate=false → บีบให้พอดี 1 หน้า (ใบเสร็จคืนเงิน) · paginate=true → ยาวเกินหน้าเดียวจะตัดต่อเป็นหลายหน้า
+async function _pdfFromElement(src, paginate) {
   await _loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
   await _loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-  const src = document.getElementById('refund-receipt-area');
   // วาดจากสำเนานอกจอที่กว้างเท่า A4 เพื่อให้หน้าตาเหมือนกันทุกเครื่อง ไม่ขึ้นกับความกว้างจอมือถือ
   const holder = document.createElement('div');
   holder.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:#fff;color:#111;';
@@ -9343,13 +9357,24 @@ async function _buildRefundPdf() {
   } finally { holder.remove(); }
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-  const pw = 210, ph = 297, m = 8;
-  let w = pw - 2 * m, h = canvas.height * w / canvas.width;
-  if (h > ph - 2 * m) { h = ph - 2 * m; w = canvas.width * h / canvas.height; }   // ใบเดียวต้องพอดีหนึ่งหน้า
-  pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (pw - w) / 2, m, w, h);
-  const r = refunds.find(x => x.id === _rfReceiptId);
-  const filename = _rfCleanPdfName((document.getElementById('rf-pdf-name') || {}).value, _rfDefaultPdfName(r)) + '.pdf';
-  return { blob: pdf.output('blob'), filename };
+  const pw = 210, ph = 297, m = 8, cw = pw - 2 * m, chh = ph - 2 * m;
+  const fullH = canvas.height * cw / canvas.width;
+  if (!paginate || fullH <= chh * 1.12) {        // หน้าเดียว (ยาวเกินเล็กน้อยก็บีบให้พอดี)
+    let w = cw, h = fullH;
+    if (h > chh) { h = chh; w = canvas.width * h / canvas.height; }
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (pw - w) / 2, m, w, h);
+  } else {                                        // หลายหน้า: ตัดภาพทีละความสูงของหน้า A4
+    const pagePx = Math.floor(chh * canvas.width / cw);
+    for (let y = 0, first = true; y < canvas.height; y += pagePx, first = false) {
+      const hh = Math.min(pagePx, canvas.height - y);
+      const part = document.createElement('canvas'); part.width = canvas.width; part.height = hh;
+      const g = part.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, part.width, part.height);
+      g.drawImage(canvas, 0, y, canvas.width, hh, 0, 0, canvas.width, hh);
+      if (!first) pdf.addPage();
+      pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', m, m, cw, hh * cw / canvas.width);
+    }
+  }
+  return pdf.output('blob');
 }
 
 function _downloadBlob(blob, filename) {
@@ -9361,31 +9386,55 @@ function _downloadBlob(blob, filename) {
 }
 
 // บันทึก / ส่ง PDF: มือถือเปิดหน้าต่างแชร์ของเครื่อง (บันทึกลงไฟล์ ส่ง LINE ฯลฯ) · ไม่รองรับแชร์ → ดาวน์โหลดไฟล์
-async function savePdfRefund() {
-  const btn = document.getElementById('rf-pdf-btn'), st = document.getElementById('rf-pdf-status');
+// cfg = { srcId, nameId, btnId, statusId, title, defaultName(), paginate }
+async function _savePdfFlow(cfg) {
+  const btn = document.getElementById(cfg.btnId), st = document.getElementById(cfg.statusId);
   const say = (t, ok) => { st.style.color = ok === false ? 'var(--danger)' : 'var(--text2)'; st.textContent = t; };
   btn.disabled = true; say('กำลังสร้าง PDF...');
   try {
-    const { blob, filename } = await _buildRefundPdf();
+    const blob = await _pdfFromElement(document.getElementById(cfg.srcId), cfg.paginate);
+    const filename = _cleanPdfName((document.getElementById(cfg.nameId) || {}).value, cfg.defaultName()) + '.pdf';
     const file = new File([blob], filename, { type: 'application/pdf' });
     const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
     if (!canShare) { _downloadBlob(blob, filename); say('✓ สร้าง PDF แล้ว — ถ้าไม่เห็นไฟล์ ให้ดูที่โฟลเดอร์ดาวน์โหลดของเครื่อง'); return; }
     try {
-      await navigator.share({ files: [file], title: 'ใบเสร็จคืนเงิน' });
+      await navigator.share({ files: [file], title: cfg.title });
       say('✓ เรียบร้อย');
     } catch (e) {
       if (e && e.name === 'AbortError') { say(''); return; }          // ผู้ใช้กดยกเลิกเอง
       // เบราว์เซอร์ไม่ให้แชร์เพราะรอนานเกินไปหลังกดปุ่ม → ให้กดอีกครั้ง (ไฟล์พร้อมแล้ว จึงแชร์ได้ทันที)
-      st.innerHTML = '<button class="btn btn-primary" id="rf-pdf-share2">📤 แตะอีกครั้งเพื่อแชร์ / บันทึก PDF</button>';
-      document.getElementById('rf-pdf-share2').onclick = async () => {
-        try { await navigator.share({ files: [file], title: 'ใบเสร็จคืนเงิน' }); say('✓ เรียบร้อย'); }
+      st.innerHTML = '<button class="btn btn-primary" id="' + cfg.btnId + '-share2">📤 แตะอีกครั้งเพื่อแชร์ / บันทึก PDF</button>';
+      document.getElementById(cfg.btnId + '-share2').onclick = async () => {
+        try { await navigator.share({ files: [file], title: cfg.title }); say('✓ เรียบร้อย'); }
         catch (e2) { if (e2 && e2.name === 'AbortError') { say(''); return; } _downloadBlob(blob, filename); say('✓ สร้าง PDF แล้ว — ดูที่โฟลเดอร์ดาวน์โหลดของเครื่อง'); }
       };
     }
   } catch (e) {
-    console.warn('savePdfRefund:', e);
+    console.warn('savePdf:', e);
     say('สร้าง PDF ไม่สำเร็จ: ' + (e && e.message || e), false);
   } finally { btn.disabled = false; }
+}
+
+function savePdfRefund() {
+  return _savePdfFlow({ srcId: 'refund-receipt-area', nameId: 'rf-pdf-name', btnId: 'rf-pdf-btn', statusId: 'rf-pdf-status',
+    title: 'ใบเสร็จคืนเงิน', paginate: false, defaultName: () => _rfDefaultPdfName(refunds.find(x => x.id === _rfReceiptId)) });
+}
+
+// ── ใบเสร็จรับเงินหลัก (รวมโหมด "ค่าส่วนต่างเท่านั้น") ──
+function _rcptDefaultPdfName() {
+  const c = _rcptCtx;
+  return (_rcptOtherOnly ? 'ใบเสร็จค่าส่วนต่าง' : 'ใบเสร็จรับเงิน') + (c ? '_' + _pdfSafePart(c.custId) + '_' + _pdfSafePart(c.targetMonth) : '');
+}
+// ตั้งชื่อไฟล์เริ่มต้นในช่อง: force=true เมื่อเปิดใบเสร็จใหม่ · ไม่ force = อัปเดตตามโหมด เฉพาะเมื่อผู้ใช้ยังไม่ได้แก้ชื่อเอง
+function _rcptSyncPdfName(force) {
+  const el = document.getElementById('rcpt-pdf-name'); if (!el) return;
+  const def = _rcptDefaultPdfName();
+  if (force || !el.value || el.value === el.dataset.def) el.value = def;
+  el.dataset.def = def;
+}
+function savePdfReceipt() {
+  return _savePdfFlow({ srcId: 'receipt-print-area', nameId: 'rcpt-pdf-name', btnId: 'rcpt-pdf-btn', statusId: 'rcpt-pdf-status',
+    title: 'ใบเสร็จรับเงิน', paginate: true, defaultName: _rcptDefaultPdfName });
 }
 
 function doPrintRefund() {
