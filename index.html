@@ -4309,7 +4309,7 @@ if ('serviceWorker' in navigator) {
       <!-- Split-bill panel inside receipt modal -->
       <div id="rcpt-split-panel" style="display:none;margin-bottom:10px;padding:14px 16px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div style="font-size:13px;font-weight:700;color:#c2588a">✂️ แบ่งจ่ายหลายงวด — ออกใบวางบิลให้ลูกค้า</div>
+          <div style="font-size:13px;font-weight:700;color:#c2588a">✂️ แบ่งจ่ายหลายงวด — ออกใบเสร็จให้ลูกค้า</div>
           <div id="rcpt-split-total-display" style="font-size:12px;color:#c2588a;font-weight:600"></div>
         </div>
 
@@ -7464,7 +7464,7 @@ function _rcptSplitCardHtml(n) {
         <div style="background:#fff;border:1.5px solid #b0d8c0;border-radius:8px;padding:12px 14px;margin-bottom:10px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
             <span style="font-weight:700;font-size:13px;color:#c2588a">งวดที่ ${n}</span>
-            <button onclick="rcptPrintInstBill(${n})" class="btn btn-sm" style="font-size:11px;padding:3px 10px;background:#c2588a;color:#fff;border-color:#c2588a">📄 พิมพ์ใบวางบิลงวด ${n}</button>
+            <button onclick="rcptPrintInstBill(${n})" class="btn btn-sm" style="font-size:11px;padding:3px 10px;background:#c2588a;color:#fff;border-color:#c2588a">🖨 พิมพ์ใบเสร็จงวด ${n}</button>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
             <div><label style="${lab}">จำนวนเงิน (บาท)</label>
@@ -7585,6 +7585,8 @@ function rcptSplitValidate() {
   }
 }
 
+// พิมพ์ "ใบเสร็จรับเงิน" ของงวดที่ instNo (หน้าตาเหมือนใบเสร็จปกติ ไม่มีข้อความ "งวดที่ i/N" และไม่มีกล่องเตือนให้ชำระ)
+// วันที่ออกใบเสร็จ / ช่องทางชำระ / วันที่ชำระ ใช้ค่าจากช่องด้านบนของหน้าต่างใบเสร็จเดียวกัน
 function rcptPrintInstBill(instNo) {
   if (!_rcptCtx) { alert('ยังไม่มีข้อมูลใบเสร็จ'); return; }
   const c = customers.find(x => x.id === _rcptCtx.custId);
@@ -7594,10 +7596,22 @@ function rcptPrintInstBill(instNo) {
   const dateFrom = document.getElementById(`rcpt-si${n}-from`).value;
   const dateTo   = document.getElementById(`rcpt-si${n}-to`).value;
   if (!amount) { alert('กรุณากรอกจำนวนเงินงวดที่ ' + n); return; }
-  // Reuse the shared bill builder
-  const channel  = 'โอนเงิน'; // default; no channel field in this lightweight panel
-  const html = _buildInstallmentBillHTML(c, n, amount, channel, dateFrom, dateTo, '', _rcptSplitCount);
-  _openBillWindow(`ใบวางบิล งวดที่ ${n}/${_rcptSplitCount} — ${c.name}`, html);
+
+  const method  = document.getElementById('rcpt-pay-method')?.value || 'transfer';
+  const isCash  = method === 'cash';
+  const isNone  = method === 'none';
+  const payRaw  = document.getElementById('rcpt-pay-date')?.value;
+  const issueRaw = document.getElementById('rcpt-issue-date')?.value || new Date().toISOString().split('T')[0];
+  const html = _buildSplitReceiptHTML(c, {
+    amount,
+    periodLabel:   (dateFrom && dateTo) ? `${fmtDateThai(dateFrom)} – ${fmtDateThai(dateTo)}` : '',
+    channel:       isNone ? '-' : (isCash ? 'เงินสด' : 'โอนเงิน'),
+    isCash,
+    payDateText:   (payRaw && !isNone) ? fmtDateThai(payRaw) : '-',
+    payAmountText: isNone ? '-' : `฿${fmt(amount)}`,
+    issueDateText: fmtDateThai(issueRaw),
+  });
+  _openBillWindow(`ใบเสร็จรับเงิน — ${c.name}`, html);
 }
 
 function rcptShowAddReqPanel() {
@@ -8863,6 +8877,101 @@ function _buildInstallmentBillHTML(c, instNo, amount, channel, dateFrom, dateTo,
     <div class="rcpt-sig-box">
       <div class="rcpt-sig-line"></div>
       <div class="rcpt-sig-label">ผู้รับใบวางบิล / Received by</div>
+      <div class="rcpt-sig-date">ลงวันที่ ............................................</div>
+    </div>
+  </div>`;
+}
+
+// ใบเสร็จรับเงินของ "งวดหนึ่ง" ที่หน้าตาเหมือนใบเสร็จปกติ (ไม่มีข้อความ "งวดที่ i/N" และไม่มีกล่องเตือนให้ชำระ)
+// ใช้กับปุ่มพิมพ์ในแผง "แบ่งหลายงวด" ของหน้าต่างใบเสร็จรับเงิน
+// o = { amount, periodLabel, channel, payDateText, payAmountText, issueDateText, isCash }
+function _buildSplitReceiptHTML(c, o) {
+  const isUdonBranch = c.branch === 'สาขาอุดร';
+  const rcptLogoSrc  = isUdonBranch ? _DD_LOGO_UDON : _DD_LOGO_MAIN;
+  const companyHtml = isUdonBranch
+    ? `<div class="rcpt-company-name">บริษัท เนอร์สซิ่ง โฮมอุดร ดีดี จำกัด</div>
+       <div class="rcpt-company-en">NURSING HOMEUDON DD CO., LTD.</div>
+       <div class="rcpt-company-addr">288 หมู่ที่ 8 ซอยบ้านดงวัด ตำบลหมากแข้ง อำเภอเมืองอุดรธานี จ.อุดรธานี 41000<br>โทร : 089-944-4987 , 080-821-8363<br>เลขประจำตัวผู้เสียภาษีอากร : <b>0415565000188</b></div>`
+    : `<div class="rcpt-company-name">บริษัท เนอร์สซิ่งโฮม ดีดี จำกัด</div>
+       <div class="rcpt-company-en">NURSING HOME DD CO.,LTD.</div>
+       <div class="rcpt-company-addr">1 หมู่บ้าน ประชานิเวศน์ 4 ตำบลท่าทราย อำเภอเมืองนนทบุรี จ.นนทบุรี 11000<br>โทร : 089-9444987 , 085-0015884&nbsp;&nbsp;|&nbsp;&nbsp;Email : DDnursinghome@outlook.com<br>เลขประจำตัวผู้เสียภาษีอากร : <b>0125562018704</b></div>`;
+  const bankBlock = o.isCash || o.channel === '-' ? '' : `<div class="rcpt-pay-block">
+    <div class="rcpt-pay-title">ข้อมูลธนาคาร (โอนเงิน)</div>
+    <div class="rcpt-pay-row"><span class="rcpt-pay-label">ธนาคาร</span><span class="rcpt-pay-value" style="font-size:12px">${c.bank||'—'}</span></div>
+    <div class="rcpt-pay-row"><span class="rcpt-pay-label">เลขที่บัญชี</span><span class="rcpt-pay-value">${c.account_no||'—'}</span></div>
+    <div class="rcpt-pay-row"><span class="rcpt-pay-label">ชื่อบัญชี</span><span class="rcpt-pay-value" style="font-size:12px">${c.account_name||'—'}</span></div>
+  </div>`;
+  const emptyRow = '<tr class="rcpt-empty-rows"><td></td><td></td><td></td><td></td><td></td></tr>';
+  return `
+  <div class="rcpt-header">
+    <img src="${rcptLogoSrc}" style="width:${isUdonBranch?150:80}px;height:${isUdonBranch?140:80}px;object-fit:contain;flex-shrink:0" alt="DD Logo">
+    <div style="flex:1">${companyHtml}</div>
+    <div style="text-align:center;flex-shrink:0;margin-left:8px">
+      <div class="rcpt-copy-box">
+        <div class="rcpt-copy-title">ต้นฉบับ / ORIGINAL</div>
+        <div class="rcpt-copy-sub">สำหรับลูกค้า</div>
+      </div>
+    </div>
+  </div>
+  <hr class="rcpt-divider">
+  <div class="rcpt-title-row">
+    <div class="rcpt-title">ใบเสร็จรับเงิน</div>
+    <div class="rcpt-title-en">RECEIPT</div>
+  </div>
+  <div class="rcpt-info-grid">
+    <div class="rcpt-info-row"><span class="rcpt-info-label">นามลูกค้า :&nbsp;</span><span class="rcpt-info-value">${c.name}</span></div>
+    <div class="rcpt-info-row"><span class="rcpt-info-label">รหัสลูกค้า :&nbsp;</span><span class="rcpt-info-value">${c.id}</span></div>
+    <div class="rcpt-info-row" style="grid-column:1/-1"><span class="rcpt-info-label">ที่อยู่ :&nbsp;</span><span class="rcpt-info-value">${c.address||'—'}</span></div>
+    <div class="rcpt-info-row"><span class="rcpt-info-label">เบอร์โทรศัพท์ :&nbsp;</span><span class="rcpt-info-value">${c.phone||'—'}</span></div>
+    <div class="rcpt-info-row"><span class="rcpt-info-label">วันที่ :&nbsp;</span><span class="rcpt-info-value">${o.issueDateText}</span></div>
+  </div>
+  <table class="rcpt-table">
+    <thead><tr>
+      <th style="width:44px">ลำดับ</th>
+      <th>รายการ</th>
+      <th style="width:90px">จำนวน</th>
+      <th style="width:110px">ราคา/หน่วย</th>
+      <th style="width:120px">จำนวนเงิน (บาท)</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>ค่าบริการดูแล${o.periodLabel ? `<br><span style="font-size:11px;color:#666">ช่วงบริการ : ${o.periodLabel}</span>` : ''}</td>
+        <td>1</td>
+        <td>฿${fmt(o.amount)}</td>
+        <td>฿${fmt(o.amount)}</td>
+      </tr>
+      ${emptyRow}${emptyRow}${emptyRow}${emptyRow}
+    </tbody>
+  </table>
+  <div class="rcpt-total-section">
+    <div class="rcpt-grand-row">
+      <div class="rcpt-grand-label">จำนวนเงินทั้งสิ้น</div>
+      <div class="rcpt-grand-value">฿${fmt(o.amount)}</div>
+    </div>
+    <div class="rcpt-words">
+      <span style="color:#555;white-space:nowrap">ตัวอักษร : </span>
+      <span style="font-weight:600">(${bahtText(o.amount)})</span>
+    </div>
+  </div>
+  <div class="rcpt-payment-section" style="grid-template-columns:${bankBlock ? '1fr 1fr' : '1fr'}">
+    <div class="rcpt-pay-block">
+      <div class="rcpt-pay-title">ช่องทางชำระเงิน</div>
+      <div class="rcpt-pay-row"><span class="rcpt-pay-label">ช่องทาง</span><span class="rcpt-pay-value">${o.channel}</span></div>
+      <div class="rcpt-pay-row"><span class="rcpt-pay-label">วันที่ชำระ</span><span class="rcpt-pay-value">${o.payDateText}</span></div>
+      <div class="rcpt-pay-row"><span class="rcpt-pay-label">จำนวน</span><span class="rcpt-pay-value" style="color:#111">${o.payAmountText}</span></div>
+    </div>
+    ${bankBlock}
+  </div>
+  <div class="rcpt-sig-section">
+    <div class="rcpt-sig-box">
+      <div class="rcpt-sig-line"></div>
+      <div class="rcpt-sig-label">ผู้รับเงิน / Received by</div>
+      <div class="rcpt-sig-date">ลงวันที่ ............................................</div>
+    </div>
+    <div class="rcpt-sig-box">
+      <div class="rcpt-sig-line"></div>
+      <div class="rcpt-sig-label">ผู้จ่ายเงิน / Paid by</div>
       <div class="rcpt-sig-date">ลงวันที่ ............................................</div>
     </div>
   </div>`;
