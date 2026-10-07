@@ -4107,6 +4107,12 @@ if ('serviceWorker' in navigator) {
       <div id="refund-receipt-area"></div>
     </div>
     <div class="modal-foot" style="flex-wrap:wrap;gap:8px">
+      <div style="flex:1 1 100%;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)">
+        <label for="rf-pdf-name" style="white-space:nowrap">ชื่อไฟล์ PDF</label>
+        <input type="text" id="rf-pdf-name" autocomplete="off" maxlength="120" placeholder="ใบเสร็จคืนเงิน"
+               style="flex:1;min-width:0;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius);font-size:16px;background:var(--surface);color:var(--text)">
+        <span>.pdf</span>
+      </div>
       <button class="btn btn-primary" onclick="doPrintRefund()">🖨 พิมพ์ / PDF</button>
       <button class="btn" id="rf-pdf-btn" onclick="savePdfRefund()">📄 บันทึก / ส่ง PDF</button>
       <button class="btn" onclick="closeModal('refund-receipt-modal')">ปิด</button>
@@ -9283,6 +9289,7 @@ function printRefundReceipt(id) {
     </div>`;
 
   _rfReceiptId = id;
+  document.getElementById('rf-pdf-name').value = _rfDefaultPdfName(r);
   document.getElementById('rf-pdf-status').textContent = '';
   document.getElementById('refund-receipt-modal').classList.add('open');
 }
@@ -9307,6 +9314,18 @@ function _loadScriptOnce(src) {
   });
 }
 
+// ชื่อไฟล์ PDF: ค่าเริ่มต้น "ใบเสร็จคืนเงิน_รหัสลูกค้า_วันที่" (ไม่รวม .pdf) — ผู้ใช้แก้ในช่อง "ชื่อไฟล์ PDF" ได้ก่อนบันทึก
+function _rfDefaultPdfName(r) {
+  const safe = t => String(t || '').replace(/[\\/:*?"<>|\s]+/g, '_');
+  return 'ใบเสร็จคืนเงิน' + (r ? '_' + safe(r.custId) + '_' + safe(r.date) : '');
+}
+// ล้างชื่อที่ผู้ใช้พิมพ์: ตัด .pdf ท้ายชื่อ, ตัดอักขระที่ใช้ตั้งชื่อไฟล์ไม่ได้, ว่าง → ใช้ค่าเริ่มต้น
+function _rfCleanPdfName(input, fallback) {
+  let n = String(input == null ? '' : input).replace(/[\u0000-\u001f\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim();
+  n = n.replace(/(\.pdf)+$/i, '').replace(/^[\s._]+|[\s.]+$/g, '').slice(0, 120);
+  return n || fallback;
+}
+
 // สร้าง PDF (A4) จากใบเสร็จที่เปิดอยู่: วาดเป็นภาพด้วย html2canvas แล้วใส่ลง jsPDF — โหลดไลบรารีเมื่อกดครั้งแรกเท่านั้น
 async function _buildRefundPdf() {
   await _loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
@@ -9329,8 +9348,7 @@ async function _buildRefundPdf() {
   if (h > ph - 2 * m) { h = ph - 2 * m; w = canvas.width * h / canvas.height; }   // ใบเดียวต้องพอดีหนึ่งหน้า
   pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (pw - w) / 2, m, w, h);
   const r = refunds.find(x => x.id === _rfReceiptId);
-  const safe = t => String(t || '').replace(/[\\/:*?"<>|\s]+/g, '_');
-  const filename = 'ใบเสร็จคืนเงิน' + (r ? '_' + safe(r.custId) + '_' + safe(r.date) : '') + '.pdf';
+  const filename = _rfCleanPdfName((document.getElementById('rf-pdf-name') || {}).value, _rfDefaultPdfName(r)) + '.pdf';
   return { blob: pdf.output('blob'), filename };
 }
 
