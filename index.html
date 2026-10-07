@@ -1926,10 +1926,10 @@ onAuthStateChanged(auth, async (user) => {
 // หมายเหตุ: เป็นการล็อกจากฝั่งเบราว์เซอร์ ไม่ใช่ server — กันการแก้ย้อนหลังได้ แต่กันการ "ไม่ล็อก" ไม่ได้ (ต้องใช้ Cloud Functions)
 const AUDIT_LABELS = {
   payments:'ชำระเงิน', payHistory:'ประวัติชำระเงิน', rcpt_edits:'แก้ไขใบเสร็จ', refunds:'คืนเงิน',
-  customers:'ข้อมูลลูกค้า', customers_extra:'ข้อมูลลูกค้า', cust_transfers:'ย้ายสาขา',
+  customers:'ข้อมูลลูกค้า', customers_extra:'ข้อมูลลูกค้า', cust_transfers:'ย้ายสาขา', discharged:'คืนเคส',
   catalog:'แคตตาล็อกสินค้า', cat_meta:'หมวดสินค้า', invoiced:'ส่งบิล'
 };
-const AUDIT_NO_VALUES = new Set(['customers','customers_extra','cust_transfers']); // มีข้อมูลส่วนตัว → ล็อกเฉพาะชื่อฟิลด์ ไม่ล็อกค่า
+const AUDIT_NO_VALUES = new Set(['customers','customers_extra','cust_transfers','discharged']); // มีข้อมูลส่วนตัว → ล็อกเฉพาะชื่อฟิลด์ ไม่ล็อกค่า
 function _auditJson(v, max) {
   let t; try { t = JSON.stringify(v === undefined ? null : v); } catch(_) { t = String(v); }
   return t.length > max ? t.slice(0, max) + '…' : t;
@@ -2589,7 +2589,10 @@ if ('serviceWorker' in navigator) {
       <div class="table-wrap">
         <div class="table-header">
           <h3>ลูกค้าที่คืนเคสแล้ว (<span id="dc-count">0</span> ราย)</h3>
-          <button class="btn btn-sm" onclick="exportDischargedCSV()">⬇ Export CSV</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-sm btn-primary" onclick="openQuickDischargeModal()">➕ เพิ่มคืนเคส</button>
+            <button class="btn btn-sm" onclick="exportDischargedCSV()">⬇ Export CSV</button>
+          </div>
         </div>
         <div class="filter-row">
           <select id="df-branch" onchange="renderDischarged()">
@@ -3791,6 +3794,68 @@ if ('serviceWorker' in navigator) {
 </div>
 
 <!-- Discharge Modal -->
+<!-- เพิ่มคืนเคสโดยตรง (ลูกค้าพักระยะสั้น ไม่ต้องเพิ่มในเมนูลูกค้าทั้งหมดก่อน) -->
+<div class="modal-overlay" id="quick-discharge-modal">
+  <div class="modal" style="width:520px;max-width:96vw">
+    <div class="modal-head">
+      <h2>เพิ่มคืนเคส (พักระยะสั้น)</h2>
+      <span class="modal-close" onclick="closeModal('quick-discharge-modal')">×</span>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text2)">
+        สำหรับลูกค้าที่มาพักไม่กี่วัน — ระบบจะสร้างรายชื่อลูกค้าและบันทึกเป็น "คืนเคสแล้ว" ให้ในขั้นตอนเดียว
+        (ถ้าลูกค้าอยู่ในเมนูลูกค้าทั้งหมดอยู่แล้ว ให้กดคืนเคสจากรายชื่อนั้นแทน)
+      </div>
+      <div class="form-section">ข้อมูลลูกค้า</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:6px">
+            รหัสลูกค้า
+            <span id="qd-id-auto-badge" style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-weight:600">auto</span>
+          </label>
+          <input type="text" id="qd-id" placeholder="DD1/48" oninput="document.getElementById('qd-id-auto-badge').style.display='none'">
+        </div>
+        <div class="form-group"><label>สาขา</label>
+          <select id="qd-branch" onchange="qdBranchChange()">
+            <option>สาขา 1</option><option>สาขา 2</option><option>สาขา 3</option><option>สาขาอุดร</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>ชื่อลูกค้า</label><input type="text" id="qd-name" placeholder="คุณ ชื่อ นามสกุล"></div>
+        <div class="form-group"><label>ค่าบริการ/เดือน (บาท)</label><input type="number" id="qd-fee" placeholder="16000"></div>
+      </div>
+      <div class="form-section">การพักและคืนเคส</div>
+      <div class="form-row">
+        <div class="form-group"><label>วันที่เริ่มบริการ</label><input type="date" id="qd-start"></div>
+        <div class="form-group"><label>วันที่คืนเคส</label><input type="date" id="qd-date"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>เหตุผล</label>
+          <select id="qd-reason">
+            <option>ย้ายที่พัก</option>
+            <option>เสียชีวิต</option>
+            <option>ไม่ต่อสัญญา</option>
+            <option>ย้ายไปโรงพยาบาล</option>
+            <option>ครอบครัวดูแลเอง</option>
+            <option>อื่น ๆ</option>
+          </select>
+        </div>
+        <div class="form-group"><label>บันทึกโดย</label><input type="text" id="qd-by" placeholder="ชื่อผู้บันทึก"></div>
+      </div>
+      <div class="form-group">
+        <label>หมายเหตุเพิ่มเติม</label>
+        <textarea id="qd-note" rows="2" placeholder="(ถ้ามี)"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" style="background:var(--warning);color:#fff;border-color:var(--warning)" onclick="confirmQuickDischarge()">🚪 บันทึกคืนเคส</button>
+      <button class="btn" onclick="closeModal('quick-discharge-modal')">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="discharge-modal">
   <div class="modal" style="width:480px">
     <div class="modal-head">
@@ -4372,6 +4437,61 @@ function isTransferred(id) {
 }
 function getTransferRecord(id) { return custTransfers[id.replace(/\//g,'_')] || null; }
 
+// เขียนโหนด discharged ทั้งก้อนลง Firebase (key ต้อง sanitize "/" เป็น "_")
+function _saveDischarged() {
+  const _dSave = {};
+  Object.entries(discharged).forEach(([k,v]) => { _dSave[k.replace(/\//g,'_')] = v; });
+  safeFbSave('discharged', _dSave);
+}
+
+// ===== เพิ่มคืนเคสโดยตรง: สร้างลูกค้า + คืนเคสในขั้นตอนเดียว (สำหรับลูกค้าพักระยะสั้น) =====
+const _QD_TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+function _qdToThaiDue(iso) { // "2026-08-10" -> "10-ส.ค.-2569" (รูปแบบเดียวกับ due_date ของลูกค้าทั้งหมด)
+  const [y, m, d] = iso.split('-').map(Number);
+  return d + '-' + _QD_TH_MONTHS[m - 1] + '-' + (y + 543);
+}
+function openQuickDischargeModal() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('qd-branch').value = document.getElementById('df-branch')?.value || 'สาขา 1';
+  document.getElementById('qd-id').value = autoGenCustomerId(document.getElementById('qd-branch').value);
+  document.getElementById('qd-id-auto-badge').style.display = '';
+  ['qd-name','qd-fee','qd-by','qd-note'].forEach(i => { document.getElementById(i).value = ''; });
+  document.getElementById('qd-start').value = today;
+  document.getElementById('qd-date').value = today;
+  document.getElementById('qd-reason').selectedIndex = 0;
+  document.getElementById('quick-discharge-modal').classList.add('open');
+}
+function qdBranchChange() {
+  // สร้างรหัสใหม่ตามสาขา (เฉพาะถ้ายังไม่ได้แก้รหัสเอง)
+  if (document.getElementById('qd-id-auto-badge').style.display !== 'none') {
+    document.getElementById('qd-id').value = autoGenCustomerId(document.getElementById('qd-branch').value);
+  }
+}
+function confirmQuickDischarge() {
+  const val = i => document.getElementById(i).value.trim();
+  const id = val('qd-id'), name = val('qd-name'), branch = val('qd-branch');
+  const start = val('qd-start'), date = val('qd-date');
+  const fee = parseFloat(val('qd-fee')) || 0;
+  if (!id || !name) { alert('กรุณากรอกรหัสและชื่อลูกค้า'); return; }
+  if (!start || !date) { alert('กรุณาระบุวันที่เริ่มบริการและวันที่คืนเคส'); return; }
+  if (date < start) { alert('วันที่คืนเคสต้องไม่ก่อนวันที่เริ่มบริการ'); return; }
+  if (customers.some(x => x.id === id) || discharged[id]) { alert('รหัส ' + id + ' มีอยู่ในระบบแล้ว กรุณาใช้รหัสอื่น'); return; }
+  const sameName = customers.find(x => x.name.trim().toLowerCase() === name.toLowerCase());
+  if (sameName && !confirm('มีลูกค้าชื่อ "' + sameName.name + '" อยู่แล้ว (รหัส ' + sameName.id + ')\nต้องการเพิ่มเป็นรายการใหม่ต่อหรือไม่?')) return;
+
+  const c = { id, name, bed_code: '', branch, fee, address: '', phone: '', bank: '', account_no: '', account_name: '',
+              due_date: _qdToThaiDue(start), _dupName: false };
+  customers.push(c);
+  discharged[id] = { date, reason: val('qd-reason'), note: val('qd-note'), by: val('qd-by') || 'ไม่ระบุ', dischargedAt: new Date().toISOString() };
+  closeModal('quick-discharge-modal');
+  renderTable();
+  renderBilling();
+  renderDischarged();
+  updateDashboard();
+  safeFbSave('customers/' + id.replace(/\//g, '_'), c);  // เขียนเฉพาะลูกค้ารายนี้ (เหมือน saveCustomer)
+  _saveDischarged();
+}
+
 function openDischargeModal(id) {
   dischargeTarget = id;
   const c = customers.find(x => x.id === id);
@@ -4402,10 +4522,7 @@ function confirmDischarge() {
   renderBilling();
   renderDischarged();
   updateDashboard();
-  // Sanitize keys before saving (Firebase key cannot contain "/")
-  const _dSave = {};
-  Object.entries(discharged).forEach(([k,v]) => { _dSave[k.replace(/\//g,'_')] = v; });
-  safeFbSave('discharged', _dSave);
+  _saveDischarged();
 }
 
 function openRestoreModal(id) {
@@ -4431,10 +4548,7 @@ function confirmRestore() {
   renderBilling();
   renderDischarged();
   updateDashboard();
-  // Sanitize keys before saving (Firebase key cannot contain "/")
-  const _dSave = {};
-  Object.entries(discharged).forEach(([k,v]) => { _dSave[k.replace(/\//g,'_')] = v; });
-  safeFbSave('discharged', _dSave);
+  _saveDischarged();
 }
 
 function renderDischarged() {
@@ -4476,6 +4590,7 @@ function renderDischarged() {
       <td>
         <button class="btn btn-sm" onclick="openDetail('${c.id}')" style="margin-right:4px">📋 ดูข้อมูล</button>
         <button class="btn btn-sm" onclick="openRestoreModal('${c.id}')">↩ กลับเข้า</button>
+        <button class="btn btn-sm" onclick="openRefundModal(null,'${c.id}')" style="margin-left:4px;color:var(--danger);border-color:var(--danger)" title="คืนเงิน">↩️ คืนเงิน</button>
       </td>
     </tr>
   `).join('');
