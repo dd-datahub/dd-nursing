@@ -4065,6 +4065,16 @@ if ('serviceWorker' in navigator) {
         <button class="btn btn-sm" onclick="addRfDiffRow()" style="margin-top:6px">+ เพิ่มรายการ</button>
       </div>
 
+      <div class="form-section" style="margin-top:12px">ข้อมูลลูกค้าบนใบเสร็จคืนเงิน</div>
+      <div class="form-group">
+        <label>ที่อยู่</label>
+        <textarea id="rf-address" rows="2" placeholder="ที่อยู่ลูกค้า (แก้ไข/เพิ่มได้ — มีผลเฉพาะใบเสร็จคืนเงินใบนี้)"></textarea>
+      </div>
+      <div class="form-group">
+        <label>เบอร์โทรศัพท์</label>
+        <input type="text" id="rf-phone" placeholder="เบอร์โทรศัพท์ลูกค้า">
+      </div>
+
       <div class="form-row" style="margin-top:12px">
         <div class="form-group">
           <label>วันที่คืนเงิน</label>
@@ -8827,6 +8837,8 @@ function openRefundModal(refundId, prefillCustId) {
   document.getElementById('rf-note').value   = '';
   document.getElementById('rf-date').value   = new Date().toISOString().split('T')[0];
   document.getElementById('rf-diff-rows').innerHTML = '';
+  document.getElementById('rf-address').value = '';
+  document.getElementById('rf-phone').value   = '';
 
   if (prefillCustId) {
     const c = customers.find(x => x.id === prefillCustId);
@@ -8834,6 +8846,7 @@ function openRefundModal(refundId, prefillCustId) {
       document.getElementById('rf-cust-search').value = `${c.name}  (${c.id})`;
       document.getElementById('rf-cust-id').value = c.id;
       showRfCustInfo(c.id);
+      _rfFillContact(c);
       // Pre-fill paid amount from latest payment
       const p = payments[payKey(c.id, currentMonth)];
       if (p) document.getElementById('rf-paid').value = p.amount;
@@ -8851,6 +8864,7 @@ function openRefundModal(refundId, prefillCustId) {
         document.getElementById('rf-cust-search').value = `${c.name}  (${c.id})`;
         document.getElementById('rf-cust-id').value = c.id;
         showRfCustInfo(c.id);
+        _rfFillContact(c, r);
       }
       document.getElementById('rf-paid').value     = r.paid;
       document.getElementById('rf-actual').value   = r.actual;
@@ -8903,6 +8917,7 @@ function selectRfCust(id) {
   document.getElementById('rf-cust-id').value = id;
   document.getElementById('rf-cust-dropdown').style.display = 'none';
   showRfCustInfo(id);
+  _rfFillContact(c);
   // Auto-fill paid & actual
   const p   = payments[payKey(id, currentMonth)];
   const tot = calcTotalBill(id, currentMonth);
@@ -8911,6 +8926,12 @@ function selectRfCust(id) {
   if (!document.getElementById('rf-actual').value)
     document.getElementById('rf-actual').value = tot;
   calcRefundAmount();
+}
+
+// เติมที่อยู่/เบอร์โทรในฟอร์มคืนเงิน: ถ้าใบคืนเงินนี้เคยแก้ไว้ใช้ค่าที่แก้ ไม่งั้นใช้ข้อมูลของลูกค้า
+function _rfFillContact(c, r) {
+  document.getElementById('rf-address').value = (r && r.custAddress !== undefined) ? r.custAddress : (c.address || '');
+  document.getElementById('rf-phone').value   = (r && r.custPhone   !== undefined) ? r.custPhone   : (c.phone   || '');
 }
 
 function showRfCustInfo(id) {
@@ -9048,15 +9069,17 @@ function saveRefund() {
   const date      = document.getElementById('rf-date').value;
   const note      = document.getElementById('rf-note').value.trim();
   const diffItems = getRfDiffItems();
+  const custAddress = document.getElementById('rf-address').value.trim();
+  const custPhone   = document.getElementById('rf-phone').value.trim();
 
   if (!custId) { alert('กรุณาเลือกลูกค้า'); return; }
   if (!date)   { alert('กรุณาระบุวันที่');  return; }
 
   if (_rfEditId) {
     const idx = refunds.findIndex(r => r.id === _rfEditId);
-    if (idx >= 0) refunds[idx] = { ...refunds[idx], custId, paid, actual, discount, refundAmt, diffItems, date, note };
+    if (idx >= 0) refunds[idx] = { ...refunds[idx], custId, paid, actual, discount, refundAmt, diffItems, date, note, custAddress, custPhone };
   } else {
-    refunds.push({ id: 'RF'+Date.now(), custId, paid, actual, discount, refundAmt, diffItems, date, note, createdAt: new Date().toISOString() });
+    refunds.push({ id: 'RF'+Date.now(), custId, paid, actual, discount, refundAmt, diffItems, date, note, custAddress, custPhone, createdAt: new Date().toISOString() });
   }
   closeModal('refund-modal');
   renderRefundList();
@@ -9182,11 +9205,11 @@ function printRefundReceipt(id) {
         </tr>
         <tr>
           <td style="padding:3px 0;color:#555">ที่อยู่ :</td>
-          <td colspan="4" style="border-bottom:1px dotted #aaa;padding:3px 6px">${c?.address||'—'}</td>
+          <td colspan="4" style="border-bottom:1px dotted #aaa;padding:3px 6px">${_auditEsc((r.custAddress !== undefined ? r.custAddress : c?.address) || '—')}</td>
         </tr>
         <tr>
           <td style="padding:3px 0;color:#555">Tel :</td>
-          <td style="border-bottom:1px dotted #aaa;padding:3px 6px">${c?.phone||'—'}</td>
+          <td style="border-bottom:1px dotted #aaa;padding:3px 6px">${_auditEsc((r.custPhone !== undefined ? r.custPhone : c?.phone) || '—')}</td>
           <td></td>
           <td style="padding:3px 0;color:#555">วันที่ :</td>
           <td style="border-bottom:1px dotted #aaa;padding:3px 6px">${fmtDateThai(r.date)}</td>
