@@ -2031,7 +2031,7 @@ async function fbLoad() {
     // อ่านทีละ node (ไม่อ่านที่ root "/" รวดเดียว) เพราะ Firebase Security Rules
     // กำหนดสิทธิ์ไว้เฉพาะ path ย่อยแต่ละตัว ไม่ได้กำหนดไว้ที่ root — การอ่าน root
     // ทั้งก้อนจะถูกปฏิเสธสิทธิ์เสมอ ไม่ว่าจะ login ถูกหรือไม่ก็ตาม
-    const _fbPaths = ['payHistory','payments','requisitions','discharged','invoiced','rcpt_edits','refunds','catalog','system_years','cat_meta','customers','customers_extra','bed_map','bed_map_layout','bed_map_rooms'];
+    const _fbPaths = ['payHistory','payments','requisitions','discharged','invoiced','rcpt_edits','refunds','catalog','system_years','cat_meta','customers','customers_extra','bed_map','bed_map_layout','bed_map_rooms','bed_map_3d'];
     const _fbSnaps = await Promise.all(_fbPaths.map(p =>
       get(ref(db, p)).catch(e => { console.warn(`fbLoad: อ่าน "${p}" ไม่ได้:`, e); return null; })
     ));
@@ -2120,6 +2120,9 @@ async function fbLoad() {
     }
     if (d.bed_map_rooms) {
       _bedMapRooms = d.bed_map_rooms;
+    }
+    if (d.bed_map_3d) {
+      _bedMap3d = d.bed_map_3d;
     }
     // (merge ลูกค้า/customers_extra ทำไปแล้วด้านบนแล้ว ก่อนการ restore key ของ payments/discharged)
     // Render after load
@@ -4413,6 +4416,7 @@ if ('serviceWorker' in navigator) {
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="billing-core.js?v=1"></script>
+<script src="bedmap-3d.js?v=1"></script>
 <script>
 // ========== DISCHARGE SYSTEM ==========
 // discharged: { [customerId]: { date, reason, note, by } }
@@ -9583,6 +9587,18 @@ let _bmEditMode   = false;
 let _bedMapLayout = {};   // {branch: {floor: {rooms:{id:{x,y,w,h}}, beds:{no:{x,y}}, bedR:22}}}
 let _bmDrag       = null;
 let _bedMapRooms  = {};   // {branch: {floor: ['ห้องพัก 1', 'ห้องพัก 2', ...]}} — admin-managed room list (generic branches)
+let _bedMap3d     = {};   // {branch: {rooms:{id:{...}}, beds:{key:{x,z,rot}}}} — 3D house design (see bedmap-3d.js)
+let _bedMapView   = '2d'; // '2d' = house/rooms/beds as before, '3d' = 3D house view + editor
+// สะพานระหว่างหน้าแผนผังเตียงกับ bedmap-3d.js
+const _bm3dHost = {
+  getBranch:  () => _bedMapBranch,
+  getBeds:    () => _bedMapData[_bedKey(_bedMapBranch)] || [],
+  getModel:   (branch) => _bedMap3d[branch] || null,
+  save:       (branch, model) => { _bedMap3d[branch] = model; if (window._fbSave) window._fbSave('bed_map_3d', _bedMap3d); },
+  openBed:    (idx) => bedMapOpenEdit(idx),
+  openNewBed: (floor) => bedMapOpenNew(floor),
+};
+function setBedMapView(v) { _bedMapView = v === '3d' ? '3d' : '2d'; renderBedMap(); }
 
 function _bmGetRooms(branch, floor) {
   return (_bedMapRooms[branch] && _bedMapRooms[branch][floor]) || [];
@@ -10164,6 +10180,22 @@ function renderBedMap() {
       `<div class="month-tab ${b===_bedMapBranch?'active':''}" onclick="setBedMapBranch('${b}')">${b}</div>`
     ).join('')}
   </div>`;
+  const viewTabs = `<div class="month-tabs" style="margin-bottom:16px">
+    <div class="month-tab ${_bedMapView==='2d'?'active':''}" onclick="setBedMapView('2d')">🗺 ผังห้อง</div>
+    <div class="month-tab ${_bedMapView==='3d'?'active':''}" onclick="setBedMapView('3d')">🧊 มุมมอง 3D</div>
+  </div>`;
+  if (_bedMapView === '3d' && window.BedMap3D) {
+    const mountEl = document.getElementById('bm3d-mount');
+    if (mountEl && BedMap3D.isMounted()) {      // already showing 3D → just update the tabs and re-read the data
+      document.getElementById('bm-tabs').innerHTML = branchTabs + viewTabs;
+      BedMap3D.refresh();
+      return;
+    }
+    root.innerHTML = `<div id="bm-tabs">${branchTabs}${viewTabs}</div><div id="bm3d-mount"></div>`;
+    BedMap3D.mount(document.getElementById('bm3d-mount'), _bm3dHost);
+    return;
+  }
+  if (window.BedMap3D) BedMap3D.unmount();
   let building;
   if (_bedMapLevel === 'house') {
     building = _renderBedMapHouse();
@@ -10172,7 +10204,7 @@ function renderBedMap() {
     // (previously had its own hardcoded floor-plan layout — see _renderS1Building, kept but unused)
     building = _renderGenericBuilding();
   }
-  root.innerHTML = branchTabs + building;
+  root.innerHTML = branchTabs + viewTabs + building;
 }
 
 function setBedMapFloor(floor) {
