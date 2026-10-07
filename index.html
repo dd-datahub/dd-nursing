@@ -8847,9 +8847,9 @@ function _buildSplitReceiptHTML(c, o) {
   </div>`;
 }
 
-function _openBillWindow(title, htmlContent) {
-  const win = window.open('', '_blank', 'width=800,height=900');
-  win.document.write(`<!DOCTYPE html>
+// เอกสารเต็มหน้า (ใบวางบิล / ใบเสร็จรายงวด ฯลฯ) — autoPrint=true เฉพาะหน้าต่างพิมพ์บนคอม
+function _billDocHtml(title, htmlContent, autoPrint) {
+  return `<!DOCTYPE html>
 <html lang="th">
 <head>
 <meta charset="UTF-8">
@@ -8902,10 +8902,91 @@ body { font-family: 'Sarabun', sans-serif; font-size: 13px; color: #111; backgro
 </head>
 <body>
 ${htmlContent}
-<script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };<\/script>
+${autoPrint ? '<script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };<\/script>' : ''}
 </body>
-</html>`);
+</html>`;
+}
+
+// คอม: เปิดหน้าต่างใหม่แล้วสั่งพิมพ์ · มือถือ/แท็บเล็ต: หน้าต่างใหม่+พิมพ์ใช้ไม่ได้ → เปิดตัวดูในหน้านี้ มีปุ่มบันทึก/แชร์ PDF
+function _openBillWindow(title, htmlContent) {
+  if (_isTouchDevice()) { _showBillViewer(title, htmlContent); return; }
+  const win = window.open('', '_blank', 'width=800,height=900');
+  if (!win) { alert('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — กรุณาอนุญาต pop-up ของเว็บนี้'); return; }
+  win.document.write(_billDocHtml(title, htmlContent, true));
   win.document.close();
+}
+
+let _billViewerDoc = '';
+function _closeBillViewer() { const ov = document.getElementById('bill-viewer'); if (ov) ov.remove(); document.body.style.removeProperty('overflow'); _billViewerDoc = ''; }
+
+function _showBillViewer(title, htmlContent) {
+  _closeBillViewer();
+  _billViewerDoc = _billDocHtml(title, htmlContent, false);
+  const ov = document.createElement('div');
+  ov.id = 'bill-viewer';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:#e9e9ee;display:flex;flex-direction:column;font-family:inherit';
+  ov.innerHTML = `
+    <div style="background:#fff;border-bottom:1px solid #ddd;padding:10px 12px;display:flex;flex-direction:column;gap:8px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div id="bill-viewer-title" style="flex:1;min-width:0;font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+        <button type="button" class="btn btn-outline" onclick="_closeBillViewer()">✕ ปิด</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="bill-pdf-name" aria-label="ชื่อไฟล์ PDF" style="flex:1;min-width:140px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+        <button type="button" class="btn btn-primary" id="bill-pdf-btn" onclick="savePdfBill()">📤 บันทึก / แชร์ PDF</button>
+      </div>
+      <div id="bill-pdf-status" style="font-size:12px;color:var(--text2);min-height:16px"></div>
+    </div>
+    <div id="bill-viewer-scroll" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:10px 0">
+      <div id="bill-viewer-wrap" style="margin:0 auto;position:relative;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.18);background:#fff">
+        <iframe id="bill-viewer-frame" title="ตัวอย่างเอกสาร" style="border:0;width:794px;max-width:none;height:1123px;transform-origin:0 0;background:#fff"></iframe>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  document.body.style.overflow = 'hidden';
+  document.getElementById('bill-viewer-title').textContent = title;
+  document.getElementById('bill-pdf-name').value = _cleanPdfName(title, 'เอกสาร');
+  const fr = document.getElementById('bill-viewer-frame');
+  const fit = () => {
+    const wrap = document.getElementById('bill-viewer-wrap'); if (!wrap) return;
+    const k = Math.min(1, (window.innerWidth - 16) / 794);
+    let h = 1123;
+    try { h = Math.max(1123, fr.contentDocument.documentElement.scrollHeight); } catch (e) {}
+    fr.style.height = h + 'px';
+    fr.style.transform = 'scale(' + k + ')';
+    wrap.style.width = Math.round(794 * k) + 'px';
+    wrap.style.height = Math.round(h * k) + 'px';
+  };
+  fr.addEventListener('load', () => { fit(); setTimeout(fit, 600); });
+  window.addEventListener('resize', fit);
+  fr.srcdoc = _billViewerDoc;
+}
+
+// สร้าง PDF จากเอกสารที่เปิดอยู่ในตัวดู: วาดจาก iframe นอกจอกว้าง A4 (794px) ให้หน้าตาเหมือนกันทุกเครื่อง
+async function _billPdfBlob() {
+  await _loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  await _loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  const fr = document.createElement('iframe');
+  fr.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;background:#fff;max-width:none';
+  document.body.appendChild(fr);
+  try {
+    await new Promise((resolve, reject) => {
+      fr.addEventListener('load', resolve);
+      fr.addEventListener('error', () => reject(new Error('เปิดเอกสารเพื่อสร้าง PDF ไม่สำเร็จ')));
+      fr.srcdoc = _billViewerDoc;
+    });
+    const d = fr.contentDocument;
+    if (d.fonts && d.fonts.ready) { try { await d.fonts.ready; } catch (e) {} }
+    await new Promise(r => setTimeout(r, 300));
+    fr.style.height = Math.max(1123, d.documentElement.scrollHeight) + 'px';
+    const canvas = await window.html2canvas(d.body, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: 794 });
+    return _canvasToPdfBlob(canvas, true);
+  } finally { fr.remove(); }
+}
+
+function savePdfBill() {
+  return _savePdfFlow({ getBlob: _billPdfBlob, nameId: 'bill-pdf-name', btnId: 'bill-pdf-btn', statusId: 'bill-pdf-status',
+    title: (document.getElementById('bill-viewer-title') || {}).textContent || 'เอกสาร', defaultName: () => 'เอกสาร' });
 }
 
 // Print installment BILL (invoice) from the pay modal form — before payment
@@ -9511,6 +9592,10 @@ async function _pdfFromElement(src, paginate) {
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
     canvas = await window.html2canvas(holder, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
   } finally { holder.remove(); }
+  return _canvasToPdfBlob(canvas, paginate);
+}
+
+function _canvasToPdfBlob(canvas, paginate) {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   const pw = 210, ph = 297, m = 8, cw = pw - 2 * m, chh = ph - 2 * m;
@@ -9548,7 +9633,7 @@ async function _savePdfFlow(cfg) {
   const say = (t, ok) => { st.style.color = ok === false ? 'var(--danger)' : 'var(--text2)'; st.textContent = t; };
   btn.disabled = true; say('กำลังสร้าง PDF...');
   try {
-    const blob = await _pdfFromElement(document.getElementById(cfg.srcId), cfg.paginate);
+    const blob = cfg.getBlob ? await cfg.getBlob() : await _pdfFromElement(document.getElementById(cfg.srcId), cfg.paginate);
     const filename = _cleanPdfName((document.getElementById(cfg.nameId) || {}).value, cfg.defaultName()) + '.pdf';
     const file = new File([blob], filename, { type: 'application/pdf' });
     const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
