@@ -179,18 +179,19 @@
     if (cssDone) return; cssDone = true;
     var st = document.createElement('style');
     st.textContent = [
-      '.bm3d{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch}',
-      '.bm3d-main{flex:1 1 560px;min-width:0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface)}',
+      '.bm3d{--bm3d-h:max(620px,calc(100vh - 190px));display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}',
+      '.bm3d.bm3d-full{--bm3d-h:calc(100vh - 24px);position:fixed;inset:0;z-index:90;padding:12px;background:var(--bg,#f8f7fb);flex-wrap:nowrap;align-items:stretch}',
+      '.bm3d-main{flex:1 1 560px;min-width:0;height:var(--bm3d-h);display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface)}',
       '.bm3d-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--surface2)}',
       '.bm3d-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}',
       '.bm3d-seg button{border:0;background:var(--surface);padding:5px 11px;font-size:12px;cursor:pointer;color:var(--text2)}',
       '.bm3d-seg button+button{border-left:1px solid var(--border)}',
       '.bm3d-seg button.on{background:var(--accent,#c2588a);color:#fff;font-weight:600}',
-      '.bm3d-stage{position:relative;height:560px;background:linear-gradient(#e6eef8,#f7f9fc)}',
+      '.bm3d-stage{position:relative;flex:1 1 auto;min-height:0;background:linear-gradient(#e6eef8,#f7f9fc)}',
       '.bm3d-stage canvas{display:block;width:100%;height:100%;touch-action:none}',
       '.bm3d-hint{position:absolute;left:10px;bottom:8px;font-size:11px;color:#475569;background:#ffffffd0;padding:3px 9px;border-radius:8px;pointer-events:none}',
       '.bm3d-err{padding:30px;text-align:center;color:var(--danger,#b91c1c);font-size:13px}',
-      '.bm3d-panel{flex:0 0 270px;max-width:100%;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);padding:12px;font-size:12px;display:flex;flex-direction:column;gap:10px}',
+      '.bm3d-panel{flex:0 0 270px;max-width:100%;height:var(--bm3d-h);overflow-y:auto;box-sizing:border-box;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);padding:12px;font-size:12px;display:flex;flex-direction:column;gap:10px}',
       '.bm3d-panel h4{margin:0 0 4px;font-size:12px;color:var(--text2);font-weight:700}',
       '.bm3d-panel label{display:block;font-size:11px;color:var(--text3);margin-bottom:2px}',
       '.bm3d-panel input,.bm3d-panel select{width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);box-sizing:border-box}',
@@ -199,6 +200,7 @@
       '.bm3d-btn{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;color:var(--text)}',
       '.bm3d-btn.pri{background:var(--accent,#c2588a);border-color:var(--accent,#c2588a);color:#fff}',
       '.bm3d-btn.dng{color:#b91c1c;border-color:#fca5a5;background:#fef2f2}',
+      '@media (max-width:820px){.bm3d-panel{flex:1 1 100%;height:auto;max-height:60vh}.bm3d.bm3d-full{flex-wrap:wrap;overflow-y:auto}.bm3d.bm3d-full .bm3d-main{height:calc(100vh - 24px)}}',
       '.bm3d-leg{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--text2)}',
       '.bm3d-leg i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px;border:1px solid #0002}'
     ].join('\n');
@@ -341,6 +343,7 @@
     var rooms = Object.keys(S.model.rooms).map(function (k) { return S.model.rooms[k]; }).filter(function (r) { return floorVisible(r.floor); });
     var b = boundsOf(rooms), cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;
     var size = Math.max(b.x1 - b.x0, b.z1 - b.z0, 6);
+    size *= Math.max(1, 1.15 / (S.camera.aspect || 1.15));      // narrow/tall canvas → pull back so the plan still fits
     var cy = S.view.floor === '2' ? FLOOR_H : (S.view.floor === 'all' ? FLOOR_H / 2 : 0);
     S.controls.target.set(cx, cy, cz);
     if (mode === 'top') S.camera.position.set(cx, cy + size * 1.45, cz + 0.001);
@@ -608,6 +611,13 @@
     S.hint.textContent = on ? 'โหมดแก้ไข: ลากห้อง/เตียงเพื่อย้าย · ลากพื้นที่ว่างเพื่อหมุนมุมมอง' : 'ลาก = หมุน · ล้อเมาส์ = ซูม · คลิกเตียง = ดู/แก้ไขผู้พัก';
     rebuildAll();
   }
+  function setFull(on) {
+    S.full = !!on;
+    S.root.classList.toggle('bm3d-full', S.full);
+    var b = S.bar.querySelector('[data-act="full"]'); if (b) b.textContent = S.full ? '⮌ ออกจากเต็มจอ' : '⛶ เต็มจอ';
+    setTimeout(function () { if (!S) return; resize(); fitCamera('iso'); }, 40);
+  }
+  function onKey(e) { if (e.key === 'Escape' && S && S.full) setFull(false); }
   function onBarClick(e) {
     var fl = e.target.closest && e.target.closest('[data-floor]');
     if (fl) { setFloor(fl.getAttribute('data-floor')); return; }
@@ -615,6 +625,7 @@
     var a = btn.getAttribute('data-act');
     if (a === 'edit') setEdit(!S.view.edit);
     else if (a === 'low') { S.view.low = !S.view.low; btn.classList.toggle('on', S.view.low); rebuildAll(); }
+    else if (a === 'full') setFull(!S.full);
     else if (a === 'top') fitCamera('top');
     else if (a === 'iso') fitCamera('iso');
   }
@@ -649,12 +660,12 @@
       '<button data-floor="1" class="on">ชั้น 1</button><button data-floor="2">ชั้น 2</button><button data-floor="all">ทั้งสองชั้น</button></div>' +
       '<div class="bm3d-seg"><button data-act="iso">มุมเฉียง</button><button data-act="top">มุมบน</button></div>' +
       '<button class="bm3d-btn" data-act="low" title="ลดความสูงผนังเพื่อมองเห็นเตียงด้านใน">ผนังเตี้ย</button>' +
-      '<span style="flex:1"></span><button class="bm3d-btn" data-act="edit">✏️ แก้ไข</button></div>' +
+      '<span style="flex:1"></span><button class="bm3d-btn" data-act="full" title="ขยายเต็มหน้าจอ (กด Esc เพื่อออก)">⛶ เต็มจอ</button><button class="bm3d-btn" data-act="edit">✏️ แก้ไข</button></div>' +
       '<div class="bm3d-stage"><canvas></canvas><div class="bm3d-hint"></div></div></div>' +
       '<div class="bm3d-panel"></div></div>';
     var stage = container.querySelector('.bm3d-stage'), canvas = stage.querySelector('canvas');
     S = {
-      host: host, container: container, stage: stage, canvas: canvas, hint: stage.querySelector('.bm3d-hint'),
+      host: host, container: container, root: container.querySelector('.bm3d'), stage: stage, canvas: canvas, hint: stage.querySelector('.bm3d-hint'),
       bar: container.querySelector('.bm3d-bar'), panel: container.querySelector('.bm3d-panel'),
       view: { floor: '1', edit: false, low: false }, sel: null, drag: null, down: null,
       ray: new T.Raycaster(), ndc: new T.Vector2(), pickables: [], roomGroups: {}, bedGroups: {}
@@ -674,6 +685,7 @@
     S.scene.add(S.roomsG); S.scene.add(S.bedsG); S.scene.add(S.selG);
     canvas.addEventListener('pointerdown', onDown); canvas.addEventListener('pointermove', onMove);
     canvas.addEventListener('pointerup', onUp); canvas.addEventListener('pointercancel', onUp);
+    document.addEventListener('keydown', onKey);
     S.bar.addEventListener('click', onBarClick);
     S.panel.addEventListener('click', onPanelClick); S.panel.addEventListener('change', onPanelChange);
     if (window.ResizeObserver) { S.ro = new ResizeObserver(resize); S.ro.observe(stage); } else window.addEventListener('resize', resize);
@@ -701,6 +713,7 @@
     mountSeq++;
     if (!S) return;
     cancelAnimationFrame(S.raf); clearTimeout(saveTimer);
+    document.removeEventListener('keydown', onKey);
     if (S.ro) S.ro.disconnect(); else window.removeEventListener('resize', resize);
     clearGroup(S.roomsG); clearGroup(S.bedsG); clearGroup(S.selG);
     S.controls.dispose(); S.renderer.dispose();
