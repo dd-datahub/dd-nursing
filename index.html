@@ -2335,7 +2335,7 @@ function listenAllData() {
 
   // cust_memos — บันทึกช่วยจำภายใน (internal admin notes, not shown to customers)
   onValue(ref(db, "cust_memos"), snap => {
-    custMemos = snap.exists() ? snap.val() : {};
+    custMemos = snap.exists() ? _normMemos(snap.val()) : {};
     const ap = document.querySelector(".page.active")?.id;
     if (ap === "page-billing") renderBilling?.();
   });
@@ -5227,7 +5227,7 @@ function renderBilling() {
         }
       </td>
       <td style="white-space:nowrap">
-        ${(() => { const m=getCustMemo(c.id); return `<button class="memo-pin-btn ${m?'has-memo':''}" onclick="openMemoPopup('${c.id}',this)" title="${m?(m.tags?.map(_memoTagLabel).join(', ')||'')+(m.text?'\n'+m.text:''):'เพิ่มบันทึกช่วยจำ'}">📌</button>`; })()}
+        ${(() => { const m=getCustMemo(c.id); return `<button class="memo-pin-btn ${m?'has-memo':''}" onclick="openMemoPopup('${c.id}',this)" title="${m?_escHtmlMemo((m.tags?.map(_memoTagLabel).join(', ')||'')+(m.text?'\n'+m.text:'')):'เพิ่มบันทึกช่วยจำ'}">📌</button>`; })()}
         <button class="btn btn-sm btn-primary" onclick="openPayModal('${c.id}')" style="margin-left:4px">💳 ${s==='unpaid'?'ชำระ':'แก้ไข'}</button>
         <button class="btn btn-sm" onclick="${p?.installments?.length === 2 ? `openInstPrintMenu('${c.id}','${currentMonth}')` : `printReceipt('${c.id}')`}" style="margin-left:4px" title="${p?.installments?.length === 2 ? 'พิมพ์บิล / ใบเสร็จ (แบ่งงวด)' : 'พิมพ์ใบเสร็จ'}">🖨${p?.installments?.length === 2 ? ' <span style="font-size:10px;vertical-align:middle">▾</span>' : ''}</button>
         <button class="btn btn-sm" onclick="openRefundModal(null,'${c.id}')" style="margin-left:4px;color:var(--danger);border-color:var(--danger)" title="คืนเงิน">↩️</button>
@@ -8566,6 +8566,18 @@ function _memoKey(custId) { return custId.replace(/\//g, '_'); }
 
 function getCustMemo(custId) { return custMemos[_memoKey(custId)] || null; }
 
+// Firebase ไม่เก็บ array ว่าง → บันทึกที่มีแต่ข้อความ (ไม่ติ๊กป้าย) กลับมาโดยไม่มี tags
+// เดิมทำให้ openMemoPopup/ฟังก์ชันย้ายสาขา error (memo.tags.includes ของ undefined) แล้วป๊อปอัปไม่เด้งขึ้นมา
+function _normMemos(obj) {
+  Object.values(obj || {}).forEach(m => {
+    if (!m || typeof m !== 'object') return;
+    m.tags = Array.isArray(m.tags) ? m.tags : (m.tags ? Object.values(m.tags) : []);
+    if (typeof m.text !== 'string') m.text = m.text == null ? '' : String(m.text);
+  });
+  return obj || {};
+}
+function _escHtmlMemo(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+
 function saveCustMemo(custId, text, tags) {
   const key = _memoKey(custId);
   if (!text.trim() && !tags.length) {
@@ -8577,6 +8589,17 @@ function saveCustMemo(custId, text, tags) {
   }
   renderBilling?.();
   document.getElementById('memo-popup')?.remove();
+  _refreshMemoBanners(custId);
+}
+
+// อัปเดตแถบ "บันทึกช่วยจำ" ที่เปิดค้างอยู่ (ในใบเสร็จ / หน้ารายละเอียดลูกค้า) หลังบันทึก
+function _refreshMemoBanners(custId) {
+  const html = _buildMemoBanner(custId);
+  const rcpt = document.getElementById('rcpt-memo-banner');
+  if (rcpt && _rcptCtx && _rcptCtx.custId === custId) { rcpt.style.display = html ? '' : 'none'; rcpt.innerHTML = html; }
+  document.querySelectorAll('#detail-modal .memo-banner').forEach(el => {
+    if (html) el.outerHTML = html; else el.remove();
+  });
 }
 
 function openMemoPopup(custId, btnEl) {
@@ -8584,7 +8607,8 @@ function openMemoPopup(custId, btnEl) {
   document.getElementById('memo-popup')?.remove();
   const c = customers.find(x => x.id === custId);
   if (!c) return;
-  const memo = getCustMemo(custId) || { text: '', tags: [] };
+  const memo = { text: '', tags: [], ...(getCustMemo(custId) || {}) };
+  if (!Array.isArray(memo.tags)) memo.tags = [];
 
   const popup = document.createElement('div');
   popup.id = 'memo-popup';
@@ -8602,6 +8626,10 @@ function openMemoPopup(custId, btnEl) {
     : Math.max(8, rect.top - popupH - 6); // ไม่พอ → เปิดด้านบน
 
   popup.style.cssText = `top:${topPos}px;left:${left}px;max-height:${window.innerHeight - 16}px;overflow-y:auto`;
+  // มือถือ: วางป๊อปอัปไว้ชิดบนของจอเต็มความกว้าง — ถ้าเปิดใกล้ขอบล่าง แป้นพิมพ์จะบังช่องพิมพ์ ทำให้ดูเหมือนแก้ไขไม่ได้
+  if (window.innerWidth <= 640) {
+    popup.style.cssText = 'top:calc(8px + env(safe-area-inset-top, 0px));left:8px;right:8px;width:auto;max-height:min(60vh, 460px);overflow-y:auto';
+  }
 
   popup.innerHTML = `
     <div class="memo-popup-head">
@@ -8621,7 +8649,7 @@ function openMemoPopup(custId, btnEl) {
     <div style="padding:4px 14px 12px">
       <textarea id="memo-text-input" placeholder="หมายเหตุเพิ่มเติม เช่น แบ่ง 2 งวดเสมอ, เหมาส่วนต่างค่าห้อง..."
         style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #fde68a;border-radius:8px;font-size:12px;font-family:inherit;resize:vertical;min-height:72px;line-height:1.55;color:#111;background:#fffef7"
-      >${memo.text}</textarea>
+      >${_escHtmlMemo(memo.text)}</textarea>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button onclick="(function(){
           const tags=[...document.querySelectorAll('#memo-tag-area .memo-tag.active')].map(el=>el.dataset.val);
@@ -8662,9 +8690,13 @@ function _buildMemoBanner(custId) {
   return `<div class="memo-banner">
     <span class="memo-banner-icon">📌</span>
     <div class="memo-banner-body">
-      <div class="memo-banner-label">บันทึกช่วยจำ (ภายใน)</div>
+      <div class="memo-banner-label" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span>บันทึกช่วยจำ (ภายใน)</span>
+        <button type="button" onclick="openMemoPopup('${String(custId).replace(/'/g, "\\'")}', this)"
+          style="font-size:11px;padding:2px 9px;border:1px solid #fbbf24;border-radius:10px;background:#fff;color:#b45309;cursor:pointer;text-transform:none;letter-spacing:0">✏️ แก้ไข</button>
+      </div>
       ${tagHtml ? `<div style="margin:4px 0 2px">${tagHtml}</div>` : ''}
-      ${memo.text ? `<div class="memo-banner-text">${memo.text}</div>` : ''}
+      ${memo.text ? `<div class="memo-banner-text">${_escHtmlMemo(memo.text)}</div>` : ''}
     </div>
   </div>`;
 }
