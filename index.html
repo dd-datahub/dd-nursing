@@ -3658,7 +3658,7 @@ if ('serviceWorker' in navigator) {
       <!-- Mode toggle -->
       <div style="display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:14px">
         <button id="pm-mode-normal" class="pm-mode-btn pm-mode-active" onclick="setPmMode('normal')">💳 ชำระครั้งเดียว</button>
-        <button id="pm-mode-split"  class="pm-mode-btn"               onclick="setPmMode('split')">✂️ แบ่งจ่าย 2 งวด</button>
+        <button id="pm-mode-split"  class="pm-mode-btn"               onclick="setPmMode('split')">✂️ แบ่งจ่ายหลายงวด</button>
       </div>
 
       <!-- ===== NORMAL MODE ===== -->
@@ -3694,75 +3694,17 @@ if ('serviceWorker' in navigator) {
           <b id="pm-split-total-val" style="font-size:15px;color:var(--accent)">฿0</b>
         </div>
 
-        <!-- Installment 1 -->
-        <div class="pm-inst-card" id="pm-inst-card-1">
-          <div class="pm-inst-head"><span class="pm-inst-num">งวดที่ 1</span><span id="pm-i1-status-tag"></span><button class="btn btn-sm" onclick="printInstallmentBillFromModal(1)" title="พิมพ์ใบวางบิลงวด 1 ให้ลูกค้า" style="margin-left:auto;font-size:11px;padding:3px 9px;color:var(--accent);border-color:var(--accent)">📄 พิมพ์บิล</button></div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>จำนวนเงิน (บาท)</label>
-              <input type="number" id="pm-i1-amt" min="0" placeholder="8000" oninput="validateSplitTotal()">
-            </div>
-            <div class="form-group">
-              <label>ช่องทาง</label>
-              <select id="pm-i1-ch"><option>โอนเงิน</option><option>เงินสด</option><option>เช็ค</option><option>พร้อมเพย์</option></select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>ช่วงเวลา: ตั้งแต่</label>
-              <input type="date" id="pm-i1-from">
-            </div>
-            <div class="form-group">
-              <label>ถึงวันที่</label>
-              <input type="date" id="pm-i1-to">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>วันที่ชำระ <span style="color:var(--text3);font-weight:400">(ว่างไว้ = ยังไม่ชำระ)</span></label>
-              <input type="date" id="pm-i1-paid">
-            </div>
-            <div class="form-group">
-              <label>หมายเหตุ</label>
-              <input type="text" id="pm-i1-note" placeholder="งวด 1/2">
-            </div>
-          </div>
+        <!-- จำนวนงวด -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:13px;flex-wrap:wrap">
+          <label for="pm-inst-count" style="font-weight:600">แบ่งจ่ายกี่งวด</label>
+          <select id="pm-inst-count" onchange="setPmInstCount(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius)">
+            <option value="2">2 งวด</option><option value="3">3 งวด</option><option value="4">4 งวด</option><option value="5">5 งวด</option><option value="6">6 งวด</option>
+          </select>
+          <span style="font-size:11px;color:var(--text3)">เปลี่ยนจำนวนงวดแล้วระบบหารยอดให้ใหม่ (เปลี่ยนไม่ได้ถ้ามีงวดที่ชำระแล้ว)</span>
         </div>
 
-        <!-- Installment 2 -->
-        <div class="pm-inst-card" id="pm-inst-card-2">
-          <div class="pm-inst-head"><span class="pm-inst-num">งวดที่ 2</span><span id="pm-i2-status-tag"></span><button class="btn btn-sm" onclick="printInstallmentBillFromModal(2)" title="พิมพ์ใบวางบิลงวด 2 ให้ลูกค้า" style="margin-left:auto;font-size:11px;padding:3px 9px;color:var(--accent);border-color:var(--accent)">📄 พิมพ์บิล</button></div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>จำนวนเงิน (บาท)</label>
-              <input type="number" id="pm-i2-amt" min="0" placeholder="8000" oninput="validateSplitTotal()">
-            </div>
-            <div class="form-group">
-              <label>ช่องทาง</label>
-              <select id="pm-i2-ch"><option>โอนเงิน</option><option>เงินสด</option><option>เช็ค</option><option>พร้อมเพย์</option></select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>ช่วงเวลา: ตั้งแต่</label>
-              <input type="date" id="pm-i2-from">
-            </div>
-            <div class="form-group">
-              <label>ถึงวันที่</label>
-              <input type="date" id="pm-i2-to">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>วันที่ชำระ <span style="color:var(--text3);font-weight:400">(ว่างไว้ = ยังไม่ชำระ)</span></label>
-              <input type="date" id="pm-i2-paid">
-            </div>
-            <div class="form-group">
-              <label>หมายเหตุ</label>
-              <input type="text" id="pm-i2-note" placeholder="งวด 2/2">
-            </div>
-          </div>
-        </div>
+        <!-- การ์ดแต่ละงวด (สร้างโดย _renderPmInstCards) -->
+        <div id="pm-inst-cards"></div>
 
         <!-- Validation bar -->
         <div id="pm-split-warn" style="display:none;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:var(--radius);font-size:12px;color:#dc2626;margin-top:4px"></div>
@@ -4360,48 +4302,28 @@ if ('serviceWorker' in navigator) {
         <button class="btn btn-sm" id="rcpt-add-discount-btn" onclick="rcptAddDiscount()" style="font-size:11px;padding:3px 10px;background:#fff0f0;border-color:#fca5a5;color:#b91c1c;font-weight:600">🏷️ เพิ่มส่วนลด</button>
         <button class="btn btn-sm" onclick="reRenderReceipt()" style="font-size:11px;padding:3px 10px">🔄 อัพเดตใบเสร็จ</button>
         <button class="btn btn-sm" onclick="rcptShowAddReqPanel()" style="font-size:11px;padding:3px 10px;background:#fffbeb;border-color:#f59e0b;color:#92400e">📦 เพิ่มรายการเบิก</button>
-        <button class="btn btn-sm" id="rcpt-split-toggle-btn" onclick="rcptToggleSplitPanel()" style="font-size:11px;padding:3px 10px;background:#f0fdf4;border-color:#86efac;color:#c2588a;font-weight:600">✂️ แบ่ง 2 งวด</button>
+        <button class="btn btn-sm" id="rcpt-split-toggle-btn" onclick="rcptToggleSplitPanel()" style="font-size:11px;padding:3px 10px;background:#f0fdf4;border-color:#86efac;color:#c2588a;font-weight:600">✂️ แบ่งหลายงวด</button>
         <button class="btn btn-sm" id="rcpt-other-toggle-btn" onclick="rcptToggleOtherOnly()" style="font-size:11px;padding:3px 10px;background:#fdf0f3;border-color:#f3b8be;color:#c2588a;font-weight:600">🧾 ใบเสร็จค่าส่วนต่างเท่านั้น</button>
       </div>
 
       <!-- Split-bill panel inside receipt modal -->
       <div id="rcpt-split-panel" style="display:none;margin-bottom:10px;padding:14px 16px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div style="font-size:13px;font-weight:700;color:#c2588a">✂️ แบ่งจ่าย 2 งวด — ออกใบวางบิลให้ลูกค้า</div>
+          <div style="font-size:13px;font-weight:700;color:#c2588a">✂️ แบ่งจ่ายหลายงวด — ออกใบวางบิลให้ลูกค้า</div>
           <div id="rcpt-split-total-display" style="font-size:12px;color:#c2588a;font-weight:600"></div>
         </div>
 
-        <!-- Installment 1 -->
-        <div style="background:#fff;border:1.5px solid #b0d8c0;border-radius:8px;padding:12px 14px;margin-bottom:10px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <span style="font-weight:700;font-size:13px;color:#c2588a">งวดที่ 1</span>
-            <button onclick="rcptPrintInstBill(1)" class="btn btn-sm" style="font-size:11px;padding:3px 10px;background:#c2588a;color:#fff;border-color:#c2588a">📄 พิมพ์ใบวางบิลงวด 1</button>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px">จำนวนเงิน (บาท)</label>
-              <input type="number" id="rcpt-si1-amt" min="0" placeholder="8000" style="width:100%;padding:5px 8px;border:1px solid #b0d8c0;border-radius:6px;font-size:12px" oninput="rcptSplitAutoBalance(1)"></div>
-            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px">ตั้งแต่วันที่</label>
-              <input type="date" id="rcpt-si1-from" style="width:100%;padding:5px 8px;border:1px solid #b0d8c0;border-radius:6px;font-size:12px"></div>
-            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px">ถึงวันที่</label>
-              <input type="date" id="rcpt-si1-to" style="width:100%;padding:5px 8px;border:1px solid #b0d8c0;border-radius:6px;font-size:12px"></div>
-          </div>
+        <!-- จำนวนงวด -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;flex-wrap:wrap">
+          <label for="rcpt-split-count" style="font-weight:600;color:#c2588a">แบ่งกี่งวด</label>
+          <select id="rcpt-split-count" onchange="rcptSetSplitCount(this.value)" style="padding:4px 8px;border:1px solid #b0d8c0;border-radius:6px;font-size:12px">
+            <option value="2">2 งวด</option><option value="3">3 งวด</option><option value="4">4 งวด</option><option value="5">5 งวด</option><option value="6">6 งวด</option>
+          </select>
+          <span style="color:#555">เปลี่ยนจำนวนงวดแล้วระบบหารยอดให้ใหม่ — แก้ตัวเลขเองต่อได้</span>
         </div>
 
-        <!-- Installment 2 -->
-        <div style="background:#fff;border:1.5px solid #b0d8c0;border-radius:8px;padding:12px 14px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <span style="font-weight:700;font-size:13px;color:#c2588a">งวดที่ 2</span>
-            <button onclick="rcptPrintInstBill(2)" class="btn btn-sm" style="font-size:11px;padding:3px 10px;background:#c2588a;color:#fff;border-color:#c2588a">📄 พิมพ์ใบวางบิลงวด 2</button>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px">จำนวนเงิน (บาท)</label>
-              <input type="number" id="rcpt-si2-amt" min="0" placeholder="8000" style="width:100%;padding:5px 8px;border:1px solid #b0d8c0;border-radius:6px;font-size:12px" oninput="rcptSplitAutoBalance(2)"></div>
-            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px">ตั้งแต่วันที่</label>
-              <input type="date" id="rcpt-si2-from" style="width:100%;padding:5px 8px;border:1px solid #b0d8c0;border-radius:6px;font-size:12px"></div>
-            <div><label style="font-size:11px;color:#555;display:block;margin-bottom:3px">ถึงวันที่</label>
-              <input type="date" id="rcpt-si2-to" style="width:100%;padding:5px 8px;border:1px solid #b0d8c0;border-radius:6px;font-size:12px"></div>
-          </div>
-        </div>
+        <!-- การ์ดแต่ละงวด (สร้างโดย _renderRcptSplitCards) -->
+        <div id="rcpt-si-cards"></div>
         <div id="rcpt-split-bal-warn" style="display:none;margin-top:8px;font-size:11px;padding:6px 10px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;color:#dc2626"></div>
       </div>
 
@@ -5203,13 +5125,11 @@ function renderBilling() {
       <td style="font-size:12px"><div style="font-weight:500">${c.bank.replace('ธนาคาร','')}</div><div style="color:var(--text3)">${c.account_no}</div></td>
       <td class="td-fee" style="color:${s==='paid'?'var(--paid)':s==='partial'?'var(--warning)':'var(--text3)'}">฿${fmt(p?.amount||0)}</td>
       <td>${(() => {
-        if (p?.installments?.length === 2) {
-          const i1 = p.installments[0], i2 = p.installments[1];
-          const p1 = !!i1.paidDate, p2 = !!i2.paidDate;
-          return `<div style="font-size:11px;white-space:nowrap">
-            <div class="bill-inst-row"><span class="bill-inst-check" style="color:${p1?'var(--paid)':'var(--text3)'}">${p1?'✓':'○'}</span> <span>งวด 1 ฿${fmt(i1.amount)}</span>${p1?`<span style="color:var(--text3);margin-left:2px">${i1.paidDate}</span>`:''}</div>
-            <div class="bill-inst-row"><span class="bill-inst-check" style="color:${p2?'var(--paid)':'var(--text3)'}">${p2?'✓':'○'}</span> <span>งวด 2 ฿${fmt(i2.amount)}</span>${p2?`<span style="color:var(--text3);margin-left:2px">${i2.paidDate}</span>`:''}</div>
-          </div>`;
+        if (p?.installments?.length >= 2) {
+          return `<div style="font-size:11px;white-space:nowrap">${p.installments.map((it, i) => {
+            const pd = !!it.paidDate;
+            return `<div class="bill-inst-row"><span class="bill-inst-check" style="color:${pd?'var(--paid)':'var(--text3)'}">${pd?'✓':'○'}</span> <span>งวด ${i + 1} ฿${fmt(it.amount)}</span>${pd?`<span style="color:var(--text3);margin-left:2px">${it.paidDate}</span>`:''}</div>`;
+          }).join('')}</div>`;
         }
         return statusBadge(s);
       })()}</td>
@@ -5229,7 +5149,7 @@ function renderBilling() {
       <td style="white-space:nowrap">
         ${(() => { const m=getCustMemo(c.id); return `<button class="memo-pin-btn ${m?'has-memo':''}" onclick="openMemoPopup('${c.id}',this)" title="${m?_escHtmlMemo((m.tags?.map(_memoTagLabel).join(', ')||'')+(m.text?'\n'+m.text:'')):'เพิ่มบันทึกช่วยจำ'}">📌</button>`; })()}
         <button class="btn btn-sm btn-primary" onclick="openPayModal('${c.id}')" style="margin-left:4px">💳 ${s==='unpaid'?'ชำระ':'แก้ไข'}</button>
-        <button class="btn btn-sm" onclick="${p?.installments?.length === 2 ? `openInstPrintMenu('${c.id}','${currentMonth}')` : `printReceipt('${c.id}')`}" style="margin-left:4px" title="${p?.installments?.length === 2 ? 'พิมพ์บิล / ใบเสร็จ (แบ่งงวด)' : 'พิมพ์ใบเสร็จ'}">🖨${p?.installments?.length === 2 ? ' <span style="font-size:10px;vertical-align:middle">▾</span>' : ''}</button>
+        <button class="btn btn-sm" onclick="${p?.installments?.length >= 2 ? `openInstPrintMenu('${c.id}','${currentMonth}')` : `printReceipt('${c.id}')`}" style="margin-left:4px" title="${p?.installments?.length >= 2 ? 'พิมพ์บิล / ใบเสร็จ (แบ่งงวด)' : 'พิมพ์ใบเสร็จ'}">🖨${p?.installments?.length === 2 ? ' <span style="font-size:10px;vertical-align:middle">▾</span>' : ''}</button>
         <button class="btn btn-sm" onclick="openRefundModal(null,'${c.id}')" style="margin-left:4px;color:var(--danger);border-color:var(--danger)" title="คืนเงิน">↩️</button>
       </td>
     </tr>`;
@@ -5627,6 +5547,92 @@ function _showToast(msg) {
 // PAY MODAL
 // ===== SPLIT PAYMENT HELPERS =====
 let _pmMode = 'normal';
+const _PM_INST_MAX = 6;      // แบ่งจ่ายได้สูงสุดกี่งวด
+let _pmInstCount = 2;        // จำนวนงวดที่เลือกอยู่ (2–6)
+const _PM_INST_FIELDS = ['amt', 'ch', 'from', 'to', 'paid', 'note'];
+
+// การ์ดกรอกข้อมูลของงวดที่ n (จากทั้งหมด total งวด)
+function _pmInstCardHtml(n, total) {
+  return `
+        <div class="pm-inst-card" id="pm-inst-card-${n}">
+          <div class="pm-inst-head"><span class="pm-inst-num">งวดที่ ${n}</span><span id="pm-i${n}-status-tag"></span><button class="btn btn-sm" onclick="printInstallmentBillFromModal(${n})" title="พิมพ์ใบวางบิลงวด ${n} ให้ลูกค้า" style="margin-left:auto;font-size:11px;padding:3px 9px;color:var(--accent);border-color:var(--accent)">📄 พิมพ์บิล</button></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>จำนวนเงิน (บาท)</label>
+              <input type="number" id="pm-i${n}-amt" min="0" placeholder="8000" oninput="validateSplitTotal()">
+            </div>
+            <div class="form-group">
+              <label>ช่องทาง</label>
+              <select id="pm-i${n}-ch"><option>โอนเงิน</option><option>เงินสด</option><option>เช็ค</option><option>พร้อมเพย์</option></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>ช่วงเวลา: ตั้งแต่</label>
+              <input type="date" id="pm-i${n}-from">
+            </div>
+            <div class="form-group">
+              <label>ถึงวันที่</label>
+              <input type="date" id="pm-i${n}-to">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>วันที่ชำระ <span style="color:var(--text3);font-weight:400">(ว่างไว้ = ยังไม่ชำระ)</span></label>
+              <input type="date" id="pm-i${n}-paid" onchange="updateInstStatusTags()">
+            </div>
+            <div class="form-group">
+              <label>หมายเหตุ</label>
+              <input type="text" id="pm-i${n}-note" placeholder="งวด ${n}/${total}">
+            </div>
+          </div>
+        </div>`;
+}
+
+// สร้างการ์ด n งวดใหม่ โดยเก็บค่าที่กรอกไว้แล้วของงวดที่ยังอยู่
+function _renderPmInstCards(n) {
+  const keep = {};
+  for (let i = 1; i <= _PM_INST_MAX; i++) {
+    _PM_INST_FIELDS.forEach(f => { const el = document.getElementById(`pm-i${i}-${f}`); if (el) keep[`${i}-${f}`] = el.value; });
+  }
+  _pmInstCount = n;
+  const sel = document.getElementById('pm-inst-count'); if (sel) sel.value = String(n);
+  let html = '';
+  for (let i = 1; i <= n; i++) html += _pmInstCardHtml(i, n);
+  document.getElementById('pm-inst-cards').innerHTML = html;
+  for (let i = 1; i <= n; i++) {
+    _PM_INST_FIELDS.forEach(f => {
+      const el = document.getElementById(`pm-i${i}-${f}`), v = keep[`${i}-${f}`];
+      if (el && v !== undefined && v !== '') el.value = v;
+    });
+    const note = document.getElementById(`pm-i${i}-note`);   // หมายเหตุอัตโนมัติ "งวด i/n" ให้ตรงจำนวนงวดใหม่
+    if (note && (!note.value || /^งวด \d+\/\d+$/.test(note.value))) note.value = `งวด ${i}/${n}`;
+  }
+  updateInstStatusTags();
+}
+
+// หารยอดรวมเท่าๆ กันทุกงวด (เศษอยู่งวดสุดท้าย) — ผู้ใช้แก้ตัวเลขเองต่อได้
+function _pmSplitEvenly() {
+  const total = Math.round(calcTotalBill(currentCustomer, document.getElementById('pm-month').value));
+  const n = _pmInstCount, each = Math.floor(total / n);
+  for (let i = 1; i <= n; i++) {
+    const el = document.getElementById(`pm-i${i}-amt`);
+    if (el) el.value = i < n ? each : total - each * (n - 1);
+  }
+}
+
+function setPmInstCount(v) {
+  const n = Math.min(_PM_INST_MAX, Math.max(2, parseInt(v, 10) || 2));
+  const anyPaid = Array.from({ length: _pmInstCount }, (_, i) => document.getElementById(`pm-i${i + 1}-paid`)?.value).some(Boolean);
+  if (anyPaid) {
+    alert('มีงวดที่ชำระแล้ว จึงเปลี่ยนจำนวนงวดไม่ได้ — ลบวันที่ชำระของงวดนั้นออกก่อน');
+    const sel = document.getElementById('pm-inst-count'); if (sel) sel.value = String(_pmInstCount);
+    return;
+  }
+  _renderPmInstCards(n);
+  _pmSplitEvenly();
+  validateSplitTotal();
+}
 
 function setPmMode(mode) {
   _pmMode = mode;
@@ -5638,12 +5644,9 @@ function setPmMode(mode) {
   if (mode === 'split') {
     const totalBill = calcTotalBill(currentCustomer, document.getElementById('pm-month').value);
     document.getElementById('pm-split-total-val').textContent = '฿' + fmt(totalBill);
-    // default 50/50 if empty
-    if (!document.getElementById('pm-i1-amt').value) {
-      const half = Math.round(totalBill / 2);
-      document.getElementById('pm-i1-amt').value = half;
-      document.getElementById('pm-i2-amt').value = totalBill - half;
-    }
+    if (!document.getElementById('pm-i1-amt')) _renderPmInstCards(_pmInstCount);
+    // ยังไม่มีตัวเลข → หารเท่าๆ กัน
+    if (!document.getElementById('pm-i1-amt').value) _pmSplitEvenly();
     validateSplitTotal();
     updateInstStatusTags();
   }
@@ -5651,9 +5654,8 @@ function setPmMode(mode) {
 
 function validateSplitTotal() {
   const totalBill = calcTotalBill(currentCustomer, document.getElementById('pm-month').value);
-  const i1 = parseFloat(document.getElementById('pm-i1-amt').value) || 0;
-  const i2 = parseFloat(document.getElementById('pm-i2-amt').value) || 0;
-  const sum = i1 + i2;
+  let sum = 0;
+  for (let i = 1; i <= _pmInstCount; i++) sum += parseFloat(document.getElementById(`pm-i${i}-amt`)?.value) || 0;
   const warn = document.getElementById('pm-split-warn');
   const ok   = document.getElementById('pm-split-ok');
   if (Math.abs(sum - totalBill) > 0.01) {
@@ -5669,11 +5671,11 @@ function validateSplitTotal() {
 }
 
 function updateInstStatusTags() {
-  [1, 2].forEach(n => {
+  for (let n = 1; n <= _pmInstCount; n++) {
     const paidDate = document.getElementById(`pm-i${n}-paid`)?.value;
     const tag      = document.getElementById(`pm-i${n}-status-tag`);
     const card     = document.getElementById(`pm-inst-card-${n}`);
-    if (!tag) return;
+    if (!tag) continue;
     if (paidDate) {
       tag.innerHTML  = `<span class="inst-badge-paid">✓ ชำระแล้ว ${paidDate}</span>`;
       card?.classList.add('inst-paid');
@@ -5681,35 +5683,33 @@ function updateInstStatusTags() {
       tag.innerHTML  = `<span class="inst-badge-unpaid">○ ยังไม่ชำระ</span>`;
       card?.classList.remove('inst-paid');
     }
-  });
+  }
 }
 window.setPmMode          = setPmMode;
+window.setPmInstCount     = setPmInstCount;
 window.validateSplitTotal = validateSplitTotal;
 window.updateInstStatusTags = updateInstStatusTags;
 
+// เติมฟอร์มจากข้อมูลงวดที่บันทึกไว้ (รองรับ 2–6 งวด; ข้อมูลเก่าที่เป็น 2 งวดใช้ได้เหมือนเดิม)
 function _loadInstallmentFields(insts) {
-  const defs = [{}, {}];
-  [0, 1].forEach(i => {
-    const n  = i + 1;
-    const it = insts[i] || defs[i];
-    document.getElementById(`pm-i${n}-amt`).value  = it.amount   || '';
-    document.getElementById(`pm-i${n}-ch`).value   = it.channel  || 'โอนเงิน';
-    document.getElementById(`pm-i${n}-from`).value = it.dateFrom || '';
-    document.getElementById(`pm-i${n}-to`).value   = it.dateTo   || '';
-    document.getElementById(`pm-i${n}-paid`).value = it.paidDate || '';
-    document.getElementById(`pm-i${n}-note`).value = it.note     || `งวด ${n}/2`;
-  });
+  const n = Math.min(_PM_INST_MAX, Math.max(2, insts.length));
+  document.getElementById('pm-inst-cards').innerHTML = '';
+  _renderPmInstCards(n);
+  for (let i = 1; i <= n; i++) {
+    const it = insts[i - 1] || {};
+    document.getElementById(`pm-i${i}-amt`).value  = it.amount   || '';
+    document.getElementById(`pm-i${i}-ch`).value   = it.channel  || 'โอนเงิน';
+    document.getElementById(`pm-i${i}-from`).value = it.dateFrom || '';
+    document.getElementById(`pm-i${i}-to`).value   = it.dateTo   || '';
+    document.getElementById(`pm-i${i}-paid`).value = it.paidDate || '';
+    document.getElementById(`pm-i${i}-note`).value = it.note     || `งวด ${i}/${n}`;
+  }
   updateInstStatusTags();
 }
 
 function _clearInstallmentFields() {
-  [1, 2].forEach(n => {
-    ['amt','from','to','paid','note'].forEach(f => {
-      const el = document.getElementById(`pm-i${n}-${f}`);
-      if (el) el.value = f === 'note' ? `งวด ${n}/2` : '';
-    });
-    document.getElementById(`pm-i${n}-ch`).value = 'โอนเงิน';
-  });
+  document.getElementById('pm-inst-cards').innerHTML = '';   // ล้างค่าเดิมทั้งหมด
+  _renderPmInstCards(2);
 }
 
 function clearSplitPayment() {
@@ -5762,28 +5762,27 @@ function savePay(){
   let payRecord;
 
   if (_pmMode === 'split') {
-    if (!validateSplitTotal()) { alert('ยอดรวม 2 งวดไม่ตรงกับค่าบริการ กรุณาตรวจสอบ'); return; }
+    if (!validateSplitTotal()) { alert(`ยอดรวม ${_pmInstCount} งวดไม่ตรงกับค่าบริการ กรุณาตรวจสอบ`); return; }
+    const N = _pmInstCount;
     const getInst = n => ({
       amount:   parseFloat(document.getElementById(`pm-i${n}-amt`).value)  || 0,
       channel:  document.getElementById(`pm-i${n}-ch`).value,
       dateFrom: document.getElementById(`pm-i${n}-from`).value,
       dateTo:   document.getElementById(`pm-i${n}-to`).value,
       paidDate: document.getElementById(`pm-i${n}-paid`).value,
-      note:     document.getElementById(`pm-i${n}-note`).value || `งวด ${n}/2`,
+      note:     document.getElementById(`pm-i${n}-note`).value || `งวด ${n}/${N}`,
     });
-    const i1 = getInst(1);
-    const i2 = getInst(2);
+    const insts = Array.from({ length: N }, (_, i) => getInst(i + 1));
     // amount = sum of paid installments
     let paidAmt = 0;
     let latestDate = '';
-    if (i1.paidDate) { paidAmt += i1.amount; if (i1.paidDate > latestDate) latestDate = i1.paidDate; }
-    if (i2.paidDate) { paidAmt += i2.amount; if (i2.paidDate > latestDate) latestDate = i2.paidDate; }
+    insts.forEach(it => { if (it.paidDate) { paidAmt += it.amount; if (it.paidDate > latestDate) latestDate = it.paidDate; } });
     payRecord = {
       amount: paidAmt,
-      channel: i1.channel,
-      date: latestDate || i1.dateFrom || '',
-      note: `แบ่งจ่าย 2 งวด`,
-      installments: [i1, i2],
+      channel: insts[0].channel,
+      date: latestDate || insts[0].dateFrom || '',
+      note: `แบ่งจ่าย ${N} งวด`,
+      installments: insts,
     };
   } else {
     const amount  = parseFloat(document.getElementById('pm-amount').value)  || 0;
@@ -7455,6 +7454,62 @@ function rcptAddDiscount() {
 }
 
 // ===== RECEIPT MODAL — SPLIT BILL PANEL =====
+let _rcptSplitCount = 2;     // จำนวนงวดในแผงแบ่งจ่ายของหน้าต่างใบเสร็จ (2–6)
+const _RCPT_SPLIT_MAX = 6;
+
+function _rcptSplitCardHtml(n) {
+  const inp = 'width:100%;padding:5px 8px;border:1px solid #b0d8c0;border-radius:6px;font-size:12px';
+  const lab = 'font-size:11px;color:#555;display:block;margin-bottom:3px';
+  return `
+        <div style="background:#fff;border:1.5px solid #b0d8c0;border-radius:8px;padding:12px 14px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span style="font-weight:700;font-size:13px;color:#c2588a">งวดที่ ${n}</span>
+            <button onclick="rcptPrintInstBill(${n})" class="btn btn-sm" style="font-size:11px;padding:3px 10px;background:#c2588a;color:#fff;border-color:#c2588a">📄 พิมพ์ใบวางบิลงวด ${n}</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <div><label style="${lab}">จำนวนเงิน (บาท)</label>
+              <input type="number" id="rcpt-si${n}-amt" min="0" placeholder="8000" style="${inp}" oninput="rcptSplitAutoBalance(${n})"></div>
+            <div><label style="${lab}">ตั้งแต่วันที่</label>
+              <input type="date" id="rcpt-si${n}-from" style="${inp}"></div>
+            <div><label style="${lab}">ถึงวันที่</label>
+              <input type="date" id="rcpt-si${n}-to" style="${inp}"></div>
+          </div>
+        </div>`;
+}
+
+// สร้างการ์ด n งวด เก็บค่าที่กรอกไว้ของงวดที่ยังอยู่
+function _renderRcptSplitCards(n) {
+  const keep = {};
+  for (let i = 1; i <= _RCPT_SPLIT_MAX; i++) {
+    ['amt', 'from', 'to'].forEach(f => { const el = document.getElementById(`rcpt-si${i}-${f}`); if (el) keep[`${i}-${f}`] = el.value; });
+  }
+  _rcptSplitCount = n;
+  const sel = document.getElementById('rcpt-split-count'); if (sel) sel.value = String(n);
+  let html = '';
+  for (let i = 1; i <= n; i++) html += _rcptSplitCardHtml(i);
+  document.getElementById('rcpt-si-cards').innerHTML = html;
+  for (let i = 1; i <= n; i++) {
+    ['amt', 'from', 'to'].forEach(f => {
+      const el = document.getElementById(`rcpt-si${i}-${f}`), v = keep[`${i}-${f}`];
+      if (el && v !== undefined && v !== '') el.value = v;
+    });
+  }
+}
+
+// หารยอดรวมเท่าๆ กัน เศษอยู่งวดสุดท้าย
+function _rcptSplitEvenly() {
+  const total = Math.round(_rcptGetGrandTotal());
+  const n = _rcptSplitCount, each = Math.floor(total / n);
+  for (let i = 1; i <= n; i++) document.getElementById(`rcpt-si${i}-amt`).value = i < n ? each : total - each * (n - 1);
+}
+
+function rcptSetSplitCount(v) {
+  const n = Math.min(_RCPT_SPLIT_MAX, Math.max(2, parseInt(v, 10) || 2));
+  _renderRcptSplitCards(n);
+  _rcptSplitEvenly();
+  rcptSplitValidate();
+}
+
 function rcptToggleSplitPanel() {
   const panel = document.getElementById('rcpt-split-panel');
   const btn   = document.getElementById('rcpt-split-toggle-btn');
@@ -7468,21 +7523,21 @@ function rcptToggleSplitPanel() {
   }
   // Calculate current receipt total to prefill
   const total = _rcptGetGrandTotal();
-  const half  = Math.round(total / 2);
-  document.getElementById('rcpt-si1-amt').value = half;
-  document.getElementById('rcpt-si2-amt').value = total - half;
   document.getElementById('rcpt-split-total-display').textContent = `ยอดรวม ฿${fmt(total)}`;
-  // Pre-fill dates from existing installments if any
+  // ถ้าเดือนนี้เคยบันทึกแบ่งงวดไว้ ใช้จำนวนงวด/ยอด/ช่วงวันที่เดิม ไม่งั้นเริ่มที่ 2 งวดหารเท่ากัน
   const k = _rcptCtx ? payKey(_rcptCtx.custId, _rcptCtx.targetMonth) : null;
   const p = k ? payments[k] : null;
-  if (p?.installments?.length === 2) {
-    const i1 = p.installments[0], i2 = p.installments[1];
-    document.getElementById('rcpt-si1-amt').value  = i1.amount  || half;
-    document.getElementById('rcpt-si1-from').value = i1.dateFrom || '';
-    document.getElementById('rcpt-si1-to').value   = i1.dateTo   || '';
-    document.getElementById('rcpt-si2-amt').value  = i2.amount  || (total - half);
-    document.getElementById('rcpt-si2-from').value = i2.dateFrom || '';
-    document.getElementById('rcpt-si2-to').value   = i2.dateTo   || '';
+  const saved = p?.installments?.length >= 2 ? p.installments : null;
+  document.getElementById('rcpt-si-cards').innerHTML = '';
+  _renderRcptSplitCards(saved ? Math.min(_RCPT_SPLIT_MAX, saved.length) : _rcptSplitCount);
+  _rcptSplitEvenly();
+  if (saved) {
+    saved.slice(0, _RCPT_SPLIT_MAX).forEach((it, i) => {
+      const n = i + 1;
+      document.getElementById(`rcpt-si${n}-amt`).value  = it.amount   || document.getElementById(`rcpt-si${n}-amt`).value;
+      document.getElementById(`rcpt-si${n}-from`).value = it.dateFrom || '';
+      document.getElementById(`rcpt-si${n}-to`).value   = it.dateTo   || '';
+    });
   }
   panel.style.display = 'block';
   btn.style.background = '#c2588a';
@@ -7502,25 +7557,29 @@ function _rcptGetGrandTotal() {
   return sub - disc;
 }
 
+// แก้ยอดงวดหนึ่ง → ปรับ "งวดสุดท้าย" ให้ยอดรวมครบ (ถ้าแก้งวดสุดท้ายเอง ปรับงวดก่อนหน้าแทน)
 function rcptSplitAutoBalance(changed) {
   const total = _rcptGetGrandTotal();
-  const v1 = parseFloat(document.getElementById('rcpt-si1-amt').value) || 0;
-  const v2 = parseFloat(document.getElementById('rcpt-si2-amt').value) || 0;
-  if (changed === 1) document.getElementById('rcpt-si2-amt').value = Math.max(0, total - v1);
-  if (changed === 2) document.getElementById('rcpt-si1-amt').value = Math.max(0, total - v2);
+  const n = _rcptSplitCount;
+  const adjust = changed === n ? n - 1 : n;
+  let others = 0;
+  for (let i = 1; i <= n; i++) if (i !== adjust) others += parseFloat(document.getElementById(`rcpt-si${i}-amt`).value) || 0;
+  document.getElementById(`rcpt-si${adjust}-amt`).value = Math.max(0, total - others);
   rcptSplitValidate();
 }
 
 function rcptSplitValidate() {
   const total = _rcptGetGrandTotal();
-  const v1 = parseFloat(document.getElementById('rcpt-si1-amt').value) || 0;
-  const v2 = parseFloat(document.getElementById('rcpt-si2-amt').value) || 0;
+  const n = _rcptSplitCount;
+  const vals = [];
+  for (let i = 1; i <= n; i++) vals.push(parseFloat(document.getElementById(`rcpt-si${i}-amt`).value) || 0);
+  const sum = vals.reduce((s, v) => s + v, 0);
   const warn = document.getElementById('rcpt-split-bal-warn');
   if (!warn) return;
-  const diff = Math.abs(v1 + v2 - total);
+  const diff = Math.abs(sum - total);
   if (diff > 0.01) {
     warn.style.display = '';
-    warn.textContent = `⚠️ งวด 1 + งวด 2 = ฿${fmt(v1+v2)} ≠ ยอดรวม ฿${fmt(total)} (ต่าง ฿${fmt(diff)})`;
+    warn.textContent = `⚠️ ${vals.map((_, i) => `งวด ${i + 1}`).join(' + ')} = ฿${fmt(sum)} ≠ ยอดรวม ฿${fmt(total)} (ต่าง ฿${fmt(diff)})`;
   } else {
     warn.style.display = 'none';
   }
@@ -7537,8 +7596,8 @@ function rcptPrintInstBill(instNo) {
   if (!amount) { alert('กรุณากรอกจำนวนเงินงวดที่ ' + n); return; }
   // Reuse the shared bill builder
   const channel  = 'โอนเงิน'; // default; no channel field in this lightweight panel
-  const html = _buildInstallmentBillHTML(c, n, amount, channel, dateFrom, dateTo, '');
-  _openBillWindow(`ใบวางบิล งวดที่ ${n}/2 — ${c.name}`, html);
+  const html = _buildInstallmentBillHTML(c, n, amount, channel, dateFrom, dateTo, '', _rcptSplitCount);
+  _openBillWindow(`ใบวางบิล งวดที่ ${n}/${_rcptSplitCount} — ${c.name}`, html);
 }
 
 function rcptShowAddReqPanel() {
@@ -8168,6 +8227,7 @@ function printInstallmentReceipt(custId, month, instIdx) {
 
   const inst   = p.installments[instIdx];
   const instNo = instIdx + 1;
+  const instTotal = p.installments.length;
   const amount  = inst.amount || 0;
   const channel = inst.channel || '—';
   const paidDate = inst.paidDate ? fmtDateThai(inst.paidDate) : '—';
@@ -8202,14 +8262,14 @@ function printInstallmentReceipt(custId, month, instIdx) {
     <div style="text-align:center;flex-shrink:0;margin-left:8px">
       <div class="rcpt-copy-box">
         <div class="rcpt-copy-title">ต้นฉบับ / ORIGINAL</div>
-        <div class="rcpt-copy-sub">งวดที่ ${instNo}/2</div>
+        <div class="rcpt-copy-sub">งวดที่ ${instNo}/${instTotal}</div>
       </div>
     </div>
   </div>
   <hr class="rcpt-divider">
   <div class="rcpt-title-row">
     <div class="rcpt-title">ใบเสร็จรับเงิน</div>
-    <div class="rcpt-title-en">RECEIPT — งวดที่ ${instNo} จาก 2 งวด</div>
+    <div class="rcpt-title-en">RECEIPT — งวดที่ ${instNo} จาก ${instTotal} งวด</div>
   </div>
   <div class="rcpt-info-grid">
     <div class="rcpt-info-row"><span class="rcpt-info-label">นามลูกค้า :&nbsp;</span><span class="rcpt-info-value">${c.name}</span></div>
@@ -8229,7 +8289,7 @@ function printInstallmentReceipt(custId, month, instIdx) {
     <tbody>
       <tr>
         <td>1</td>
-        <td>ค่าบริการดูแล (งวดที่ ${instNo}/2)<br><span style="font-size:11px;color:#666">ช่วงบริการ : ${periodLabel}</span></td>
+        <td>ค่าบริการดูแล (งวดที่ ${instNo}/${instTotal})<br><span style="font-size:11px;color:#666">ช่วงบริการ : ${periodLabel}</span></td>
         <td>1</td>
         <td>฿${fmt(amount)}</td>
         <td>฿${fmt(amount)}</td>
@@ -8277,7 +8337,7 @@ function printInstallmentReceipt(custId, month, instIdx) {
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<title>ใบเสร็จ งวดที่ ${instNo}/2 — ${c.name}</title>
+<title>ใบเสร็จ งวดที่ ${instNo}/${instTotal} — ${c.name}</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -8702,7 +8762,7 @@ function _buildMemoBanner(custId) {
 }
 
 // ========== INSTALLMENT BILL (INVOICE) PRINT — before payment ==========
-function _buildInstallmentBillHTML(c, instNo, amount, channel, dateFrom, dateTo, noteText) {
+function _buildInstallmentBillHTML(c, instNo, amount, channel, dateFrom, dateTo, noteText, instTotal = 2) {
   const isUdonBranch = c.branch === 'สาขาอุดร';
   const rcptLogoSrc  = isUdonBranch ? _DD_LOGO_UDON : _DD_LOGO_MAIN;
   const issueDate    = fmtDateThai(new Date().toISOString().split('T')[0]);
@@ -8734,14 +8794,14 @@ function _buildInstallmentBillHTML(c, instNo, amount, channel, dateFrom, dateTo,
     <div style="text-align:center;flex-shrink:0;margin-left:8px">
       <div class="rcpt-copy-box" style="border-color:#c2588a">
         <div class="rcpt-copy-title" style="color:#c2588a">ใบวางบิล</div>
-        <div class="rcpt-copy-sub">งวดที่ ${instNo}/2</div>
+        <div class="rcpt-copy-sub">งวดที่ ${instNo}/${instTotal}</div>
       </div>
     </div>
   </div>
   <hr class="rcpt-divider">
   <div class="rcpt-title-row">
     <div class="rcpt-title" style="color:#c2588a">ใบวางบิล / BILLING NOTE</div>
-    <div class="rcpt-title-en">งวดที่ ${instNo} จาก 2 งวด (แบ่งชำระ)</div>
+    <div class="rcpt-title-en">งวดที่ ${instNo} จาก ${instTotal} งวด (แบ่งชำระ)</div>
   </div>
   <div class="rcpt-info-grid">
     <div class="rcpt-info-row"><span class="rcpt-info-label">นามลูกค้า :&nbsp;</span><span class="rcpt-info-value">${c.name}</span></div>
@@ -8761,7 +8821,7 @@ function _buildInstallmentBillHTML(c, instNo, amount, channel, dateFrom, dateTo,
     <tbody>
       <tr>
         <td>1</td>
-        <td>ค่าบริการดูแล (งวดที่ ${instNo}/2)<br><span style="font-size:11px;color:#666">ช่วงบริการ : ${periodLabel}</span>${noteText ? `<br><span style="font-size:11px;color:#888">${noteText}</span>` : ''}</td>
+        <td>ค่าบริการดูแล (งวดที่ ${instNo}/${instTotal})<br><span style="font-size:11px;color:#666">ช่วงบริการ : ${periodLabel}</span>${noteText ? `<br><span style="font-size:11px;color:#888">${noteText}</span>` : ''}</td>
         <td>1</td>
         <td>฿${fmt(amount)}</td>
         <td>฿${fmt(amount)}</td>
@@ -8880,8 +8940,8 @@ function printInstallmentBillFromModal(instNo) {
   const dateTo   = document.getElementById(`pm-i${n}-to`).value;
   const noteText = document.getElementById(`pm-i${n}-note`).value;
   if (!amount) { alert('กรุณากรอกจำนวนเงินก่อนพิมพ์บิล'); return; }
-  const html = _buildInstallmentBillHTML(c, n, amount, channel, dateFrom, dateTo, noteText);
-  _openBillWindow(`ใบวางบิล งวดที่ ${n}/2 — ${c.name}`, html);
+  const html = _buildInstallmentBillHTML(c, n, amount, channel, dateFrom, dateTo, noteText, _pmInstCount);
+  _openBillWindow(`ใบวางบิล งวดที่ ${n}/${_pmInstCount} — ${c.name}`, html);
 }
 
 // Mini print-menu dialog for installment customers
@@ -8896,71 +8956,61 @@ function openInstPrintMenu(custId, month) {
   const old = document.getElementById('inst-print-menu');
   if (old) old.remove();
 
-  const i1 = p.installments[0], i2 = p.installments[1];
-  const p1 = !!i1?.paidDate, p2 = !!i2?.paidDate;
+  const insts = p.installments;
+  const total = insts.length;
 
   function periodStr(inst) {
     if (!inst) return '';
     return (inst.dateFrom && inst.dateTo) ? `${fmtDateThai(inst.dateFrom)} – ${fmtDateThai(inst.dateTo)}` : '';
   }
+  const rowStyle = 'width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;cursor:pointer;margin-bottom:8px;text-align:left;font-family:inherit';
+  const close = "document.getElementById('inst-print-menu').remove()";
+
+  // ใบวางบิล: ทุกงวด
+  const billBtns = insts.map((it, i) => `
+        <button onclick="printInstallmentBill('${custId}','${month}',${i});${close}"
+          style="${rowStyle};border:1.5px solid #b0d8c0;background:#f0fdf4">
+          <span style="font-size:20px">📄</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:13px;color:#c2588a">ใบวางบิล งวดที่ ${i + 1}</div>
+            <div style="font-size:11px;color:#555">${periodStr(it)} · ฿${fmt(it?.amount || 0)}</div>
+          </div>
+          <span style="font-size:11px;color:#c2588a;font-weight:600">พิมพ์ →</span>
+        </button>`).join('');
+
+  // ใบเสร็จรับเงิน: ทุกงวด (เน้นงวดที่ชำระแล้ว)
+  const rcptBtns = insts.map((it, i) => {
+    const paid = !!it?.paidDate;
+    return `
+        <button onclick="printInstallmentReceipt('${custId}','${month}',${i});${close}"
+          style="${rowStyle};border:1.5px solid ${paid ? 'var(--accent)' : 'var(--border)'};background:${paid ? 'var(--accent-light)' : 'var(--bg)'}">
+          <span style="font-size:20px">🖨</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:13px">ใบเสร็จ งวดที่ ${i + 1} ${paid ? '<span style="font-size:10px;color:var(--paid)">✓ ชำระแล้ว</span>' : '<span style="font-size:10px;color:var(--text3)">○ ยังไม่ชำระ</span>'}</div>
+            <div style="font-size:11px;color:#555">${periodStr(it)} · ฿${fmt(it?.amount || 0)}</div>
+          </div>
+          <span style="font-size:11px;color:var(--text2);font-weight:600">พิมพ์ →</span>
+        </button>`;
+  }).join('');
 
   const menu = document.createElement('div');
   menu.id = 'inst-print-menu';
   menu.innerHTML = `
-    <div id="inst-print-menu-backdrop" onclick="document.getElementById('inst-print-menu').remove()" style="position:fixed;inset:0;z-index:3999;background:rgba(0,0,0,.35)"></div>
-    <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4000;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,.22);overflow:hidden">
-      <div style="background:var(--accent-light);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+    <div id="inst-print-menu-backdrop" onclick="${close}" style="position:fixed;inset:0;z-index:3999;background:rgba(0,0,0,.35)"></div>
+    <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4000;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;width:min(360px,calc(100vw - 24px));max-height:88vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.22)">
+      <div style="background:var(--accent-light);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0">
         <div>
           <div style="font-weight:700;font-size:14px">🖨 พิมพ์เอกสาร</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:1px">${c.name} · แบ่งจ่าย 2 งวด</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:1px">${c.name} · แบ่งจ่าย ${total} งวด</div>
         </div>
-        <span onclick="document.getElementById('inst-print-menu').remove()" style="cursor:pointer;font-size:18px;color:var(--text3);line-height:1;padding:4px 6px">×</span>
+        <span onclick="${close}" style="cursor:pointer;font-size:18px;color:var(--text3);line-height:1;padding:4px 6px">×</span>
       </div>
       <div style="padding:14px 16px">
         <div style="font-size:11px;font-weight:700;color:#c2588a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📄 ใบวางบิล — ออกให้ลูกค้าก่อนชำระ</div>
-
-        <button onclick="printInstallmentBill('${custId}','${month}',0);document.getElementById('inst-print-menu').remove()"
-          style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #b0d8c0;border-radius:9px;background:#f0fdf4;cursor:pointer;margin-bottom:8px;text-align:left;font-family:inherit">
-          <span style="font-size:20px">📄</span>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:600;font-size:13px;color:#c2588a">ใบวางบิล งวดที่ 1</div>
-            <div style="font-size:11px;color:#555">${periodStr(i1)} · ฿${fmt(i1?.amount||0)}</div>
-          </div>
-          <span style="font-size:11px;color:#c2588a;font-weight:600">พิมพ์ →</span>
-        </button>
-
-        <button onclick="printInstallmentBill('${custId}','${month}',1);document.getElementById('inst-print-menu').remove()"
-          style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #b0d8c0;border-radius:9px;background:#f0fdf4;cursor:pointer;margin-bottom:14px;text-align:left;font-family:inherit">
-          <span style="font-size:20px">📄</span>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:600;font-size:13px;color:#c2588a">ใบวางบิล งวดที่ 2</div>
-            <div style="font-size:11px;color:#555">${periodStr(i2)} · ฿${fmt(i2?.amount||0)}</div>
-          </div>
-          <span style="font-size:11px;color:#c2588a;font-weight:600">พิมพ์ →</span>
-        </button>
-
-        <div style="border-top:1px solid var(--border);margin-bottom:10px"></div>
+        ${billBtns}
+        <div style="border-top:1px solid var(--border);margin:6px 0 10px"></div>
         <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">🖨 ใบเสร็จรับเงิน — หลังรับชำระแล้ว</div>
-
-        <button onclick="printInstallmentReceipt('${custId}','${month}',0);document.getElementById('inst-print-menu').remove()"
-          style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid ${p1?'var(--accent)':'var(--border)'};border-radius:9px;background:${p1?'var(--accent-light)':'var(--bg)'};cursor:pointer;margin-bottom:8px;text-align:left;font-family:inherit">
-          <span style="font-size:20px">🖨</span>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:600;font-size:13px">ใบเสร็จ งวดที่ 1 ${p1 ? '<span style="font-size:10px;color:var(--paid)">✓ ชำระแล้ว</span>' : '<span style="font-size:10px;color:var(--text3)">○ ยังไม่ชำระ</span>'}</div>
-            <div style="font-size:11px;color:#555">${periodStr(i1)} · ฿${fmt(i1?.amount||0)}</div>
-          </div>
-          <span style="font-size:11px;color:var(--text2);font-weight:600">พิมพ์ →</span>
-        </button>
-
-        <button onclick="printInstallmentReceipt('${custId}','${month}',1);document.getElementById('inst-print-menu').remove()"
-          style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid ${p2?'var(--accent)':'var(--border)'};border-radius:9px;background:${p2?'var(--accent-light)':'var(--bg)'};cursor:pointer;text-align:left;font-family:inherit">
-          <span style="font-size:20px">🖨</span>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:600;font-size:13px">ใบเสร็จ งวดที่ 2 ${p2 ? '<span style="font-size:10px;color:var(--paid)">✓ ชำระแล้ว</span>' : '<span style="font-size:10px;color:var(--text3)">○ ยังไม่ชำระ</span>'}</div>
-            <div style="font-size:11px;color:#555">${periodStr(i2)} · ฿${fmt(i2?.amount||0)}</div>
-          </div>
-          <span style="font-size:11px;color:var(--text2);font-weight:600">พิมพ์ →</span>
-        </button>
+        ${rcptBtns}
       </div>
     </div>`;
   document.body.appendChild(menu);
@@ -8975,8 +9025,9 @@ function printInstallmentBill(custId, month, instIdx) {
   if (!p?.installments?.[instIdx]) { alert('ไม่พบข้อมูลงวดนี้'); return; }
   const inst    = p.installments[instIdx];
   const instNo  = instIdx + 1;
-  const html = _buildInstallmentBillHTML(c, instNo, inst.amount, inst.channel, inst.dateFrom, inst.dateTo, inst.note);
-  _openBillWindow(`ใบวางบิล งวดที่ ${instNo}/2 — ${c.name}`, html);
+  const instTotal = p.installments.length;
+  const html = _buildInstallmentBillHTML(c, instNo, inst.amount, inst.channel, inst.dateFrom, inst.dateTo, inst.note, instTotal);
+  _openBillWindow(`ใบวางบิล งวดที่ ${instNo}/${instTotal} — ${c.name}`, html);
 }
 
 // ========== REFUND SYSTEM ==========
