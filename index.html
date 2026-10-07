@@ -595,6 +595,84 @@ tr.row-inactive:hover { background: #f3f2ef !important; }
 }
 </style>
 
+<!-- ===== RWD: มือถือ (≤640px) — ท็อปบาร์กะทัดรัด, ตารางข้อมูลเป็นการ์ด, ฟิลเตอร์/แท็บเรียงใหม่ ===== -->
+<style id="rwd-mobile">
+@media (max-width: 640px) {
+  /* ── ท็อปบาร์: ไอคอนอย่างเดียว ไม่ให้ล้นจอ (เดิมกว้าง ~590px ในจอ 375px ทำให้ปุ่มออก/เพิ่มลูกค้าหลุดขอบ) ── */
+  .topbar { position: relative; height: 52px !important; padding: 0 8px !important; gap: 6px !important; }
+  .tb-brand { padding: 0; flex-shrink: 0; }
+  .tb-brand > div { display: none; }
+  .tb-brand-icon { font-size: 24px; }
+  .tb-divider, .tb-crumb-sep { display: none; }
+  .tb-crumb { flex: 1 1 0; min-width: 0; }
+  .tb-crumb-page { max-width: none; font-size: 15px; font-weight: 600; }
+  .topbar > div[style*="flex:1"] { flex: 0 0 0 !important; }
+  .tb-crumb:not(.show) + div[style*="flex:1"] { flex: 1 1 0 !important; }
+  .tb-action { height: 40px; min-width: 40px; padding: 0 8px; justify-content: center; }
+  .tb-user { padding: 0; }
+  .tb-user-name { display: none; }
+  .tb-signout { width: 40px; height: 40px; padding: 0; font-size: 0; display: inline-flex; align-items: center; justify-content: center; }
+  .tb-signout::before { content: '🚪'; font-size: 18px; }
+  /* ค้นหา: เป็นปุ่มไอคอนก่อน แตะแล้วขยายเต็มท็อปบาร์ */
+  .search-wrap { flex: 0 0 auto; }
+  .search-wrap input { width: 40px; height: 40px; padding: 0 !important; border-radius: 10px; cursor: pointer; }
+  .search-wrap input::placeholder { color: transparent; }
+  .search-wrap .search-icon { left: 13px; font-size: 15px; pointer-events: none; }
+  .search-wrap input:not(:placeholder-shown) { border-color: var(--accent-mid); background: var(--accent-light); }
+  .search-wrap:focus-within { position: absolute; left: 8px; right: 8px; top: 6px; z-index: 30; }
+  .search-wrap input:focus { width: 100%; padding: 0 12px 0 36px !important; cursor: text; background: var(--surface); color: var(--text); box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+  .search-wrap input:focus::placeholder { color: var(--text3); }
+  .search-wrap:focus-within .search-icon { left: 13px; color: var(--text3); }
+  /* เพิ่มลูกค้า: ปุ่มลอยมุมขวาล่าง */
+  .topbar > .btn.btn-primary { position: fixed; right: 16px; bottom: calc(18px + env(safe-area-inset-bottom)); width: 56px; height: 56px; padding: 0; border-radius: 50%; font-size: 0; z-index: 80; box-shadow: 0 6px 18px rgba(194,88,138,.45); display: flex; align-items: center; justify-content: center; }
+  .topbar > .btn.btn-primary::before { content: '+'; font-size: 32px; font-weight: 300; line-height: 1; color: #fff; }
+  .page.active, .page-fill.active { padding-bottom: 88px; }
+
+  /* ── ฟิลเตอร์ / แท็บ ── */
+  .filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; overflow-x: visible; }
+  .filter-row select, .filter-row input { width: 100% !important; min-width: 0; min-height: 40px; }
+  .filter-row > button, .filter-row > input[type=text], .filter-row > input[type=search], .filter-row > .btn { grid-column: 1 / -1; }
+  .month-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: 6px; }
+  .month-tab { text-align: center; padding: 8px 6px; font-size: 13px; white-space: nowrap; }
+  .table-header h3 { flex: 1 1 100%; }
+  #page-refund > div:first-child { flex-wrap: wrap; }
+
+  /* ── หน้าต่าง/การ์ดที่แบ่ง 2–3 คอลัมน์ → คอลัมน์เดียว (ข้อความไม่ถูกบีบ) ── */
+  .detail-grid { grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
+  .modal div[style*="grid-template-columns:1fr 1fr 1fr"] { grid-template-columns: 1fr !important; }
+  .stats-row:not([style*="repeat(3"]) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }   /* กฎ .stats-row ด้านบนถูกกฎ 4 คอลัมน์ที่อยู่ถัดมาทับ */
+  .chart-grid { grid-template-columns: 1fr !important; }
+  #page-issues table { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* ── แถวแจ้งเตือนบิล: ชื่ออยู่บรรทัดเดียว ที่เหลือขึ้นบรรทัดล่าง ── */
+  .reminder-row { flex-wrap: wrap; row-gap: 6px; padding: 11px 12px; }
+  .reminder-row > span:nth-child(2) { flex: 1 1 calc(100% - 24px); min-width: 0; font-size: 14px; }
+  .reminder-row .btn { min-height: 34px; }
+
+  /* ── ตารางข้อมูล → การ์ด (ตารางที่ JS ใส่คลาส rwd-cards: ดู _initRwdTables) ── */
+  table.rwd-cards, table.rwd-cards tbody, table.rwd-cards tfoot { display: block; width: 100%; }
+  /* รายการการ์ดไหลต่อกันในหน้าเดียว ไม่ซ้อนกล่องเลื่อนในกล่องเลื่อน */
+  .rwd-tw { height: auto !important; max-height: none !important; overflow: visible !important; }
+  .rwd-wrap { overflow: visible !important; max-height: none !important; flex: none !important; }
+  table.rwd-cards thead { display: none; }
+  table.rwd-cards tbody { padding: 8px 10px; }
+  table.rwd-cards tfoot tr { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 10px 12px; background: var(--surface2); }
+  table.rwd-cards tfoot td { flex: 1 1 auto; padding: 0 !important; border: 0 !important; font-size: 13px; }
+  table.rwd-cards tbody tr { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 12px; padding: 12px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  table.rwd-cards tbody tr:last-child { margin-bottom: 0; }
+  table.rwd-cards td { display: block; flex: 1 1 calc(50% - 12px); min-width: 0; padding: 0 !important; border: 0 !important; text-align: left !important; font-size: 13px; overflow-wrap: anywhere; }
+  table.rwd-cards td::before { content: attr(data-label); display: block; margin-bottom: 1px; font-size: 11px; line-height: 1.3; color: var(--text3); font-weight: 400; }
+  table.rwd-cards td:empty { display: none; }
+  table.rwd-cards td.rwd-t { flex: 0 0 auto; font-size: 12px; color: var(--text3); }
+  table.rwd-cards td.rwd-t::before { display: none; }
+  table.rwd-cards td.rwd-t-last { flex: 1 1 100%; font-size: 15px; font-weight: 600; color: var(--text); }
+  table.rwd-cards td.rwd-act { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; padding-top: 10px !important; border-top: 1px solid var(--border) !important; }
+  table.rwd-cards td.rwd-act::before { display: none; }
+  table.rwd-cards td.rwd-act .btn, table.rwd-cards td.rwd-act button { min-height: 38px; }
+  table.rwd-cards tr.rwd-empty td { flex-basis: 100%; text-align: center !important; }
+}
+</style>
+
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -2574,7 +2652,7 @@ if ('serviceWorker' in navigator) {
           <table>
             <thead><tr>
               <th>รหัส</th><th>ชื่อลูกค้า</th><th>สาขา</th>
-              <th style="text-align:right">ค่าบริการ</th><th>ธนาคาร</th><th>วันที่เริ่ม</th><th>ออกบิล</th><th>สถานะบิล</th><th></th>
+              <th style="text-align:right">ค่าบริการ</th><th>ธนาคาร</th><th>วันที่เริ่ม</th><th>สถานะบิล</th><th></th>
             </tr></thead>
             <tbody id="cust-tbody"></tbody>
           </table>
@@ -2819,7 +2897,7 @@ if ('serviceWorker' in navigator) {
             <thead><tr>
               <th>รหัส</th><th>ชื่อลูกค้า</th><th>สาขา</th>
               <th style="text-align:right">ค่าบริการ</th><th>ธนาคาร / บัญชี</th>
-              <th style="text-align:right">ชำระแล้ว</th><th>สถานะ</th><th>วันที่ชำระ</th><th>การดำเนินการ</th>
+              <th style="text-align:right">ชำระแล้ว</th><th>สถานะ</th><th>วันที่ชำระ</th><th>ออกบิล</th><th>การดำเนินการ</th>
             </tr></thead>
             <tbody id="bill-tbody"></tbody>
           </table>
@@ -9516,6 +9594,39 @@ function renderAuditPage() {
     </tr>`;
   }).join('') + (rows.length > 300 ? `<tr><td colspan="5" style="text-align:center;font-size:12px;color:var(--text2)">แสดง 300 รายการแรกจาก ${rows.length} — ใช้ช่องค้นหาเพื่อกรอง</td></tr>` : '');
 }
+
+// ========== RWD: ตารางข้อมูล → การ์ดบนมือถือ ==========
+// ตาราง {id ของ tbody: จำนวนเซลล์ต้นแถวที่เป็น "หัวการ์ด" (รหัส/ชื่อ/วันที่)} — CSS ใน <style id="rwd-mobile"> แสดงเป็นการ์ดเมื่อจอ ≤640px
+// ที่นี่แค่ใส่ป้ายชื่อคอลัมน์ (data-label) ให้ทุกเซลล์ และทำซ้ำทุกครั้งที่ฟังก์ชัน render เขียนแถวใหม่
+const _RWD_TABLES = { 'cust-tbody': 2, 'discharged-tbody': 2, 'rsum-tbody': 2, 'catalog-tbody': 1, 'bill-tbody': 2,
+                      'hist-tbody': 3, 'refund-tbody': 3, 'audit-tbody': 1, 'perm-allowed-tbody': 1 };
+function _rwdLabelTable(tbody, nTitle) {
+  const table = tbody.closest('table'); if (!table) return;
+  const heads = [...table.querySelectorAll('thead th')].map(th => th.textContent.replace(/\s+/g, ' ').trim());
+  tbody.querySelectorAll(':scope > tr').forEach(tr => {
+    const cells = [...tr.children].filter(td => td.tagName === 'TD');
+    tr.classList.toggle('rwd-empty', cells.length === 1);
+    cells.forEach((td, i) => {
+      const h = heads[i] || '';
+      if (h) td.setAttribute('data-label', h); else td.removeAttribute('data-label');
+      td.classList.toggle('rwd-t', i < nTitle);
+      td.classList.toggle('rwd-t-last', i === nTitle - 1);
+      td.classList.toggle('rwd-act', cells.length > 1 && i === cells.length - 1 && (!h || h === 'การดำเนินการ'));
+    });
+  });
+}
+function _initRwdTables() {
+  Object.entries(_RWD_TABLES).forEach(([id, nTitle]) => {
+    const tbody = document.getElementById(id); if (!tbody) return;
+    const table = tbody.closest('table');
+    table.classList.add('rwd-cards');
+    if (table.parentElement) table.parentElement.classList.add('rwd-wrap');
+    const tw = table.closest('.table-wrap'); if (tw) tw.classList.add('rwd-tw');
+    new MutationObserver(() => _rwdLabelTable(tbody, nTitle)).observe(tbody, { childList: true });
+    _rwdLabelTable(tbody, nTitle);
+  });
+}
+_initRwdTables();
 
 // ========== HOMEPAGE ==========
 const _HP_MODULES = [
