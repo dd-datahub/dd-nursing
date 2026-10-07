@@ -682,6 +682,17 @@ tr.row-inactive:hover { background: #f3f2ef !important; }
   table.rwd-cards tr.rwd-empty td { flex-basis: 100%; text-align: center !important; }
 }
 </style>
+<!-- ===== iPad / แท็บเล็ต (จอสัมผัส กว้างเกิน 640px): เลื่อนทั้งหน้า + แถบบนติดขอบ (sticky) แก้หัวเบลอบน iOS 26+ ตอนเปิดจากไอคอนหน้าจอโฮม — เหมือนกับมือถือ แต่คงเลย์เอาต์แท็บเล็ตเดิม ===== -->
+<style id="doc-scroll-tablet">
+@media (min-width: 641px) and (hover: none) and (pointer: coarse) {
+  body { overflow-x: clip; overflow-y: visible; }   /* ห้ามให้ body เป็นกล่องเลื่อนเอง ไม่งั้น sticky ไม่ติดขอบจอ */
+  .app { display: block; height: auto; min-height: 100vh; min-height: 100dvh; overflow: visible; }
+  .main { display: block; overflow: visible; }
+  .content { display: block; overflow: visible; }
+  .page.active, .page-fill.active { display: flex; flex-direction: column; flex: none; height: auto; min-height: 0; overflow: visible; }
+  .topbar { position: sticky; top: 0; z-index: 90; }
+}
+</style>
 
 <!-- Firebase -->
 <script type="module">
