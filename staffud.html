@@ -1258,6 +1258,7 @@ function setPage(page) {
   // scroll to top
   const mc = document.querySelector('.main-content');
   if (mc) mc.scrollTop = 0;
+  window.scrollTo(0, 0);   // มือถือเลื่อนทั้งหน้า (ดู #doc-scroll-mobile)
 }
 
 function filterDashboard(q) {
@@ -4085,6 +4086,18 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 </script>
+<style id="doc-scroll-mobile">
+/* มือถือ: ให้ "ทั้งหน้า" เลื่อน แทนกล่อง .main-content ภายใน + แถบบนติดขอบ (sticky)
+   เหตุผล: บน iPhone (แอปจากหน้าจอโฮม iOS 26+) ถ้าแอปสูงเท่าจอแล้วเลื่อนในกล่องภายใน ระบบจะวาดเอฟเฟกต์เบลอทับแถบบน
+   (ยืนยันแล้วกับหน้าแอดมิน: เลื่อนทั้งเอกสารแล้วคมชัด) — body ห้ามเป็นกล่องเลื่อนเอง (overflow-x:clip) ไม่งั้น sticky ไม่ติดขอบ
+   ตารางกรอกข้อมูลที่มีกล่องเลื่อนของตัวเอง (เช่น #sbs-scroll, .ss-wrap) ยังเลื่อนในกล่องเหมือนเดิม */
+@media (max-width: 640px) {
+  body { display: block; height: auto; min-height: 100vh; min-height: 100dvh; overflow-x: clip; overflow-y: visible; }
+  .app-layout, .main-wrapper { display: block; flex: none; min-height: 0; overflow: visible; }
+  .main-content { overflow-x: auto; overflow-y: hidden; overscroll-behavior: auto; }
+  .topbar { position: sticky; top: 0; z-index: 60; }
+}
+</style>
 </head>
 <body>
 <style>
