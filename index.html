@@ -598,8 +598,18 @@ tr.row-inactive:hover { background: #f3f2ef !important; }
 <!-- ===== RWD: มือถือ (≤640px) — ท็อปบาร์กะทัดรัด, ตารางข้อมูลเป็นการ์ด, ฟิลเตอร์/แท็บเรียงใหม่ ===== -->
 <style id="rwd-mobile">
 @media (max-width: 640px) {
+  /* ── เลื่อนทั้งหน้า (document scroll) + ท็อปบาร์ติดขอบบน ──
+     เดิมทั้งแอปสูงเท่าจอแล้วเลื่อนในกล่องภายใน (.content) ซึ่งบน iPhone (แอปจากหน้าจอโฮม, iOS 26+) ทำให้ระบบวาดเอฟเฟกต์เบลอทับแถบบน
+     ทดสอบด้วย ios-header-test.html แล้ว: เลื่อนทั้งเอกสาร + sticky ทำให้แถบบนคมชัด */
+  body { overflow-x: clip; overflow-y: visible; }   /* ห้ามให้ body เป็นกล่องเลื่อนเอง ไม่งั้น sticky ไม่ติดขอบจอ */
+  .app { display: block; height: auto; min-height: 100vh; min-height: 100dvh; overflow: visible; }
+  .main { display: block; overflow: visible; }
+  .content { display: block; overflow: visible; }
+  .page.active, .page-fill.active { display: flex; flex-direction: column; flex: none; height: auto; min-height: 0; overflow: visible; }
+  .topbar { position: sticky; top: 0; z-index: 90; }
+
   /* ── ท็อปบาร์: ไอคอนอย่างเดียว ไม่ให้ล้นจอ (เดิมกว้าง ~590px ในจอ 375px ทำให้ปุ่มออก/เพิ่มลูกค้าหลุดขอบ) ── */
-  .topbar { position: relative; height: 52px !important; padding: 0 8px !important; gap: 6px !important; }
+  .topbar { height: 52px !important; padding: 0 8px !important; gap: 6px !important; }
   .tb-brand { padding: 0; flex-shrink: 0; }
   .tb-brand > div { display: none; }
   .tb-brand-icon { font-size: 24px; }
@@ -9793,6 +9803,7 @@ function renderHomePage() {
 window.renderHomePage = renderHomePage;
 
 function goPage(id) {
+  window.scrollTo(0, 0);   // มือถือเลื่อนทั้งหน้า (ดู #rwd-mobile) → เปลี่ยนหน้าแล้วกลับไปบนสุด
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const pageEl = document.getElementById('page-'+id);
