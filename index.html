@@ -4106,9 +4106,11 @@ if ('serviceWorker' in navigator) {
     <div class="modal-body" style="padding:0">
       <div id="refund-receipt-area"></div>
     </div>
-    <div class="modal-foot">
+    <div class="modal-foot" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-primary" onclick="doPrintRefund()">🖨 พิมพ์ / PDF</button>
+      <button class="btn" id="rf-pdf-btn" onclick="savePdfRefund()">📄 บันทึก / ส่ง PDF</button>
       <button class="btn" onclick="closeModal('refund-receipt-modal')">ปิด</button>
+      <div id="rf-pdf-status" style="flex:1 1 100%;font-size:12px;color:var(--text2);text-align:center"></div>
     </div>
   </div>
 </div>
@@ -4412,6 +4414,8 @@ if ('serviceWorker' in navigator) {
   .sidebar, .topbar { display: none; }
   .content { padding: 0; }
 }
+/* หน้าต่างใบเสร็จคืนเงิน: ปุ่มด้านล่างติดขอบจอเสมอ (ในมือถือใบเสร็จยาว ปุ่มไม่หลุดไปอยู่ท้ายหน้า) */
+#refund-receipt-modal .modal-foot { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--border); z-index: 2; }
 /* พิมพ์ใบเสร็จคืนเงินจากหน้าเดิม (ดู doPrintRefund): ซ่อนทุกอย่างยกเว้นตัวใบเสร็จ */
 @media print {
   @page { size: A4; margin: 8mm 10mm; }
@@ -9278,10 +9282,96 @@ function printRefundReceipt(id) {
       </div>
     </div>`;
 
+  _rfReceiptId = id;
+  document.getElementById('rf-pdf-status').textContent = '';
   document.getElementById('refund-receipt-modal').classList.add('open');
 }
 
+let _rfReceiptId = null;     // ใบคืนเงินที่กำลังเปิดดูอยู่ในหน้าต่างใบเสร็จ
+
+// มือถือ/แท็บเล็ต (จอสัมผัส): window.print() ในแอป/เว็บวิวหลายตัวไม่ทำอะไรเลย → ใช้ทางสร้าง PDF แล้วแชร์/บันทึกแทน
+function _isTouchDevice() {
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+      || (navigator.maxTouchPoints > 1 && /Mac/i.test(navigator.platform))
+      || (window.matchMedia && matchMedia('(pointer: coarse)').matches && navigator.maxTouchPoints > 0);
+}
+
+function _loadScriptOnce(src) {
+  return new Promise((resolve, reject) => {
+    const old = document.querySelector('script[data-lib="' + src + '"]');
+    if (old && old.dataset.loaded) return resolve();
+    const el = old || document.createElement('script');
+    el.addEventListener('load', () => { el.dataset.loaded = '1'; resolve(); });
+    el.addEventListener('error', () => reject(new Error('โหลดตัวสร้าง PDF ไม่สำเร็จ (ต้องต่ออินเทอร์เน็ต)')));
+    if (!old) { el.src = src; el.dataset.lib = src; document.head.appendChild(el); }
+  });
+}
+
+// สร้าง PDF (A4) จากใบเสร็จที่เปิดอยู่: วาดเป็นภาพด้วย html2canvas แล้วใส่ลง jsPDF — โหลดไลบรารีเมื่อกดครั้งแรกเท่านั้น
+async function _buildRefundPdf() {
+  await _loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  await _loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  const src = document.getElementById('refund-receipt-area');
+  // วาดจากสำเนานอกจอที่กว้างเท่า A4 เพื่อให้หน้าตาเหมือนกันทุกเครื่อง ไม่ขึ้นกับความกว้างจอมือถือ
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:#fff;color:#111;';
+  holder.appendChild(src.cloneNode(true));
+  document.body.appendChild(holder);
+  let canvas;
+  try {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    canvas = await window.html2canvas(holder, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+  } finally { holder.remove(); }
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const pw = 210, ph = 297, m = 8;
+  let w = pw - 2 * m, h = canvas.height * w / canvas.width;
+  if (h > ph - 2 * m) { h = ph - 2 * m; w = canvas.width * h / canvas.height; }   // ใบเดียวต้องพอดีหนึ่งหน้า
+  pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (pw - w) / 2, m, w, h);
+  const r = refunds.find(x => x.id === _rfReceiptId);
+  const safe = t => String(t || '').replace(/[\\/:*?"<>|\s]+/g, '_');
+  const filename = 'ใบเสร็จคืนเงิน' + (r ? '_' + safe(r.custId) + '_' + safe(r.date) : '') + '.pdf';
+  return { blob: pdf.output('blob'), filename };
+}
+
+function _downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+// บันทึก / ส่ง PDF: มือถือเปิดหน้าต่างแชร์ของเครื่อง (บันทึกลงไฟล์ ส่ง LINE ฯลฯ) · ไม่รองรับแชร์ → ดาวน์โหลดไฟล์
+async function savePdfRefund() {
+  const btn = document.getElementById('rf-pdf-btn'), st = document.getElementById('rf-pdf-status');
+  const say = (t, ok) => { st.style.color = ok === false ? 'var(--danger)' : 'var(--text2)'; st.textContent = t; };
+  btn.disabled = true; say('กำลังสร้าง PDF...');
+  try {
+    const { blob, filename } = await _buildRefundPdf();
+    const file = new File([blob], filename, { type: 'application/pdf' });
+    const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+    if (!canShare) { _downloadBlob(blob, filename); say('✓ สร้าง PDF แล้ว — ถ้าไม่เห็นไฟล์ ให้ดูที่โฟลเดอร์ดาวน์โหลดของเครื่อง'); return; }
+    try {
+      await navigator.share({ files: [file], title: 'ใบเสร็จคืนเงิน' });
+      say('✓ เรียบร้อย');
+    } catch (e) {
+      if (e && e.name === 'AbortError') { say(''); return; }          // ผู้ใช้กดยกเลิกเอง
+      // เบราว์เซอร์ไม่ให้แชร์เพราะรอนานเกินไปหลังกดปุ่ม → ให้กดอีกครั้ง (ไฟล์พร้อมแล้ว จึงแชร์ได้ทันที)
+      st.innerHTML = '<button class="btn btn-primary" id="rf-pdf-share2">📤 แตะอีกครั้งเพื่อแชร์ / บันทึก PDF</button>';
+      document.getElementById('rf-pdf-share2').onclick = async () => {
+        try { await navigator.share({ files: [file], title: 'ใบเสร็จคืนเงิน' }); say('✓ เรียบร้อย'); }
+        catch (e2) { if (e2 && e2.name === 'AbortError') { say(''); return; } _downloadBlob(blob, filename); say('✓ สร้าง PDF แล้ว — ดูที่โฟลเดอร์ดาวน์โหลดของเครื่อง'); }
+      };
+    }
+  } catch (e) {
+    console.warn('savePdfRefund:', e);
+    say('สร้าง PDF ไม่สำเร็จ: ' + (e && e.message || e), false);
+  } finally { btn.disabled = false; }
+}
+
 function doPrintRefund() {
+  if (_isTouchDevice()) { savePdfRefund(); return; }
   // พิมพ์จากหน้าเดิม ไม่เปิดหน้าต่างใหม่: ในแอปมือถือ/PWA หน้าต่างใหม่ไม่มีปุ่มปิด/กลับ และสั่งพิมพ์อัตโนมัติ
   // หลังโหลดจะไม่ขึ้น dialog (เบราว์เซอร์มือถือต้องมาจากการกดปุ่มโดยตรง) — ตัวใบเสร็จยังเปิดอยู่ในหน้านี้ กด "ปิด" กลับได้เสมอ
   // (CSS @media print ด้านบนซ่อนทุกอย่างยกเว้นใบเสร็จ ใช้เฉพาะตอนพิมพ์เมื่อมีคลาส print-refund)
