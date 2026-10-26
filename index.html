@@ -1212,9 +1212,9 @@ function _schedMainRenderTable() {
       // นับวันทำงาน: กะเต็ม = +1, ครึ่งวัน (ค) = +0.5
       const hasFullShift = shifts.some(sh => sh==='ช'||sh==='ด'||sh==='บ');
       const hasHalfDay   = shifts.includes('ค');
-      if (hasFullShift)      workDays += 1;
-      else if (hasHalfDay) { workDays += 0.5; offDays += 0.5; }
-      if (hasFullShift && hasHalfDay) offDays += 0.5;   // ครึ่งวัน (ค) คู่กับกะเต็ม เช่น ค/ด : อีกครึ่งวันเป็นวันหยุด
+      // ค = วันนั้นทำงานครึ่งวัน หยุดครึ่งวัน (คู่กับกะเต็ม เช่น ค/ด ก็ยังนับเป็น 0.5 + 0.5) → วันทำงาน + วันหยุด = จำนวนวันในเดือน
+      if (hasHalfDay)          { workDays += 0.5; offDays += 0.5; }
+      else if (hasFullShift)   workDays += 1;
       if (shifts.includes('ห')) offDays += 1;
       if ((shifts.includes('ช') || shifts.includes('ค')) && shifts.includes('ด')) otNight++;   // เช้า (เต็ม/ครึ่งวัน) + ดึก ในวันเดียวกัน = OT ดึก
       const chips = slots.map(s =>
@@ -1524,9 +1524,9 @@ function _schedUdRenderTable() {
       // นับวันทำงาน: กะเต็ม = +1, ครึ่งวัน (ค) = +0.5
       const hasFullShift = shifts.some(sh => sh==='ช'||sh==='ด'||sh==='บ');
       const hasHalfDay   = shifts.includes('ค');
-      if (hasFullShift)      workDays += 1;
-      else if (hasHalfDay) { workDays += 0.5; offDays += 0.5; }
-      if (hasFullShift && hasHalfDay) offDays += 0.5;   // ครึ่งวัน (ค) คู่กับกะเต็ม เช่น ค/ด : อีกครึ่งวันเป็นวันหยุด
+      // ค = วันนั้นทำงานครึ่งวัน หยุดครึ่งวัน (คู่กับกะเต็ม เช่น ค/ด ก็ยังนับเป็น 0.5 + 0.5) → วันทำงาน + วันหยุด = จำนวนวันในเดือน
+      if (hasHalfDay)          { workDays += 0.5; offDays += 0.5; }
+      else if (hasFullShift)   workDays += 1;
       if (shifts.includes('ห')) offDays += 1;
       if ((shifts.includes('ช') || shifts.includes('ค')) && shifts.includes('ด')) otNight++;   // เช้า (เต็ม/ครึ่งวัน) + ดึก ในวันเดียวกัน = OT ดึก
       const chips = slots.map(s =>

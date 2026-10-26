@@ -3698,7 +3698,9 @@ function _ssudRenderTable() {
       const slots = _ssudParseVal(val);
       const shifts = slots.map(s => s.shift);
       shifts.forEach(sh => { if (countMap[sh]!==undefined) countMap[sh]++; });
-      if (shifts.some(sh=>sh==='ช'||sh==='ด')) workDays++;
+      // นับวันทำงานเหมือนหน้าแอดมิน: กะเต็ม (ช/ด/บ) = 1 · ค (ครึ่งวัน) = 0.5 แม้คู่กะเต็ม เช่น ค/ด
+      if (shifts.includes('ค')) workDays += 0.5;
+      else if (shifts.some(sh=>sh==='ช'||sh==='ด'||sh==='บ')) workDays++;
       if ((shifts.includes('ช') || shifts.includes('ค')) && shifts.includes('ด')) otNight++;   // เช้า (เต็ม/ครึ่งวัน) + ดึก ในวันเดียวกัน = OT ดึก
       // วันหยุด (ใช้คำนวณ OT วันหยุด): ห = 1 · ค = 0.5 (ทั้งแบบอย่างเดียวและคู่กะเต็ม)
       if (shifts.includes('ห')) offDays += 1;
