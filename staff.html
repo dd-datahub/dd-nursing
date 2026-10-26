@@ -4779,7 +4779,7 @@ function _ssRenderTable() {
     const nd = _ssData[nid] || {};
     const rowBg = branch==='1'?'#f0f6ff':branch==='2'?'#f0faf4':branch==='3'?'#fff8f0':'#f8f7fb';
     const countMap = {ช:0,ด:0,ห:0,ล:0};
-    let workDays = 0, otNight = 0, cells = '';
+    let workDays = 0, offDays = 0, otNight = 0, cells = '';
 
     for (let d = 1; d <= days; d++) {
       const dow   = _ssDayOfWeek(ym, d);
@@ -4791,6 +4791,9 @@ function _ssRenderTable() {
       shifts.forEach(sh => { if (countMap[sh]!==undefined) countMap[sh]++; });
       if (shifts.some(sh=>sh==='ช'||sh==='ด')) workDays++;
       if ((shifts.includes('ช') || shifts.includes('ค')) && shifts.includes('ด')) otNight++;   // เช้า (เต็ม/ครึ่งวัน) + ดึก ในวันเดียวกัน = OT ดึก
+      // วันหยุด (ใช้คำนวณ OT วันหยุด): ห = 1 · ค อย่างเดียว = 0.5 · ค คู่กะเต็ม = 0.5
+      if (shifts.includes('ห')) offDays += 1;
+      if (shifts.includes('ค')) offDays += 0.5;
       const chips = slots.map(s =>
         `<span class="ss-chip" style="${_ssChipStyle(s.shift,s.branch)}">${_ssShiftGlyph(s.shift)}${s.branch||''}</span>`
       ).join('<br>');
@@ -4806,7 +4809,10 @@ function _ssRenderTable() {
     // OTดึก
     const otCell = `<td class="ss-sum-val ss-ot-val" style="${otNight>0?'color:#6d28d9;font-weight:700':'color:#ccc'}">${otNight>0?otNight:'—'}</td>`;
     // OTวันหยุด (อ่านค่าจาก Firebase, แสดงอย่างเดียว)
-    const otHolRaw = (nd._ot_holiday != null && nd._ot_holiday !== '') ? nd._ot_holiday : null;
+    // OT วันหยุด = สิทธิ์วันหยุดต่อเดือนที่แอดมินกำหนดให้พนักงาน (nurse.off_quota) − วันหยุดที่ลงในตาราง (ไม่ติดลบ) · ยังไม่ตั้งสิทธิ์ → ใช้ค่าเดิมที่กรอกเอง
+    const _oq = (nurse.off_quota != null && nurse.off_quota !== '') ? parseFloat(nurse.off_quota) : NaN;
+    const otHolRaw = Number.isFinite(_oq) ? Math.max(0, Math.round((_oq - offDays) * 100) / 100)
+                   : ((nd._ot_holiday != null && nd._ot_holiday !== '') ? nd._ot_holiday : null);
     const otHolCell = `<td class="ss-sum-val ss-oth-val" style="${otHolRaw!=null?'color:#92400e;font-weight:700':'color:#ccc'}">${otHolRaw!=null?otHolRaw:'—'}</td>`;
     // รวมกะ
     const summary = Object.entries(countMap).filter(([,v])=>v>0)

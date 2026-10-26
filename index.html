@@ -1034,7 +1034,8 @@ window.cancelPreAuthorizedEmail = cancelPreAuthorizedEmail;
 // ตารางเวร (สาขาหลัก) — Admin จัดการได้เต็มรูปแบบ
 // อ้างอิงรูปแบบข้อมูลเดียวกับ staff.html (อ่านอย่างเดียว) แต่เพิ่มสิทธิ์เขียน
 // schedule/{ym}/{nurseId}/d{day} = "ช1/ด2" (รหัสกะ+เลขสาขา คั่นด้วย / สูงสุด 2 กะ)
-// schedule/{ym}/{nurseId}/_ot_holiday = ตัวเลข OT วันหยุด
+// schedule_nurses/{nurseId}/off_quota = สิทธิ์วันหยุดต่อเดือน (OT วันหยุด คำนวณจาก off_quota − วันหยุดที่ลงในตาราง)
+// schedule/{ym}/{nurseId}/_ot_holiday = (เดิม) ตัวเลข OT วันหยุดที่กรอกเอง — ใช้แสดงเฉพาะพนักงานที่ยังไม่ได้ตั้งสิทธิ์วันหยุด
 // schedule_nurses/{nurseId} = { name, branch:'1'|'2'|'3', order }
 // ════════════════════════════════════════════════════════════════
 let _schedMainYM = null;
@@ -1109,6 +1110,15 @@ function _schedMainChipStyle(shift, branch) {
   const c = _SCHEDMAIN_CHIP_COLORS[shift+branch] || _SCHEDMAIN_CHIP_COLORS[shift] || ['#f3f4f6','#555'];
   return `background:${c[0]};color:${c[1]}`;
 }
+// OT วันหยุด = สิทธิ์วันหยุดต่อเดือนที่แอดมินกำหนดให้พนักงานคนนั้น (nurse.off_quota) − วันหยุดที่ลงในตารางเดือนนั้น (ต่ำสุด 0)
+// ยังไม่ได้กำหนดสิทธิ์ → ใช้ตัวเลขที่เคยกรอกเองไว้ (_ot_holiday) ถ้ามี ไม่งั้นว่าง
+function _schedOtHolidayValue(nurse, nd, offDays) {
+  const q = (nurse && nurse.off_quota != null && nurse.off_quota !== '') ? parseFloat(nurse.off_quota) : NaN;
+  if (Number.isFinite(q)) return Math.max(0, Math.round((q - offDays) * 100) / 100);
+  return (nd && nd._ot_holiday != null && nd._ot_holiday !== '') ? nd._ot_holiday : null;
+}
+const _SCHED_OTH_TIP = 'OT วันหยุด คำนวณอัตโนมัติ — คลิกเพื่อกำหนดสิทธิ์วันหยุดของพนักงานคนนี้';
+
 function _schedMainParseVal(v) {
   if (!v) return [];
   return String(v).split('/').slice(0,2)
@@ -1222,8 +1232,8 @@ function _schedMainRenderTable() {
     const wdCell = `<td class="sched-sum-val">${workDays||'—'}</td>`;
     const offCell = `<td class="sched-sum-val" style="${offDays>0?'color:#dc2626;font-weight:700':'color:#ccc'}">${offDays>0?offDays:'—'}</td>`;
     const otCell = `<td class="sched-sum-val" style="${otNight>0?'color:#6d28d9;font-weight:700':'color:#ccc'}">${otNight>0?otNight:'—'}</td>`;
-    const otHolRaw = (nd._ot_holiday != null && nd._ot_holiday !== '') ? nd._ot_holiday : null;
-    const otHolCell = `<td class="sched-sum-val sched-cell" style="${otHolRaw!=null?'color:#92400e;font-weight:700':'color:#ccc'}" onclick="schedMainEditOT('${nid}')">${otHolRaw!=null?otHolRaw:'—'}</td>`;
+    const otHolRaw = _schedOtHolidayValue(nurse, nd, offDays);
+    const otHolCell = `<td class="sched-sum-val sched-cell" style="${(otHolRaw!=null && Number(otHolRaw)!==0)?'color:#92400e;font-weight:700':'color:#ccc'}" onclick="schedMainEditOffQuota('${nid}')" title="${_SCHED_OTH_TIP}">${otHolRaw!=null?otHolRaw:'—'}</td>`;
     const summary = Object.entries(countMap).filter(([,v])=>v>0)
       .map(([k,v])=>`<span class="sched-sum-tag">${_schedShiftGlyph(k)}<b>${v}</b></span>`).join('');
     const sumCell = `<td class="sched-sum-val">${summary||'—'}</td>`;
@@ -1326,15 +1336,21 @@ function schedMainEditCell(nid, day) {
   _schedOpenShiftModal('main', nid, day, ym, name, _schedMainFormatMonthTH(ym), cur, note);
 }
 
-function schedMainEditOT(nid) {
-  const ym = _schedMainInitYM();
-  const nd = _schedMainData[nid] || {};
-  const cur = (nd._ot_holiday != null) ? nd._ot_holiday : '';
-  const input = prompt(`กำหนด OT วันหยุด ของเดือน ${_schedMainFormatMonthTH(ym)}\n(ใส่จำนวนเป็นตัวเลข เว้นว่างแล้วกดตกลง = ลบ)`, cur);
+async function schedMainEditOffQuota(nid) {
+  const nurse = _schedMainNurses[nid];
+  if (!nurse) return;
+  const cur = (nurse.off_quota != null && nurse.off_quota !== '') ? nurse.off_quota : '';
+  const input = prompt(`สิทธิ์วันหยุดต่อเดือน — ${nurse.name}\n\nOT วันหยุด = สิทธิ์วันหยุดนี้ − วันหยุดที่ลงในตารางของเดือนนั้น (คำนวณให้อัตโนมัติทุกเดือน)\n(ใส่ตัวเลข เช่น 8 หรือ 10 · เว้นว่าง = ยกเลิกการคำนวณ)`, cur);
   if (input === null) return;
-  const val = input.trim();
-  set(ref(db, `schedule/${ym}/${nid}/_ot_holiday`), val === '' ? null : val)
-    .catch(e => alert('เกิดข้อผิดพลาด: ' + e.message));
+  const t = input.trim().replace(',', '.');
+  let val = null;
+  if (t !== '') {
+    val = Number(t);
+    if (!Number.isFinite(val) || val < 0 || val > 31) { alert('กรุณาใส่ตัวเลข 0–31 (ครึ่งวันใส่ .5 ได้)'); return; }
+  }
+  try {
+    await set(ref(db, `schedule_nurses/${nid}/off_quota`), val);
+  } catch (e) { alert('บันทึกไม่สำเร็จ: ' + e.message); }
 }
 
 window.renderSchedMainPage   = renderSchedMainPage;
@@ -1346,7 +1362,7 @@ window.schedMainDeleteNurse  = schedMainDeleteNurse;
 window.schedMainRestoreNurse = schedMainRestoreNurse;
 window.schedMainMoveNurse    = schedMainMoveNurse;
 window.schedMainEditCell     = schedMainEditCell;
-window.schedMainEditOT       = schedMainEditOT;
+window.schedMainEditOffQuota = schedMainEditOffQuota;
 
 // ════════════════════════════════════════════════════════════════
 // ตารางเวร (สาขาอุดร) — เหมือนสาขาหลัก แต่ไม่มีสาขาย่อย (อ้างอิง staffud.html)
@@ -1528,8 +1544,8 @@ function _schedUdRenderTable() {
     const wdCell = `<td class="sched-sum-val">${workDays||'—'}</td>`;
     const offCell = `<td class="sched-sum-val" style="${offDays>0?'color:#dc2626;font-weight:700':'color:#ccc'}">${offDays>0?offDays:'—'}</td>`;
     const otCell = `<td class="sched-sum-val" style="${otNight>0?'color:#6d28d9;font-weight:700':'color:#ccc'}">${otNight>0?otNight:'—'}</td>`;
-    const otHolRaw = (nd._ot_holiday!=null && nd._ot_holiday!=='') ? nd._ot_holiday : null;
-    const otHolCell = `<td class="sched-sum-val sched-cell" style="${otHolRaw!=null?'color:#92400e;font-weight:700':'color:#ccc'}" onclick="schedUdEditOT('${nid}')">${otHolRaw!=null?otHolRaw:'—'}</td>`;
+    const otHolRaw = _schedOtHolidayValue(nurse, nd, offDays);
+    const otHolCell = `<td class="sched-sum-val sched-cell" style="${(otHolRaw!=null && Number(otHolRaw)!==0)?'color:#92400e;font-weight:700':'color:#ccc'}" onclick="schedUdEditOffQuota('${nid}')" title="${_SCHED_OTH_TIP}">${otHolRaw!=null?otHolRaw:'—'}</td>`;
     const summary = Object.entries(countMap).filter(([,v])=>v>0)
       .map(([k,v])=>`<span class="sched-sum-tag">${_schedShiftGlyph(k)}<b>${v}</b></span>`).join('');
     const sumCell = `<td class="sched-sum-val">${summary||'—'}</td>`;
@@ -1624,15 +1640,21 @@ function schedUdEditCell(nid, day) {
   _schedOpenShiftModal('ud', nid, day, ym, name, _schedUdFormatMonthTH(ym), cur, note);
 }
 
-function schedUdEditOT(nid) {
-  const ym = _schedUdInitYM();
-  const nd = _schedUdData[nid] || {};
-  const cur = (nd._ot_holiday != null) ? nd._ot_holiday : '';
-  const input = prompt(`กำหนด OT วันหยุด ของเดือน ${_schedUdFormatMonthTH(ym)}\n(ใส่จำนวนเป็นตัวเลข เว้นว่างแล้วกดตกลง = ลบ)`, cur);
+async function schedUdEditOffQuota(nid) {
+  const nurse = _schedUdNurses[nid];
+  if (!nurse) return;
+  const cur = (nurse.off_quota != null && nurse.off_quota !== '') ? nurse.off_quota : '';
+  const input = prompt(`สิทธิ์วันหยุดต่อเดือน — ${nurse.name}\n\nOT วันหยุด = สิทธิ์วันหยุดนี้ − วันหยุดที่ลงในตารางของเดือนนั้น (คำนวณให้อัตโนมัติทุกเดือน)\n(ใส่ตัวเลข เช่น 8 หรือ 10 · เว้นว่าง = ยกเลิกการคำนวณ)`, cur);
   if (input === null) return;
-  const val = input.trim();
-  set(ref(db, `schedule_ud/${ym}/${nid}/_ot_holiday`), val === '' ? null : val)
-    .catch(e => alert('เกิดข้อผิดพลาด: ' + e.message));
+  const t = input.trim().replace(',', '.');
+  let val = null;
+  if (t !== '') {
+    val = Number(t);
+    if (!Number.isFinite(val) || val < 0 || val > 31) { alert('กรุณาใส่ตัวเลข 0–31 (ครึ่งวันใส่ .5 ได้)'); return; }
+  }
+  try {
+    await set(ref(db, `schedule_ud_nurses/${nid}/off_quota`), val);
+  } catch (e) { alert('บันทึกไม่สำเร็จ: ' + e.message); }
 }
 
 window.renderSchedUdPage   = renderSchedUdPage;
@@ -1644,7 +1666,7 @@ window.schedUdDeleteNurse  = schedUdDeleteNurse;
 window.schedUdRestoreNurse = schedUdRestoreNurse;
 window.schedUdMoveNurse    = schedUdMoveNurse;
 window.schedUdEditCell     = schedUdEditCell;
-window.schedUdEditOT       = schedUdEditOT;
+window.schedUdEditOffQuota = schedUdEditOffQuota;
 
 // ════════════════════════════════════════════════════════════════
 // ตารางเวร: ย้ายสาขาพนักงาน

@@ -3688,7 +3688,7 @@ function _ssudRenderTable() {
   for (const [nid, nurse] of nurses) {
     const nd = _ssudData[nid] || {};
     const countMap = {ช:0, ด:0, ห:0, ล:0};
-    let workDays = 0, otNight = 0, cells = '';
+    let workDays = 0, offDays = 0, otNight = 0, cells = '';
 
     for (let d = 1; d <= days; d++) {
       const dow   = _ssudDayOfWeek(ym, d);
@@ -3700,6 +3700,9 @@ function _ssudRenderTable() {
       shifts.forEach(sh => { if (countMap[sh]!==undefined) countMap[sh]++; });
       if (shifts.some(sh=>sh==='ช'||sh==='ด')) workDays++;
       if ((shifts.includes('ช') || shifts.includes('ค')) && shifts.includes('ด')) otNight++;   // เช้า (เต็ม/ครึ่งวัน) + ดึก ในวันเดียวกัน = OT ดึก
+      // วันหยุด (ใช้คำนวณ OT วันหยุด): ห = 1 · ค = 0.5 (ทั้งแบบอย่างเดียวและคู่กะเต็ม)
+      if (shifts.includes('ห')) offDays += 1;
+      if (shifts.includes('ค')) offDays += 0.5;
       const chips = slots.map(s =>
         `<span class="ssud-chip" style="${_ssudChipStyle(s.shift)}">${_ssudShiftGlyph(s.shift)}</span>`
       ).join('<br>');
@@ -3715,7 +3718,10 @@ function _ssudRenderTable() {
     // OTดึก
     const otCell = `<td class="ssud-sum-val ssud-ot-val" style="${otNight>0?'color:#6d28d9;font-weight:700':'color:#ccc'}">${otNight>0?otNight:'—'}</td>`;
     // OTวันหยุด (อ่านค่าจาก Firebase)
-    const otHolRaw = (nd._ot_holiday!=null && nd._ot_holiday!=='') ? nd._ot_holiday : null;
+    // OT วันหยุด = สิทธิ์วันหยุดต่อเดือนที่แอดมินกำหนดให้พนักงาน (nurse.off_quota) − วันหยุดที่ลงในตาราง (ไม่ติดลบ) · ยังไม่ตั้งสิทธิ์ → ใช้ค่าเดิมที่กรอกเอง
+    const _oq = (nurse.off_quota != null && nurse.off_quota !== '') ? parseFloat(nurse.off_quota) : NaN;
+    const otHolRaw = Number.isFinite(_oq) ? Math.max(0, Math.round((_oq - offDays) * 100) / 100)
+                   : ((nd._ot_holiday != null && nd._ot_holiday !== '') ? nd._ot_holiday : null);
     const otHolCell = `<td class="ssud-sum-val ssud-oth-val" style="${otHolRaw!=null?'color:#92400e;font-weight:700':'color:#ccc'}">${otHolRaw!=null?otHolRaw:'—'}</td>`;
     // รวมกะ
     const summary = Object.entries(countMap).filter(([,v])=>v>0)
