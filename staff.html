@@ -4790,7 +4790,7 @@ function _ssRenderTable() {
       const shifts = slots.map(s => s.shift);
       shifts.forEach(sh => { if (countMap[sh]!==undefined) countMap[sh]++; });
       if (shifts.some(sh=>sh==='ช'||sh==='ด')) workDays++;
-      if (shifts.includes('ช') && shifts.includes('ด')) otNight++;
+      if ((shifts.includes('ช') || shifts.includes('ค')) && shifts.includes('ด')) otNight++;   // เช้า (เต็ม/ครึ่งวัน) + ดึก ในวันเดียวกัน = OT ดึก
       const chips = slots.map(s =>
         `<span class="ss-chip" style="${_ssChipStyle(s.shift,s.branch)}">${_ssShiftGlyph(s.shift)}${s.branch||''}</span>`
       ).join('<br>');

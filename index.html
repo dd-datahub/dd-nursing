@@ -1204,8 +1204,9 @@ function _schedMainRenderTable() {
       const hasHalfDay   = shifts.includes('ค');
       if (hasFullShift)      workDays += 1;
       else if (hasHalfDay) { workDays += 0.5; offDays += 0.5; }
+      if (hasFullShift && hasHalfDay) offDays += 0.5;   // ครึ่งวัน (ค) คู่กับกะเต็ม เช่น ค/ด : อีกครึ่งวันเป็นวันหยุด
       if (shifts.includes('ห')) offDays += 1;
-      if (shifts.includes('ช') && shifts.includes('ด')) otNight++;
+      if ((shifts.includes('ช') || shifts.includes('ค')) && shifts.includes('ด')) otNight++;   // เช้า (เต็ม/ครึ่งวัน) + ดึก ในวันเดียวกัน = OT ดึก
       const chips = slots.map(s =>
         `<span class="sched-chip" style="${_schedMainChipStyle(s.shift,s.branch)}">${_schedShiftGlyph(s.shift)}${s.branch||''}</span>`
       ).join('<br>');
@@ -1509,8 +1510,9 @@ function _schedUdRenderTable() {
       const hasHalfDay   = shifts.includes('ค');
       if (hasFullShift)      workDays += 1;
       else if (hasHalfDay) { workDays += 0.5; offDays += 0.5; }
+      if (hasFullShift && hasHalfDay) offDays += 0.5;   // ครึ่งวัน (ค) คู่กับกะเต็ม เช่น ค/ด : อีกครึ่งวันเป็นวันหยุด
       if (shifts.includes('ห')) offDays += 1;
-      if (shifts.includes('ช') && shifts.includes('ด')) otNight++;
+      if ((shifts.includes('ช') || shifts.includes('ค')) && shifts.includes('ด')) otNight++;   // เช้า (เต็ม/ครึ่งวัน) + ดึก ในวันเดียวกัน = OT ดึก
       const chips = slots.map(s =>
         `<span class="sched-chip" style="${_schedUdChipStyle(s.shift)}">${_schedShiftGlyph(s.shift)}</span>`
       ).join('<br>');

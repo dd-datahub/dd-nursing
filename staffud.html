@@ -3699,7 +3699,7 @@ function _ssudRenderTable() {
       const shifts = slots.map(s => s.shift);
       shifts.forEach(sh => { if (countMap[sh]!==undefined) countMap[sh]++; });
       if (shifts.some(sh=>sh==='ช'||sh==='ด')) workDays++;
-      if (shifts.includes('ช') && shifts.includes('ด')) otNight++;
+      if ((shifts.includes('ช') || shifts.includes('ค')) && shifts.includes('ด')) otNight++;   // เช้า (เต็ม/ครึ่งวัน) + ดึก ในวันเดียวกัน = OT ดึก
       const chips = slots.map(s =>
         `<span class="ssud-chip" style="${_ssudChipStyle(s.shift)}">${_ssudShiftGlyph(s.shift)}</span>`
       ).join('<br>');
