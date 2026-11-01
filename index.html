@@ -3812,7 +3812,7 @@ if ('serviceWorker' in navigator) {
         </div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>ชื่อลูกค้า</label><input type="text" id="add-name" placeholder="คุณ ชื่อ นามสกุล"></div>
+        <div class="form-group"><label>ชื่อลูกค้า</label><textarea id="add-name" rows="2" placeholder="คุณ ชื่อ นามสกุล" style="resize:vertical;line-height:1.4"></textarea><div style="font-size:11px;color:var(--text3);margin-top:3px">กด Enter เพื่อขึ้นบรรทัดใหม่ได้ เช่น บรรทัดแรกชื่อมูลนิธิ บรรทัดที่สองชื่อลูกค้า (ในใบเสร็จ/ใบวางบิลจะแสดงเป็น 2 บรรทัด)</div></div>
         <div class="form-group"><label>รหัสเตียง</label><input type="text" id="add-bed" placeholder="เช่น B1-05"></div>
       </div>
       <div class="form-group"><label>ที่อยู่</label><textarea id="add-address" rows="2"></textarea></div>
@@ -4020,7 +4020,7 @@ if ('serviceWorker' in navigator) {
       <div class="form-row">
         <div class="form-group">
           <label>ชื่อลูกค้า</label>
-          <input type="text" id="edit-name">
+          <textarea id="edit-name" rows="2" style="resize:vertical;line-height:1.4"></textarea>
         </div>
         <div class="form-group">
           <label>รหัสเตียง</label>
@@ -8000,7 +8000,7 @@ document.getElementById('receipt-print-area').innerHTML = `
     <div class="rcpt-info-grid">
       <div class="rcpt-info-row">
         <span class="rcpt-info-label">นามลูกค้า :&nbsp;</span>
-        <span class="rcpt-info-value">${c.name}</span>
+        <span class="rcpt-info-value" style="white-space:pre-line">${c.name}</span>
       </div>
       <div class="rcpt-info-row">
         <span class="rcpt-info-label">รหัสลูกค้า :&nbsp;</span>
@@ -8413,7 +8413,7 @@ function buildOtherChargesReceipt() {
     <div class="rcpt-title-en">RECEIPT — ค่าส่วนต่างอื่นๆ เท่านั้น</div>
   </div>
   <div class="rcpt-info-grid">
-    <div class="rcpt-info-row"><span class="rcpt-info-label">นามลูกค้า :&nbsp;</span><span class="rcpt-info-value">${c.name}</span></div>
+    <div class="rcpt-info-row"><span class="rcpt-info-label">นามลูกค้า :&nbsp;</span><span class="rcpt-info-value" style="white-space:pre-line">${c.name}</span></div>
     <div class="rcpt-info-row"><span class="rcpt-info-label">รหัสลูกค้า :&nbsp;</span><span class="rcpt-info-value">${c.id}</span></div>
     <div class="rcpt-info-row" style="grid-column:1/-1"><span class="rcpt-info-label">ที่อยู่ :&nbsp;</span><span class="rcpt-info-value">${c.address||'—'}</span></div>
     <div class="rcpt-info-row"><span class="rcpt-info-label">เบอร์โทรศัพท์ :&nbsp;</span><span class="rcpt-info-value">${c.phone||'—'}</span></div>
@@ -8723,7 +8723,7 @@ function _buildInstallmentBillHTML(c, instNo, amount, channel, dateFrom, dateTo,
     <div class="rcpt-title-en">งวดที่ ${instNo} จาก ${instTotal} งวด (แบ่งชำระ)</div>
   </div>
   <div class="rcpt-info-grid">
-    <div class="rcpt-info-row"><span class="rcpt-info-label">นามลูกค้า :&nbsp;</span><span class="rcpt-info-value">${c.name}</span></div>
+    <div class="rcpt-info-row"><span class="rcpt-info-label">นามลูกค้า :&nbsp;</span><span class="rcpt-info-value" style="white-space:pre-line">${c.name}</span></div>
     <div class="rcpt-info-row"><span class="rcpt-info-label">รหัสลูกค้า :&nbsp;</span><span class="rcpt-info-value">${c.id}</span></div>
     <div class="rcpt-info-row" style="grid-column:1/-1"><span class="rcpt-info-label">ที่อยู่ :&nbsp;</span><span class="rcpt-info-value">${c.address||'—'}</span></div>
     <div class="rcpt-info-row"><span class="rcpt-info-label">เบอร์โทรศัพท์ :&nbsp;</span><span class="rcpt-info-value">${c.phone||'—'}</span></div>
@@ -8824,7 +8824,7 @@ function _buildSplitReceiptHTML(c, o) {
     <div class="rcpt-title-en">RECEIPT</div>
   </div>
   <div class="rcpt-info-grid">
-    <div class="rcpt-info-row"><span class="rcpt-info-label">นามลูกค้า :&nbsp;</span><span class="rcpt-info-value">${c.name}</span></div>
+    <div class="rcpt-info-row"><span class="rcpt-info-label">นามลูกค้า :&nbsp;</span><span class="rcpt-info-value" style="white-space:pre-line">${c.name}</span></div>
     <div class="rcpt-info-row"><span class="rcpt-info-label">รหัสลูกค้า :&nbsp;</span><span class="rcpt-info-value">${c.id}</span></div>
     <div class="rcpt-info-row" style="grid-column:1/-1"><span class="rcpt-info-label">ที่อยู่ :&nbsp;</span><span class="rcpt-info-value">${c.address||'—'}</span></div>
     <div class="rcpt-info-row"><span class="rcpt-info-label">เบอร์โทรศัพท์ :&nbsp;</span><span class="rcpt-info-value">${c.phone||'—'}</span></div>
@@ -9509,7 +9509,7 @@ function printRefundReceipt(id) {
       <table style="width:100%;margin-bottom:14px;font-size:13px">
         <tr>
           <td style="padding:3px 0;color:#555;width:100px">ชื่อลูกค้า :</td>
-          <td style="border-bottom:1px dotted #aaa;padding:3px 6px;font-weight:500">${c?.name||'—'}</td>
+          <td style="border-bottom:1px dotted #aaa;padding:3px 6px;font-weight:500;white-space:pre-line">${c?.name||'—'}</td>
           <td style="width:20px"></td>
           <td style="padding:3px 0;color:#555;width:60px">รหัส :</td>
           <td style="border-bottom:1px dotted #aaa;padding:3px 6px;font-weight:500">${r.custId}</td>
