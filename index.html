@@ -8262,12 +8262,8 @@ body {
 </style>
 </head>
 <body>
-${content}
-<script>
-window.onload = function() {
-  setTimeout(function() { window.print(); }, 400);
-};
-<\/script>
+<div id="fit">${content}</div>
+${_POPUP_PRINT_SCRIPT}
 
 </body>
 </html>`);
@@ -8523,8 +8519,8 @@ body { font-family: 'Sarabun', sans-serif; font-size: 13px; color: #111; backgro
 </style>
 </head>
 <body>
-${content}
-<script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };<\/script>
+<div id="fit">${content}</div>
+${_POPUP_PRINT_SCRIPT}
 </body>
 </html>`);
   win.document.close();
@@ -8882,6 +8878,15 @@ function _buildSplitReceiptHTML(c, o) {
   </div>`;
 }
 
+// สคริปต์ของหน้าต่างพิมพ์บนคอม: ย่อเอกสารให้พอดี "1 หน้า A4" (ไม่ล้นไปหน้า 2) แล้วสั่งพิมพ์/บันทึก PDF
+// วัดความสูงเนื้อหาที่ความกว้างพื้นที่พิมพ์ (A4 − ขอบ 10mm) ถ้าเกินความสูงที่พิมพ์ได้ → ซูมลงพอดี และขยายความกว้างชดเชย ให้เต็มความกว้างหน้า
+const _POPUP_PRINT_SCRIPT = '<script>window.onload = function() { setTimeout(function() {'
+  + ' try { var mm = 96 / 25.4, W = 210 * mm - 20 * mm, H = 297 * mm - 16 * mm - 6, el = document.getElementById("fit");'
+  + ' el.style.width = W + "px"; var h = el.getBoundingClientRect().height;'
+  + ' if (h > H) { var z = H / h; el.style.zoom = z; el.style.width = (W / z) + "px";'
+  + '   var h2 = el.getBoundingClientRect().height; if (h2 > H) { z = z * H / h2 * 0.995; el.style.zoom = z; el.style.width = (W / z) + "px"; } }'
+  + ' } catch (e) {} window.print(); }, 400); };<\/script>';
+
 // เอกสารเต็มหน้า (ใบวางบิล / ใบเสร็จรายงวด ฯลฯ) — autoPrint=true เฉพาะหน้าต่างพิมพ์บนคอม
 function _billDocHtml(title, htmlContent, autoPrint) {
   return `<!DOCTYPE html>
@@ -8936,8 +8941,8 @@ body { font-family: 'Sarabun', sans-serif; font-size: 13px; color: #111; backgro
 </style>
 </head>
 <body>
-${htmlContent}
-${autoPrint ? '<script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };<\/script>' : ''}
+<div id="fit">${htmlContent}</div>
+${autoPrint ? _POPUP_PRINT_SCRIPT : ''}
 </body>
 </html>`;
 }
@@ -9015,7 +9020,7 @@ async function _billPdfBlob() {
     await new Promise(r => setTimeout(r, 300));
     fr.style.height = Math.max(1123, d.documentElement.scrollHeight) + 'px';
     const canvas = await window.html2canvas(d.body, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: 794 });
-    return _canvasToPdfBlob(canvas, true);
+    return _canvasToPdfBlob(canvas, false);
   } finally { fr.remove(); }
 }
 
@@ -9710,7 +9715,7 @@ function _rcptSyncPdfName(force) {
 }
 function savePdfReceipt() {
   return _savePdfFlow({ srcId: 'receipt-print-area', nameId: 'rcpt-pdf-name', btnId: 'rcpt-pdf-btn', statusId: 'rcpt-pdf-status',
-    title: 'ใบเสร็จรับเงิน', paginate: true, defaultName: _rcptDefaultPdfName });
+    title: 'ใบเสร็จรับเงิน', paginate: false, defaultName: _rcptDefaultPdfName });
 }
 
 function doPrintRefund() {
