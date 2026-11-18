@@ -3841,7 +3841,7 @@ if ('serviceWorker' in navigator) {
       </div>
       <div class="form-row">
         <div class="form-group"><label>ชื่อบัญชี</label><input type="text" id="add-accname"></div>
-        <div class="form-group"><label>วันที่เริ่มบริการ</label><input type="text" id="add-due" placeholder="1-ม.ค.-2569"></div>
+        <div class="form-group"><label>วันที่เริ่มบริการ</label><div style="display:flex;gap:6px;align-items:stretch"><input type="text" id="add-due" placeholder="1-ม.ค.-2569" style="flex:1;min-width:0"><span style="position:relative;flex:0 0 42px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);cursor:pointer" title="เลือกวันที่จากปฏิทิน"><span aria-hidden="true" style="font-size:18px;line-height:1">📅</span><input type="date" id="add-due-cal" aria-label="เลือกวันที่เริ่มบริการจากปฏิทิน" onfocus="dueCalSync('add-due')" onclick="dueCalSync('add-due');try{this.showPicker()}catch(e){}" onchange="dueCalPicked('add-due')" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0"></span></div></div>
       </div>
     </div>
     <div class="modal-foot">
@@ -4069,7 +4069,7 @@ if ('serviceWorker' in navigator) {
         </div>
         <div class="form-group">
           <label>วันที่เริ่มบริการ</label>
-          <input type="text" id="edit-due">
+          <div style="display:flex;gap:6px;align-items:stretch"><input type="text" id="edit-due" style="flex:1;min-width:0"><span style="position:relative;flex:0 0 42px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);cursor:pointer" title="เลือกวันที่จากปฏิทิน"><span aria-hidden="true" style="font-size:18px;line-height:1">📅</span><input type="date" id="edit-due-cal" aria-label="เลือกวันที่เริ่มบริการจากปฏิทิน" onfocus="dueCalSync('edit-due')" onclick="dueCalSync('edit-due');try{this.showPicker()}catch(e){}" onchange="dueCalPicked('edit-due')" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0"></span></div>
         </div>
       </div>
     </div>
@@ -4550,6 +4550,25 @@ function _qdToThaiDue(iso) { // "2026-08-10" -> "10-ส.ค.-2569" (รูปแ
   const [y, m, d] = iso.split('-').map(Number);
   return d + '-' + _QD_TH_MONTHS[m - 1] + '-' + (y + 543);
 }
+// ปฏิทินเลือก "วันที่เริ่มบริการ": ช่องข้อความยังพิมพ์เองได้ (รูปแบบ 10-ส.ค.-2569) · เลือกจากปฏิทินแล้วเติมให้ในรูปแบบเดียวกัน (พ.ศ.)
+function _thaiDueToISO(t) {   // "10-ส.ค.-2569" -> "2026-08-10" · อ่านไม่ได้ -> ''
+  const p = String(t || '').trim().split('-');
+  if (p.length < 3) return '';
+  const d = parseInt(p[0], 10), m = _QD_TH_MONTHS.indexOf(p[1].trim()), y = parseInt(p[2], 10) - 543;
+  if (!(d >= 1 && d <= 31) || m < 0 || !(y >= 1900 && y <= 2200)) return '';
+  return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+}
+function dueCalSync(id) {     // ก่อนเปิดปฏิทิน: ให้ปฏิทินเริ่มที่วันที่ที่พิมพ์ไว้ (ถ้าอ่านได้)
+  const cal = document.getElementById(id + '-cal'), txt = document.getElementById(id);
+  if (cal && txt) cal.value = _thaiDueToISO(txt.value);
+}
+function dueCalPicked(id) {
+  const cal = document.getElementById(id + '-cal'), txt = document.getElementById(id);
+  if (!cal || !txt || !cal.value) return;
+  txt.value = _qdToThaiDue(cal.value);
+  txt.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 function openQuickDischargeModal() {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('qd-branch').value = document.getElementById('df-branch')?.value || 'สาขา 1';
